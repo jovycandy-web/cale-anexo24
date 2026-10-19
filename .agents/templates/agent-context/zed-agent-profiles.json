@@ -1,0 +1,104 @@
+{
+  "agent": {
+    "default_profile": "implementation",
+    "profiles": {
+      "planning": {
+        "name": "Planificación",
+        "enable_all_context_servers": false,
+        "context_servers": {},
+        "tools": {
+          "read_file": true,
+          "grep": true,
+          "find_path": true,
+          "list_directory": true,
+          "diagnostics": true,
+          "go_to_definition": true,
+          "find_references": true,
+          "get_code_actions": true,
+          "list_agents_and_models": true,
+          "skill": true
+        }
+      },
+      "implementation": {
+        "name": "Implementación",
+        "enable_all_context_servers": false,
+        "context_servers": {},
+        "tools": {
+          "apply_code_action": true,
+          "ask_user": true,
+          "copy_path": true,
+          "create_directory": true,
+          "create_thread": true,
+          "diagnostics": true,
+          "edit_file": true,
+          "fetch": true,
+          "find_path": true,
+          "find_references": true,
+          "get_code_actions": true,
+          "go_to_definition": true,
+          "grep": true,
+          "list_agents_and_models": true,
+          "list_directory": true,
+          "read_file": true,
+          "skill": true,
+          "terminal": true,
+          "write_file": true
+        }
+      },
+      "testing": {
+        "name": "Pruebas",
+        "enable_all_context_servers": false,
+        "context_servers": {},
+        "tools": {
+          "ask_user": true,
+          "copy_path": true,
+          "create_directory": true,
+          "diagnostics": true,
+          "edit_file": true,
+          "find_path": true,
+          "find_references": true,
+          "get_code_actions": true,
+          "go_to_definition": true,
+          "grep": true,
+          "list_directory": true,
+          "read_file": true,
+          "skill": true,
+          "terminal": true,
+          "write_file": true
+        }
+      },
+      "review": {
+        "name": "Revisión (solo lectura)",
+        "enable_all_context_servers": false,
+        "context_servers": {},
+        "tools": {
+          "copy_path": true,
+          "diagnostics": true,
+          "fetch": true,
+          "find_path": true,
+          "find_references": true,
+          "get_code_actions": true,
+          "go_to_definition": true,
+          "grep": true,
+          "list_directory": true,
+          "read_file": true,
+          "skill": true
+        }
+      },
+      "efficient": {
+        "name": "Consulta eficiente (solo lectura)",
+        "enable_all_context_servers": false,
+        "context_servers": {},
+        "tools": {
+          "diagnostics": true,
+          "find_path": true,
+          "go_to_definition": true,
+          "grep": true,
+          "list_directory": true,
+          "read_file": true,
+          "skill": true
+        }
+      }
+    }
+  }
+}

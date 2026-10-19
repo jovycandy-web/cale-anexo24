@@ -2,6 +2,17 @@
 
 Instrucciones de contexto para agentes que trabajan en este repositorio.
 
+## Inicio rápido para agentes (contexto incremental)
+
+1. Antes de editar, revisa `git status` y el diff relevante para preservar cambios existentes.
+2. Usa `docs/agent-context/PROJECT_MAP.md` como índice inicial; consulta sólo los archivos y pruebas de la funcionalidad solicitada.
+3. Busca símbolos y referencias antes de abrir módulos completos. No recorras ni releas `docs/`, `backend/` o `frontend/` enteros para cada tarea.
+4. Conserva el contexto de la conversación actual; en una sesión nueva, reconstruye sólo lo necesario desde este mapa y las referencias enlazadas.
+5. Actualiza el mapa únicamente cuando cambien de forma estable la arquitectura, comandos o fuentes de verdad. No lo uses como bitácora de cada tarea.
+6. Expón un plan breve y resultados; no solicites ni entregues razonamiento interno extenso.
+
+Perfiles disponibles: OpenCode define agentes de proyecto en `.opencode/agents/`; perfiles de herramientas de Zed en `.zed/settings.json` (este directorio está ignorado por Git en este repo). Zed usa Skills para instrucciones por tarea; sus perfiles sólo controlan herramientas/modelo.
+
 ## Estructura
 
 ```
