@@ -17,6 +17,7 @@ ANEXO 24: aplicación web Angular 22 + API Spring Boot 4.1 / Java 21 + SQL Serve
 | Reglas de negocio/alcance | `docs/01-requerimientos/` | Documento específico; no leer la carpeta completa |
 | Diseño/contratos | `docs/03-diseno/` | `docs/04-desarrollo/api.md` o decisión técnica pertinente |
 | Pruebas/regresión | `docs/05-pruebas/plan-pruebas.md` | suite, fixture y workflow CI del módulo cambiado |
+| Auditoría funcional legacy (2026) | `docs/05-pruebas/auditoria-legacy-2026/README.md` | fichas `SCR-*`, errores `ERR-*`, reglas y backlog `B-*` |
 | Build/despliegue | `AGENTS.md`, `docs/06-devops/` | wrapper/configuración del módulo afectado |
 | Agentes/configuración | `AGENTS.md`, `.opencode/agents/`, `.agents/templates/agent-context/` | `.zed/settings.json` es local e ignorado por Git |
 
