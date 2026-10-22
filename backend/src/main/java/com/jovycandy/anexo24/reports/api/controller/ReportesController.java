@@ -6,6 +6,7 @@ import com.jovycandy.anexo24.auditlog.domain.model.BitacoraResultado;
 import com.jovycandy.anexo24.operations.entries.api.dto.EntradaLineaDto;
 import com.jovycandy.anexo24.operations.exits.api.dto.SalidaLineaDto;
 import com.jovycandy.anexo24.operations.usedmaterials.api.dto.MaterialUtilizadoDto;
+import com.jovycandy.anexo24.reports.application.audit.RegistrarExportacionReporteService;
 import com.jovycandy.anexo24.reports.application.query.ConsultarReportesUseCase;
 import com.jovycandy.anexo24.reports.extended.api.dto.AnalisisDescargaDto;
 import com.jovycandy.anexo24.reports.extended.api.dto.CompulsaDto;
@@ -53,6 +54,7 @@ import com.jovycandy.anexo24.reports.extended.domain.model.Anexo30InventarioInic
 import com.jovycandy.anexo24.reports.extended.domain.model.Saldo;
 import com.jovycandy.anexo24.reports.extended.domain.model.Vencimiento;
 import com.jovycandy.anexo24.reports.infrastructure.export.ExportadorXlsxReportes;
+import com.jovycandy.anexo24.shared.api.GlobalExceptionHandler;
 import com.jovycandy.anexo24.shared.api.Pagina;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ContentDisposition;
@@ -64,6 +66,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -96,6 +100,7 @@ public class ReportesController {
     private final ListarAnexo30ComparativaUseCase listarAnexo30ComparativaUseCase;
     private final ListarAnexo30InventarioInicialUseCase listarAnexo30InventarioInicialUseCase;
     private final ListarSaldosUseCase listarSaldosUseCase;
+    private final RegistrarExportacionReporteService registrarExportacionReporteService;
 
     public ReportesController(ConsultarReportesUseCase consultarReportesUseCase,
             ExportadorXlsxReportes exportadorXlsxReportes,
@@ -113,7 +118,8 @@ public class ReportesController {
             ListarAnexo30DescargasUseCase listarAnexo30DescargasUseCase,
             ListarAnexo30ComparativaUseCase listarAnexo30ComparativaUseCase,
             ListarAnexo30InventarioInicialUseCase listarAnexo30InventarioInicialUseCase,
-            ListarSaldosUseCase listarSaldosUseCase) {
+            ListarSaldosUseCase listarSaldosUseCase,
+            RegistrarExportacionReporteService registrarExportacionReporteService) {
         this.consultarReportesUseCase = consultarReportesUseCase;
         this.exportadorXlsxReportes = exportadorXlsxReportes;
         this.listarAnalisisDescargasUseCase = listarAnalisisDescargasUseCase;
@@ -131,6 +137,7 @@ public class ReportesController {
         this.listarAnexo30ComparativaUseCase = listarAnexo30ComparativaUseCase;
         this.listarAnexo30InventarioInicialUseCase = listarAnexo30InventarioInicialUseCase;
         this.listarSaldosUseCase = listarSaldosUseCase;
+        this.registrarExportacionReporteService = registrarExportacionReporteService;
     }
 
     @GetMapping("/entradas")
@@ -567,12 +574,34 @@ public class ReportesController {
                 resultado.stream().map(item -> fila(item.tipoDescarga(), item.f4(), item.fecha(), item.importacion(), item.clave(), item.incorporado(), item.saldo())).toList());
     }
 
+    /**
+     * Construye la respuesta XLSX y registra la exportación cuando el backend
+     * generó un archivo con contenido. Una respuesta 204 no produce evento.
+     *
+     * @param nombre     identificador controlado del reporte
+     * @param encabezados columnas del reporte
+     * @param filas      filas exportables
+     * @return respuesta con el archivo o sin contenido
+     */
     private ResponseEntity<byte[]> archivo(String nombre, List<String> encabezados, List<List<Object>> filas) {
         if (filas.isEmpty()) return ResponseEntity.noContent().build();
         byte[] contenido = exportadorXlsxReportes.exportar(nombre, encabezados, filas);
+        registrarExportacion(nombre);
         return ResponseEntity.ok().contentType(XLSX)
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(nombre + ".xlsx").build().toString())
                 .body(contenido);
+    }
+
+    private void registrarExportacion(String nombre) {
+        registrarExportacionReporteService.registrar(nombre, correlationIdActual());
+    }
+
+    private String correlationIdActual() {
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes atributos) {
+            Object valor = atributos.getRequest().getAttribute(GlobalExceptionHandler.CORRELATION_ID_ATTR);
+            return valor == null ? null : valor.toString();
+        }
+        return null;
     }
 
     private List<Object> fila(Object... valores) {

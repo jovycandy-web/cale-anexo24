@@ -198,6 +198,23 @@ Las acciones disponibles incluyen `LOGIN_OK`, `LOGIN_FALLIDO`,
 `PERFIL_ESTADO_CAMBIADO` y `PERFIL_PERMISOS_CAMBIADOS`. El detalle de los eventos
 no contiene contraseñas, hashes, JWT ni cabeceras de autorización.
 
+## Bitácora de reportes
+
+`GET /reportes/{tipo}/exportacion` registra un evento `REPORTE_EXPORTADO`
+(`modulo = REPORTES`, `resultado = EXITO`) sólo cuando el backend generó un
+archivo con contenido. La respuesta `204 No Content` (sin filas), `401` y `403`
+no producen evento. El detalle se limita a `tipoReporte=<identificador>` y
+conserva el `correlationId` de la solicitud (`X-Correlation-Id`).
+
+La consulta paginada `GET /reportes/{tipo}` (generar, filtrar, paginar) **no**
+emite eventos de negocio: el contrato actual no distingue una generación
+explícita de una consulta, por lo que un evento por petición sería falsificable.
+`REPORTE_GENERADO` queda pendiente de un contrato mínimo explícito.
+
+Si la persistencia de Bitácora falla, la exportación responde error y no se
+devuelve el archivo (política fail-closed) hasta que negocio defina si la
+auditoría es obligatoria para lecturas y exportaciones.
+
 ## Recursos no expuestos
 
 Actividad permanece como catálogo técnico: no expone `POST`, `PUT`, `PATCH` ni
