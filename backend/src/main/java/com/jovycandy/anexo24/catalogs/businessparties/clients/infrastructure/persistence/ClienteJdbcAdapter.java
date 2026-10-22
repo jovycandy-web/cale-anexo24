@@ -14,7 +14,14 @@ import java.util.*;
 public class ClienteJdbcAdapter implements ClienteRepository {
     static final String PROCEDURE = "dbo.APP24_Q_CLIENTES_LISTAR";
     private static final String RESULTADO = "items", TOTAL = "Total";
-    private static final RowMapper<Cliente> MAPPER = (rs, rowNum) -> new Cliente(rs.getLong("clientekey"), rs.getString("clave"), rs.getString("nombre"), rs.getString("idfiscal"), rs.getString("pais"), rs.getString("correo"));
+    private static final RowMapper<Cliente> MAPPER = (rs, rowNum) -> new Cliente(
+            numeroLargo(rs, "clientekey"), rs.getString("clave"), rs.getString("nombre"), rs.getString("idfiscal"),
+            rs.getString("tipone"), rs.getString("programa"), rs.getString("callenumero"),
+            entero(rs, "callenumerointerior"), rs.getString("colonia"), rs.getString("codigo"),
+            rs.getString("localidad"), rs.getString("municipio"), rs.getString("entidad"), rs.getString("pais"),
+            rs.getString("telefono"), rs.getString("correo"), rs.getString("fax"),
+            rs.getString("apellidopaterno"), rs.getString("apellidomaterno"), rs.getString("calle"),
+            rs.getString("referencia"), rs.getString("tipoidentificador"), rs.getString("codigopostal"));
     private static final List<SqlParameter> PARAMETROS = List.of(new SqlParameter("Filtro", Types.VARCHAR), new SqlParameter("Pagina", Types.INTEGER),
             new SqlParameter("Tamano", Types.INTEGER), new SqlOutParameter(TOTAL, Types.BIGINT),
             new SqlReturnResultSet(RESULTADO, MAPPER));
@@ -28,5 +35,15 @@ public class ClienteJdbcAdapter implements ClienteRepository {
         }, PARAMETROS);
         List<Cliente> items=(List<Cliente>)out.getOrDefault(RESULTADO,List.of()); Number total=(Number)out.get(TOTAL);
         return new Pagina<>(items,total==null?0L:total.longValue(),pagina,tamano);
+    }
+
+    private static Long numeroLargo(ResultSet rs, String columna) throws SQLException {
+        Object valor = rs.getObject(columna);
+        return valor instanceof Number numero ? numero.longValue() : null;
+    }
+
+    private static Integer entero(ResultSet rs, String columna) throws SQLException {
+        Object valor = rs.getObject(columna);
+        return valor instanceof Number numero ? numero.intValue() : null;
     }
 }
