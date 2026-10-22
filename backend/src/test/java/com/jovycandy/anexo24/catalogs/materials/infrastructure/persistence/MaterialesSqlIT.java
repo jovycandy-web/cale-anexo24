@@ -24,10 +24,9 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Pruebas del SP APP24_Q_MATERIALES_LISTAR contra CALE_IMMEX efÃ­mera.
+ * Pruebas del SP APP24_Q_MATERIALES_LISTAR contra una CALE_IMMEX efímera.
  * Nunca conecta a LIVE ni ejecuta comandos mutables sobre la base autoritativa.
  */
 class MaterialesSqlIT {
@@ -152,7 +151,8 @@ class MaterialesSqlIT {
     @Test
     void rechazaPaginacionInvalida() {
         SQLException error = assertThrows(SQLException.class, () -> listar(null, 0, 20));
-        assertTrue(error.getMessage().contains("paginaciÃ³n"));
+
+        assertEquals(50051, error.getErrorCode(), error.getMessage());
     }
 
     private static List<String> claves(String filtro) throws SQLException {
@@ -305,7 +305,7 @@ class MaterialesSqlIT {
         }
     }
 
-    /** ProyecciÃ³n mÃ­nima del result set del SP para las aserciones. */
+    /** Proyección mínima del result set del SP para las aserciones. */
     private record FilaMaterial(BigDecimal materialkey, String clave, String claveProveedor,
                                 String descripcion, String fraccion, String nico, String unidad,
                                 String unidadTarifaria, String tipom, String tipomaterial,
