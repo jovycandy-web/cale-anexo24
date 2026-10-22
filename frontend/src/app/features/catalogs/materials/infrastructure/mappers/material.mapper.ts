@@ -7,11 +7,17 @@ export const MaterialMapper = {
     return {
       materialKey: dto.materialkey,
       partNumber: dto.clave,
+      supplierCode: dto.claveProveedor ?? null,
       description: dto.descripcion,
       tariffFraction: dto.fraccion,
       unit: dto.unidad,
       umc: dto.unidadt,
       materialType: dto.tipomaterial,
+      nationalType: dto.tipom ?? null,
+      family: dto.familia ?? null,
+      nico: dto.nico ?? null,
+      warehouseKey: dto.almacenKey ?? null,
+      warehouse: dto.almacen ?? null,
     };
   },
   toPage(dto: MaterialPageResponseDto): MaterialPage {

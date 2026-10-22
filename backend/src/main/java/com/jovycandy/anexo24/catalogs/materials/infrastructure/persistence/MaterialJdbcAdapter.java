@@ -34,7 +34,13 @@ public class MaterialJdbcAdapter implements MaterialRepository {
             rs.getString("tipomaterial"),
             rs.getString("tipo"),
             rs.getBigDecimal("FactorUM"),
-            rs.getBigDecimal("IGIE"));
+            rs.getBigDecimal("IGIE"),
+            rs.getString("claveProveedor"),
+            rs.getString("TIPOM"),
+            rs.getString("FAMILIA"),
+            rs.getString("NICO"),
+            rs.getBigDecimal("ALMACENKEY"),
+            rs.getString("ALMACEN"));
 
     private static final List<SqlParameter> DECLARED_PARAMETERS = List.of(
             new SqlParameter("Filtro", Types.VARCHAR),

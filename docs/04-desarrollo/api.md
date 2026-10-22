@@ -216,6 +216,30 @@ PRODUCTOKEY ASC` y calcula `@Total` con el mismo predicado del listado.
 autoritativa ni contrato de relación confirmado. Ver
 `docs/03-diseno/mapeo-productos.md`.
 
+## Catálogo de materiales — paridad parcial `SCR-084`
+
+`GET /catalogos/materiales` devuelve `items[]` con `materialkey`, `clave`,
+`claveProveedor`, `descripcion`, `fraccion`, `nico`, `unidad`, `unidadt`,
+`tipom`, `tipomaterial`, `familia`, `almacenKey` y `almacen`, más `total`,
+`pagina` y `tamano`. Los campos nullable pueden llegar como `null` y el frontend
+los presenta como `-`.
+
+Parámetros: `filtro` (opcional; búsqueda global server-side sobre clave, clave de
+proveedor, descripción, fracción, unidades, NICO, tipo, tipo de material,
+familia, almacén y clave de almacén), `pagina` (desde 1) y `tamano` (1–100). El
+SP `dbo.APP24_Q_MATERIALES_LISTAR` conserva firma, validación, orden
+`clave, materialkey` y `@Total` con el mismo predicado del listado.
+
+`tipom` se expone con el valor almacenado: la equivalencia «nacional/importado»
+del grid legacy no está confirmada por negocio. Alcance y pendientes (CRUD,
+filtros avanzados `B-09`, XLSX) en `docs/03-diseno/mapeo-catalogo-materiales.md`.
+
+**Despliegue pendiente y orden obligatorio:** la versión ampliada del SP no está
+aplicada en `CALE_IMMEX`. Debe ejecutarse `CREATE OR ALTER` (con autorización)
+**antes** de desplegar la API: el adaptador consume las 16 columnas del result
+set y con el SP vigente (10 columnas) la consulta falla. Ver
+`docs/03-diseno/mapeo-catalogo-materiales.md`.
+
 ## Recursos no expuestos
 
 Actividad permanece como catálogo técnico: no expone `POST`, `PUT`, `PATCH` ni

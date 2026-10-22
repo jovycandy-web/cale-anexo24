@@ -11,13 +11,14 @@ import { SearchMaterialsUseCase } from '@features/catalogs/materials/application
 import { NotificationService } from '@core/notifications/notification.service';
 import { userFacingApiError } from '@core/http/api-error.util';
 import { AppAlertComponent } from '@core/ui/app-alert/app-alert.component';
+import { AppDetailPanelComponent } from '@core/ui/app-detail-panel/app-detail-panel.component';
 import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, serializeCsv } from '@core/export/csv-export';
 
 /**
  * Consulta del catálogo de materiales (RF-010).
  */
 @Component({
-  imports: [AppAlertComponent, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatPaginatorModule, MatTableModule],
+  imports: [AppAlertComponent, AppDetailPanelComponent, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatPaginatorModule, MatTableModule],
   selector: 'app-materiales',
   template: `
     <div class="min-h-full bg-[#f4f7fb] text-slate-800">
@@ -34,7 +35,7 @@ import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, serializeCsv } 
           <h2 id="filtros-materiales" class="sr-only">Filtros de materiales</h2>
           <form (submit)="search()" class="flex flex-wrap items-end gap-4">
             <label class="min-w-0 flex-1 sm:min-w-70">
-              <span class="mb-1 block text-xs font-medium text-slate-700">Parte, descripción o fracción</span>
+              <span class="mb-1 block text-xs font-medium text-slate-700">Clave, proveedor, descripción, fracción, NICO, unidad, tipo, familia, almacén o auxiliar</span>
               <input
                 matInput
                 name="filter"
@@ -69,33 +70,81 @@ import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, serializeCsv } 
           <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_4px_18px_rgb(15_23_42/4%)]">
             @if (items().length > 0) {
               <div class="overflow-x-auto">
-                <table mat-table [dataSource]="items()" class="w-full min-w-190" aria-label="Catálogo de materiales">
-                <ng-container matColumnDef="partNumber">
-                  <th mat-header-cell *matHeaderCellDef class="w-40">N° parte</th>
-                  <td mat-cell *matCellDef="let m" class="font-medium text-slate-700">{{ m.partNumber }}</td>
-                </ng-container>
-                <ng-container matColumnDef="description">
-                  <th mat-header-cell *matHeaderCellDef>Descripción</th>
-                  <td mat-cell *matCellDef="let m" class="max-w-140">{{ m.description }}</td>
-                </ng-container>
-                <ng-container matColumnDef="tariffFraction">
-                  <th mat-header-cell *matHeaderCellDef class="w-36">Fracción</th>
-                  <td mat-cell *matCellDef="let m">{{ m.tariffFraction }}</td>
-                </ng-container>
-                <ng-container matColumnDef="unit">
-                  <th mat-header-cell *matHeaderCellDef class="w-28">Unidad</th>
-                  <td mat-cell *matCellDef="let m">{{ m.unit }}</td>
-                </ng-container>
-                <ng-container matColumnDef="umc">
-                  <th mat-header-cell *matHeaderCellDef class="w-28">UMC</th>
-                  <td mat-cell *matCellDef="let m">{{ m.umc }}</td>
-                </ng-container>
-                <ng-container matColumnDef="materialType">
-                  <th mat-header-cell *matHeaderCellDef class="w-40">Tipo</th>
-                  <td mat-cell *matCellDef="let m">{{ m.materialType }}</td>
-                </ng-container>
-                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-                <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                <table mat-table [dataSource]="items()" multiTemplateDataRows class="w-full min-w-260" aria-label="Catálogo de materiales">
+                  <ng-container matColumnDef="partNumber">
+                    <th mat-header-cell *matHeaderCellDef class="w-32">Clave MP</th>
+                    <td mat-cell *matCellDef="let m" class="font-medium text-slate-700">{{ m.partNumber }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="supplierCode">
+                    <th mat-header-cell *matHeaderCellDef class="w-32">Clave proveedor</th>
+                    <td mat-cell *matCellDef="let m">{{ m.supplierCode || '-' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="description">
+                    <th mat-header-cell *matHeaderCellDef>Descripción comercial</th>
+                    <td mat-cell *matCellDef="let m" class="max-w-90">{{ m.description }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="tariffFraction">
+                    <th mat-header-cell *matHeaderCellDef class="w-32">Fracción</th>
+                    <td mat-cell *matCellDef="let m">{{ m.tariffFraction || '-' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="nico">
+                    <th mat-header-cell *matHeaderCellDef class="w-24">NICO</th>
+                    <td mat-cell *matCellDef="let m">{{ m.nico || '-' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="unit">
+                    <th mat-header-cell *matHeaderCellDef class="w-28">Unidad</th>
+                    <td mat-cell *matCellDef="let m">{{ m.unit || '-' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="umc">
+                    <th mat-header-cell *matHeaderCellDef class="w-28">Unidad tarifa</th>
+                    <td mat-cell *matCellDef="let m">{{ m.umc || '-' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="nationalType">
+                    <th mat-header-cell *matHeaderCellDef class="w-24">TIPOM</th>
+                    <td mat-cell *matCellDef="let m">{{ m.nationalType || '-' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="materialType">
+                    <th mat-header-cell *matHeaderCellDef class="w-40">Tipo de material</th>
+                    <td mat-cell *matCellDef="let m">{{ m.materialType || '-' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="family">
+                    <th mat-header-cell *matHeaderCellDef class="w-32">Familia</th>
+                    <td mat-cell *matCellDef="let m">{{ m.family || '-' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="warehouse">
+                    <th mat-header-cell *matHeaderCellDef class="w-32">Almacén</th>
+                    <td mat-cell *matCellDef="let m">{{ m.warehouse || m.warehouseKey || '-' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef class="w-20"><span class="sr-only">Detalle</span></th>
+                    <td mat-cell *matCellDef="let m" class="text-right">
+                      <button mat-icon-button type="button" [attr.aria-label]="'Ver detalle de ' + m.partNumber" [attr.aria-expanded]="isSelected(m)" (click)="$event.stopPropagation(); selectMaterial(m)"><mat-icon>visibility</mat-icon></button>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="detail">
+                    <td mat-cell *matCellDef="let m" [attr.colspan]="displayedColumns.length" class="p-0!">
+                      @if (isSelected(m)) {
+                        <app-detail-panel [title]="'Detalle de ' + m.partNumber" [subtitle]="m.description || 'Sin descripción'" closeLabel="Cerrar detalle del material" (closed)="closeDetail()">
+                          <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Clave proveedor</dt><dd class="m-0 text-sm text-slate-800">{{ m.supplierCode || '-' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Fracción</dt><dd class="m-0 text-sm text-slate-800">{{ m.tariffFraction || '-' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">NICO</dt><dd class="m-0 text-sm text-slate-800">{{ m.nico || '-' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Unidad comercial</dt><dd class="m-0 text-sm text-slate-800">{{ m.unit || '-' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Unidad tarifa</dt><dd class="m-0 text-sm text-slate-800">{{ m.umc || '-' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">TIPOM</dt><dd class="m-0 text-sm text-slate-800">{{ m.nationalType || '-' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Tipo de material</dt><dd class="m-0 text-sm text-slate-800">{{ m.materialType || '-' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Familia</dt><dd class="m-0 text-sm text-slate-800">{{ m.family || '-' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Almacén</dt><dd class="m-0 text-sm text-slate-800">{{ m.warehouse || '-' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Clave de almacén</dt><dd class="m-0 text-sm text-slate-800">{{ m.warehouseKey ?? '-' }}</dd></div>
+                          </dl>
+                          <p class="mt-4 mb-0 text-xs text-slate-500">TIPOM se muestra con el valor almacenado; su equivalencia nacional/importado está pendiente de confirmación.</p>
+                        </app-detail-panel>
+                      }
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: displayedColumns" class="cursor-pointer hover:bg-slate-50" [class.bg-blue-50/40]="isSelected(row)" (click)="toggleDetail(row)"></tr>
+                  <tr mat-row *matRowDef="let row; columns: ['detail']" [class.hidden]="!isSelected(row)"></tr>
                 </table>
               </div>
             } @else {
@@ -124,12 +173,13 @@ import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, serializeCsv } 
   `,
 })
 export class MaterialListPage implements OnInit {
-  protected displayedColumns = ['partNumber', 'description', 'tariffFraction', 'unit', 'umc', 'materialType'];
+  protected displayedColumns = ['partNumber', 'supplierCode', 'description', 'tariffFraction', 'nico', 'unit', 'umc', 'nationalType', 'materialType', 'family', 'warehouse', 'actions'];
   protected items = signal<Material[]>([]);
   protected totalItems = signal(0);
   protected isLoading = signal(false);
   protected error = signal<string | null>(null);
   protected readonly isExporting = signal(false);
+  protected readonly selectedMaterial = signal<Material | null>(null);
   protected readonly loadingRows = [1, 2, 3, 4, 5];
   protected filter = '';
   protected currentPage = 1;
@@ -159,13 +209,33 @@ export class MaterialListPage implements OnInit {
     this.loadMaterials();
   }
 
+  protected selectMaterial(material: Material): void {
+    this.selectedMaterial.set(material);
+  }
+
+  /** Alterna el detalle bajo la fila; mantener el contexto evita perder la posición. */
+  protected toggleDetail(material: Material): void {
+    this.selectedMaterial.set(this.isSelected(material) ? null : material);
+  }
+
+  protected isSelected(material: Material): boolean {
+    return this.selectedMaterial()?.materialKey === material.materialKey;
+  }
+
+  protected closeDetail(): void {
+    this.selectedMaterial.set(null);
+  }
+
   protected async exportCsv(): Promise<void> {
     const filter = this.filter;
     this.isExporting.set(true);
     try {
       const rows = await loadAllCsvPages((page, pageSize) => firstValueFrom(this.searchMaterials.execute({ filter, page, pageSize })));
       if (!rows.length) { this.notifications.info('No hay registros para exportar.'); return; }
-      const csv = serializeCsv(['N° parte', 'Descripción', 'Fracción', 'Unidad', 'UMC', 'Tipo'], rows.map((row) => [row.partNumber, row.description, row.tariffFraction, row.unit, row.umc, row.materialType]));
+      const csv = serializeCsv(
+        ['Clave MP', 'Clave proveedor', 'Descripción comercial', 'Fracción', 'NICO', 'Unidad', 'Unidad tarifa', 'TIPOM', 'Tipo de material', 'Familia', 'Almacén'],
+        rows.map((row) => [row.partNumber, row.supplierCode, row.description, row.tariffFraction, row.nico, row.unit, row.umc, row.nationalType, row.materialType, row.family, row.warehouse]),
+      );
       downloadCsv('materiales.csv', csv);
     } catch (cause) {
       this.notifications.error(cause instanceof Error && cause.message === CSV_EXPORT_LIMIT_MESSAGE ? CSV_EXPORT_LIMIT_MESSAGE : 'No fue posible exportar los materiales.');

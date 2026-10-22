@@ -14,6 +14,12 @@ import java.math.BigDecimal;
  * @param unidad       unidad comercial
  * @param unidadt      unidad tarifa
  * @param tipomaterial tipo de material
+ * @param claveProveedor código de parte del proveedor
+ * @param tipom        tipo nacional/importado
+ * @param familia      familia de clasificación
+ * @param nico         NICO asociado
+ * @param almacenKey   clave del almacén asociado
+ * @param almacen      nombre del almacén resuelto
  */
 public record MaterialDto(
         BigDecimal materialkey,
@@ -22,7 +28,13 @@ public record MaterialDto(
         String fraccion,
         String unidad,
         String unidadt,
-        String tipomaterial) {
+        String tipomaterial,
+        String claveProveedor,
+        String tipom,
+        String familia,
+        String nico,
+        BigDecimal almacenKey,
+        String almacen) {
 
     /**
      * Convierte un material de dominio a DTO.
@@ -38,6 +50,12 @@ public record MaterialDto(
                 material.fraccion(),
                 material.unidad(),
                 material.unidadt(),
-                material.tipomaterial());
+                material.tipomaterial(),
+                material.claveProveedor(),
+                material.tipom(),
+                material.familia(),
+                material.nico(),
+                material.almacenKey(),
+                material.almacen());
     }
 }
