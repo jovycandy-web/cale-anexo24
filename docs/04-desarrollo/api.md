@@ -198,6 +198,24 @@ Las acciones disponibles incluyen `LOGIN_OK`, `LOGIN_FALLIDO`,
 `PERFIL_ESTADO_CAMBIADO` y `PERFIL_PERMISOS_CAMBIADOS`. El detalle de los eventos
 no contiene contraseñas, hashes, JWT ni cabeceras de autorización.
 
+## Catálogo de productos — paridad `SCR-046`
+
+`GET /catalogos/productos` devuelve `items[]` con `id`, `clave`,
+`claveCliente`, `descripcion`, `fraccion`, `unidadComercial`,
+`unidadTarifaria`, `nico`, `tipo`, `auxiliar`, `almacenKey` y `almacen`, más
+`total`, `pagina` y `tamano`. Cualquier campo nullable puede llegar como `null`;
+el frontend lo presenta como `—`.
+
+Parámetros: `filtro` (opcional; búsqueda global server-side sobre clave, código
+de cliente, descripción, fracción, unidades, NICO, tipo, auxiliar, almacén y
+clave de almacén), `pagina` (desde 1) y `tamano` (1–100). El SP
+`dbo.APP24_Q_PRODUCTOS_LISTAR` mantiene el orden `CVE_PRODUCTO ASC,
+PRODUCTOKEY ASC` y calcula `@Total` con el mismo predicado del listado.
+
+`Planta` y `Lista de Materiales` de `SCR-046` no se exponen: no existe columna
+autoritativa ni contrato de relación confirmado. Ver
+`docs/03-diseno/mapeo-productos.md`.
+
 ## Recursos no expuestos
 
 Actividad permanece como catálogo técnico: no expone `POST`, `PUT`, `PATCH` ni

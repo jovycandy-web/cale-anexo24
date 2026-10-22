@@ -480,39 +480,69 @@ dbo.productos
 
 ## DTO implementado
 
-Implementado como `ProductoDto` con el contrato inicial autorizado:
+`ProductoDto` expone el contrato vigente de paridad con `SCR-046`:
 
 ```text
 id                  numeric(18,0)
 clave               varchar(50)
+claveCliente        varchar(50)     -- CVE_PRODUCTO_CLIENTE
 descripcion         varchar(250)
 fraccion            varchar(12)
 unidadComercial     varchar(10)
 unidadTarifaria     varchar(10)
+nico                varchar(10)     -- NICO
+tipo                varchar(50)     -- TIPO
+auxiliar            varchar(50)     -- AUXILIAR
+almacenKey          numeric(18,0)   -- ALMACENKEY (resuelto vía dbo.almacen)
+almacen             varchar(50)     -- dbo.almacen.ALMACEN (OUTER APPLY por ALMACENKEY)
 ```
 
-`NICO`, `TIPO`, `ALMACENKEY` y `AUXILIAR` quedan fuera hasta contar con una
-necesidad funcional confirmada.
+### Campos cubiertos de `SCR-046`
+
+Clave, código de cliente, descripción, unidad de medida, unidad tarifa,
+fracción TIGIE, NICO, tipo, auxiliar, almacén (descripción y clave) quedan
+expuestos por `APP24_Q_PRODUCTOS_LISTAR` y por la API. El filtro `@Filtro` es
+global y del lado del servidor: cubre todas las columnas de texto y el almacén.
+
+### Campos pendientes de `SCR-046`
+
+| Columna legacy | Motivo de exclusión |
+|---|---|
+| `Planta` | `dbo.productos` no tiene columna de planta; `dbo.plantas` (D-01) no tiene contrato confirmado. |
+| `Lista de Materiales` | Es un expansor de BOM (`dbo.estructuras`/`dbo.productomaterial`); requiere contrato de relación, no es un campo del producto. |
+
+`Agregar`, `Editar` y `Borrar` son CRUD y permanecen fuera de alcance.
+`Excel` legacy no se replica: la pantalla exporta CSV. Los 12 filtros por
+columna de `SCR-046` no se implementan; existe un único filtro global
+server-side. Por todo lo anterior, `SCR-046` **no se declara cerrado**.
 
 ## Riesgos
 
-1. **Diferencia de volumen:** 204 filas actuales frente a aproximadamente 2,630
-   históricas; requiere reconciliación con negocio.
+1. **Diferencia de volumen:** `CALE_IMMEX.dbo.productos` tiene 204 registros,
+   frente a 2,633 observados en el legacy (`SCR-046` §B). No se asume pérdida
+   de datos ni se modifica información: la diferencia requiere reconciliación
+   con negocio antes de conclusiones.
 2. **Costo de filtros:** no se confirmaron índices secundarios sobre las columnas
    filtradas; los patrones con comodines pueden requerir scans.
-3. **Reportes no son catálogos:** los SP de informes pueden duplicar productos,
+3. **Almacén resuelto:** `OUTER APPLY (SELECT TOP (1) ...)` garantiza como máximo
+   una fila por producto, pero si `dbo.almacen` tuviera `ALMACENKEY` duplicado la
+   elección no está ordenada; no se inventó una regla de desempate. Debe
+   confirmarse la unicidad de la clave.
+4. **Reportes no son catálogos:** los SP de informes pueden duplicar productos,
    limitarse a operaciones o excluir productos sin movimientos/BOM.
-4. **`SP_GENERA_TXT_COMPLETO`:** contiene `xp_cmdshell`, `bcp`, updates y rutas
+5. **`SP_GENERA_TXT_COMPLETO`:** contiene `xp_cmdshell`, `bcp`, updates y rutas
    del servidor; no es reutilizable como endpoint de lectura.
-5. **Sin FKs:** Producto/BOM/Material depende de convenciones y procesos, no de
+6. **Sin FKs:** Producto/BOM/Material depende de convenciones y procesos, no de
    integridad referencial declarada.
-6. **Clave funcional nullable:** `CVE_PRODUCTO` no tiene `NOT NULL` ni unique DDL.
-7. **Unidades:** falta confirmar con negocio la etiqueta UI exacta de `UNIDAD` y
+7. **Clave funcional nullable:** `CVE_PRODUCTO` no tiene `NOT NULL` ni unique DDL.
+8. **Unidades:** falta confirmar con negocio la etiqueta UI exacta de `UNIDAD` y
    `UNIDADT`.
-8. **Despliegue SQL:** el SP fue desplegado en el ambiente autorizado de
-   desarrollo; el endpoint HTTP real aún requiere una prueba autenticada.
-9. **Contrato acotado:** `CVE_PRODUCTO_CLIENTE`, `NICO`, `TIPO`, `ALMACENKEY` y
-   `AUXILIAR` quedan fuera hasta contar con una necesidad aprobada.
+9. **Despliegue SQL:** el archivo del SP está versionado con los campos nuevos,
+   pero `CREATE OR ALTER` no se ejecutó en LIVE en este sprint; hasta aplicarlo,
+   la API real no devuelve `claveCliente`, `nico`, `tipo`, `auxiliar`, `almacenKey`
+   ni `almacen`. El `ProductoSqlIT` valida el contrato en `CALE_IMMEX` efímera.
+10. **Alcance expuesto:** los campos listados en «DTO implementado» ya forman
+    parte del contrato; el resto de `SCR-046` sigue pendiente (ver arriba).
 
 ## Confirmado
 

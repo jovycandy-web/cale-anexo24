@@ -28,10 +28,16 @@ public class ProductoStoredProcedureAdapter implements ProductoRepository {
     private static final RowMapper<Producto> PRODUCT_MAPPER = (rs, rowNum) -> new Producto(
             rs.getBigDecimal("PRODUCTOKEY"),
             rs.getString("CVE_PRODUCTO"),
+            rs.getString("CVE_PRODUCTO_CLIENTE"),
             rs.getString("NOMBRE"),
             rs.getString("fraccion"),
             rs.getString("UNIDAD"),
-            rs.getString("UNIDADT"));
+            rs.getString("UNIDADT"),
+            rs.getString("NICO"),
+            rs.getString("TIPO"),
+            rs.getString("AUXILIAR"),
+            rs.getBigDecimal("ALMACENKEY"),
+            rs.getString("ALMACEN"));
 
     private static final List<SqlParameter> DECLARED_PARAMETERS = List.of(
             new SqlParameter("Filtro", Types.VARCHAR),

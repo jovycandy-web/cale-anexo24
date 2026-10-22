@@ -54,7 +54,8 @@ class ProductoStoredProcedureAdapterTest {
     @SuppressWarnings("unchecked")
     void invocaSpMapeaResultSetYLeeTotal() throws Exception {
         Producto producto = new Producto(
-                new java.math.BigDecimal("1"), "200060", "LIMONAZO", "17049099", "CAJA", "CAJA");
+                new java.math.BigDecimal("1"), "200060", "CLI-200060", "LIMONAZO", "17049099", "CAJA", "CAJA",
+                "8504", "TERMINADO", "AUX-1", new java.math.BigDecimal("7"), "PRINCIPAL");
         when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
                 .thenReturn(Map.of("items", List.of(producto), "Total", 204L));
         when(connection.prepareCall("{call dbo.APP24_Q_PRODUCTOS_LISTAR(?, ?, ?, ?)}"))
@@ -91,10 +92,16 @@ class ProductoStoredProcedureAdapterTest {
         when(resultSet.getBigDecimal("PRODUCTOKEY"))
                 .thenReturn(new java.math.BigDecimal("42"));
         when(resultSet.getString("CVE_PRODUCTO")).thenReturn("200060");
+        when(resultSet.getString("CVE_PRODUCTO_CLIENTE")).thenReturn("CLI-200060");
         when(resultSet.getString("NOMBRE")).thenReturn("LIMONAZO");
         when(resultSet.getString("fraccion")).thenReturn("17049099");
         when(resultSet.getString("UNIDAD")).thenReturn("CAJA");
         when(resultSet.getString("UNIDADT")).thenReturn("CAJA");
+        when(resultSet.getString("NICO")).thenReturn("8504");
+        when(resultSet.getString("TIPO")).thenReturn("TERMINADO");
+        when(resultSet.getString("AUXILIAR")).thenReturn("AUX-1");
+        when(resultSet.getBigDecimal("ALMACENKEY")).thenReturn(new java.math.BigDecimal("7"));
+        when(resultSet.getString("ALMACEN")).thenReturn("PRINCIPAL");
         when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
                 .thenAnswer(invocation -> {
                     @SuppressWarnings("unchecked")
@@ -116,10 +123,54 @@ class ProductoStoredProcedureAdapterTest {
         assertThat(resultado.items()).singleElement().satisfies(producto -> {
             assertThat(producto.id()).isEqualByComparingTo("42");
             assertThat(producto.clave()).isEqualTo("200060");
+            assertThat(producto.claveCliente()).isEqualTo("CLI-200060");
             assertThat(producto.descripcion()).isEqualTo("LIMONAZO");
             assertThat(producto.fraccion()).isEqualTo("17049099");
             assertThat(producto.unidadComercial()).isEqualTo("CAJA");
             assertThat(producto.unidadTarifaria()).isEqualTo("CAJA");
+            assertThat(producto.nico()).isEqualTo("8504");
+            assertThat(producto.tipo()).isEqualTo("TERMINADO");
+            assertThat(producto.auxiliar()).isEqualTo("AUX-1");
+            assertThat(producto.almacenKey()).isEqualByComparingTo("7");
+            assertThat(producto.almacen()).isEqualTo("PRINCIPAL");
+        });
+    }
+
+    @Test
+    void rowMapperConservaNullCuandoElSpDevuelveColumnasVacias() throws Exception {
+        ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
+        when(resultSet.getBigDecimal("PRODUCTOKEY")).thenReturn(new java.math.BigDecimal("43"));
+        when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
+                .thenAnswer(invocation -> {
+                    @SuppressWarnings("unchecked")
+                    List<SqlParameter> declared = invocation.getArgument(1, List.class);
+                    SqlReturnResultSet resultSetParameter = declared.stream()
+                            .filter(SqlReturnResultSet.class::isInstance)
+                            .map(SqlReturnResultSet.class::cast)
+                            .findFirst()
+                            .orElseThrow();
+                    @SuppressWarnings("unchecked")
+                    RowMapper<Producto> mapper =
+                            (RowMapper<Producto>) resultSetParameter.getRowMapper();
+                    Producto mapped = mapper.mapRow(resultSet, 1);
+                    return Map.of("items", List.of(mapped), "Total", 1L);
+                });
+
+        Pagina<Producto> resultado = adapter.findPage(null, 1, 20);
+
+        assertThat(resultado.items()).singleElement().satisfies(producto -> {
+            assertThat(producto.id()).isEqualByComparingTo("43");
+            assertThat(producto.clave()).isNull();
+            assertThat(producto.claveCliente()).isNull();
+            assertThat(producto.descripcion()).isNull();
+            assertThat(producto.fraccion()).isNull();
+            assertThat(producto.unidadComercial()).isNull();
+            assertThat(producto.unidadTarifaria()).isNull();
+            assertThat(producto.nico()).isNull();
+            assertThat(producto.tipo()).isNull();
+            assertThat(producto.auxiliar()).isNull();
+            assertThat(producto.almacenKey()).isNull();
+            assertThat(producto.almacen()).isNull();
         });
     }
 
