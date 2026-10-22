@@ -71,7 +71,7 @@ class BusinessPartiesSqlIT {
                     + "('CL004','CLIENTE DELTA','RFC-D','01','IMMEX','CALLE CUATRO 400','CP04','SUR','SONORA','MEXICO','444','delta@example.test',NULL,4,NULL,NULL,NULL,7,'LOCALIDAD DELTA',NULL,'MUNICIPIO DELTA','RFC','84000')");
             s.execute("INSERT dbo.Proveedores (Clave, Nombre, Idfiscal, Tipone, Programa, CalleNumero, Codigo, Colonia, Entidad, Pais, Telefono, Correo, Fax, proveedorkey, ALMACENKEY, calle, callenumerointerior, localidad, referencia, municipio, tipoidentificador, codigopostal) VALUES "
                     + "('PR001','PROVEEDOR ALFA','RFC-PA','01','PROVEE','CARRETERA 200','CPP1','INDUSTRIAL','SINALOA','MEXICO','555','proveedor.alfa@example.test','556',1,2,'CARRETERA',4,'LOCALIDAD PA','REF PA','MUNICIPIO PA','RFC','80200'),"
-                    + "('PR002','PROVEEDOR BETA',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,2,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),"
+                    + "('PR002','PROVEEDOR BETA',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,2,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),"
                     + "('PR003','PROVEEDOR GAMMA','RFC-PG','02','PROVEE','AV TRES 300','CPP3','CENTRO','JALISCO','MEXICO','777','proveedor.gamma@example.test','778',3,1,NULL,0,'LOCALIDAD PG',NULL,'MUNICIPIO PG','RFC',NULL)");
         }
     }
