@@ -67,12 +67,12 @@ class BusinessPartiesSqlIT {
             s.execute("INSERT dbo.clientes (Clave, Nombre, Idfiscal, Tipone, Programa, Callenumero, Codigo, Colonia, Entidad, Pais, Telefono, Correo, Fax, clientekey, ApellidoPaterno, ApellidoMaterno, calle, callenumerointerior, localidad, referencia, municipio, tipoidentificador, codigopostal) VALUES "
                     + "('CL001','CLIENTE ALFA','RFC-A','01','IMMEX','AV UNO 100','CP01','CENTRO','SINALOA','MEXICO','111','alfa@example.test','112',1,'PATERNO','MATERNO','AV UNO',5,'LOCALIDAD ALFA','REF ALFA','MUNICIPIO ALFA','RFC','21000'),"
                     + "('CL002','CLIENTE BETA',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,2,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),"
-                    + "('CL003','CLIENTE GAMMA','RFC-C','02','PROVEE','CALLE TRES 300','CP03','NORTE','BAJA CALIFORNIA','MEXICO','333','gamma@example.test','334',3,NULL,NULL,NULL,0,NULL,NULL,NULL,'EIN',NULL),"
+                    + "('CL003','CLIENTE GAMMA','RFC-C','02','ABASTO','CALLE TRES 300','CP03','NORTE','BAJA CALIFORNIA','MEXICO','333','gamma@example.test','334',3,NULL,NULL,NULL,0,NULL,NULL,NULL,'EIN',NULL),"
                     + "('CL004','CLIENTE DELTA','RFC-D','01','IMMEX','CALLE CUATRO 400','CP04','SUR','SONORA','MEXICO','444','delta@example.test',NULL,4,NULL,NULL,NULL,7,'LOCALIDAD DELTA',NULL,'MUNICIPIO DELTA','RFC','84000')");
             s.execute("INSERT dbo.Proveedores (Clave, Nombre, Idfiscal, Tipone, Programa, CalleNumero, Codigo, Colonia, Entidad, Pais, Telefono, Correo, Fax, proveedorkey, ALMACENKEY, calle, callenumerointerior, localidad, referencia, municipio, tipoidentificador, codigopostal) VALUES "
-                    + "('PR001','PROVEEDOR ALFA','RFC-PA','01','PROVEE','CARRETERA 200','CPP1','INDUSTRIAL','SINALOA','MEXICO','555','proveedor.alfa@example.test','556',1,2,'CARRETERA',4,'LOCALIDAD PA','REF PA','MUNICIPIO PA','RFC','80200'),"
+                    + "('PR001','PROVEEDOR ALFA','RFC-PA','01','ABASTO','CARRETERA 200','CPP1','INDUSTRIAL','SINALOA','MEXICO','555','proveedor.alfa@example.test','556',1,2,'CARRETERA',4,'LOCALIDAD PA','REF PA','MUNICIPIO PA','RFC','80200'),"
                     + "('PR002','PROVEEDOR BETA',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,2,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),"
-                    + "('PR003','PROVEEDOR GAMMA','RFC-PG','02','PROVEE','AV TRES 300','CPP3','CENTRO','JALISCO','MEXICO','777','proveedor.gamma@example.test','778',3,1,NULL,0,'LOCALIDAD PG',NULL,'MUNICIPIO PG','RFC',NULL)");
+                    + "('PR003','PROVEEDOR GAMMA','RFC-PG','02','ABASTO','AV TRES 300','CPP3','CENTRO','JALISCO','MEXICO','777','proveedor.gamma@example.test','778',3,1,NULL,0,'LOCALIDAD PG',NULL,'MUNICIPIO PG','RFC',NULL)");
         }
     }
 
@@ -173,7 +173,7 @@ class BusinessPartiesSqlIT {
         assertEquals(1, callProveedores("ALMACEN NORTE", 1, 20).total);
         assertEquals(1, callProveedores("proveedor.gamma@example.test", 1, 20).total);
         assertEquals(1, callProveedores("JALISCO", 1, 20).total);
-        assertEquals(2, callProveedores("PROVEE", 1, 20).total);
+        assertEquals(2, callProveedores("ABASTO", 1, 20).total);
         assertEquals(1, callProveedores("CPP1", 1, 20).total);
         assertEquals(0, callProveedores("NO-EXISTE", 1, 20).total);
     }
