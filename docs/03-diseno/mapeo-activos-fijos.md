@@ -563,3 +563,98 @@ fecha máxima, parámetros JDBC, 13 aliases, nulos, página vacía, errores HTTP
 5. **PENDIENTE WEB:** validar contra pantalla legacy autorizada el significado
    de los filtros y las columnas `F. alta`/`F. baja`; no bloquea el contrato
    read-only V1 porque dichas fechas no tienen fuente técnica demostrada.
+
+## 13. Sprint 06 — filtros por columna server-side
+
+**Fecha:** 2026-10-22. **Rama:** `feature/functional-parity-parallel-sprint-06`.
+**Base:** `origin/dev` en `5aadfc7`. **Modo:** cambio aditivo, sin DDL ni DML
+sobre LIVE. Las pruebas SQL están escritas para Testcontainers; en la máquina de
+desarrollo Docker no estaba disponible y quedaron `SKIPPED` (14 casos), por lo
+que su ejecución efectiva debe verificarse en CI antes de fusionar. No se
+ejecutó el SP contra LIVE.
+
+### 13.1 Justificación
+
+La pantalla legacy SCR-010 expone ocho filtros de columna con operadores
+DevExpress —Comienza con, Contiene, No contiene, Acaba con, Igual y No igual—
+según `docs/05-pruebas/01_INVENTARIO_LEGACY.md:145` y
+`SCR-010.md` (casos `SCR-010-FLT-03..10`). El contrato V1 sólo permitía igualdad
+exacta, por lo que el filtro por columna no era funcionalmente equivalente y
+tampoco podía conectarse a una búsqueda server-side real.
+
+No se encontró un SP legacy read-only que ya ofreciera estos operadores sobre
+`PARTIDAS`/`IMPORTACIONES`; `v_g5` y `SP_G5` no cumplen el contrato (el primero
+no pagina ni filtra, el segundo es mutable). Por eso se amplió el SP APP24
+propio, clasificado como `SP_EXISTING_REUSABLE` con extensión aditiva
+justificada por la brecha B-09.
+
+### 13.2 Cambio en el procedimiento
+
+`dbo.APP24_Q_ACTIVOS_FIJOS_LISTAR` conserva sus parámetros 1..11 y agrega siete
+parámetros de operador **después de `@Tamano`**, antes de `@Total`:
+
+| Parámetro | Tipo | Default | Semántica |
+|---|---|---|---|
+| `@PedimentoOp` | `VARCHAR(10)` | `NULL` | Operador de `@Pedimento` |
+| `@ClavePedimentoOp` | `VARCHAR(10)` | `NULL` | Operador de `@ClavePedimento` |
+| `@NumeroParteOp` | `VARCHAR(10)` | `NULL` | Operador de `@NumeroParte` |
+| `@DescripcionOp` | `VARCHAR(10)` | `NULL` | Operador de `@Descripcion` |
+| `@SerieOp` | `VARCHAR(10)` | `NULL` | Operador de `@Serie` |
+| `@MarcaOp` | `VARCHAR(10)` | `NULL` | Operador de `@Marca` |
+| `@ModeloOp` | `VARCHAR(10)` | `NULL` | Operador de `@Modelo` |
+
+Valores permitidos: `EQ`, `NEQ`, `CT`, `SW`, `EW`. `NULL` o vacío equivale a
+`EQ`, de modo que cualquier cliente anterior obtiene el mismo resultado.
+Cualquier otro valor falla con `THROW 50043`.
+
+Los operadores de patrón usan `LIKE ... ESCAPE '\'` y escapan `\`, `%`, `_` y
+`[` en el valor, por lo que los comodines se comparan de forma literal. Todos
+los predicados comparan con `LTRIM(RTRIM(columna))`, igual que la proyección,
+para que el valor mostrado y el filtrado coincidan. `NEQ` incluye además las
+filas con columna `NULL`, porque "No igual" debe listar también los datos
+ausentes. Los predicados son idénticos en el `COUNT_BIG` y en el CTE paginado
+para que `@Total` coincida siempre con el conjunto filtrado. No cambian los 13
+aliases, el orden determinista, la guardia `9999-12-31` ni el permiso
+`OPERACIONES_CONSULTAR`.
+
+**Riesgo de rendimiento:** no existen índices con `EsActivo`, `serie`, `marca`
+ni `modelo` como clave. Los operadores `CT`, `SW` y `EW` pueden recorrer la
+tabla; el contrato mantiene el tope de 100 elementos por página y este sprint no
+crea índices.
+
+### 13.3 Contrato HTTP
+
+`GET /api/v1/operaciones/activos-fijos` agrega siete parámetros opcionales
+`*Op` que acompañan a su filtro:
+
+| Filtro | Parámetro de valor | Parámetro de operador |
+|---|---|---|
+| Pedimento | `pedimento` | `pedimentoOp` |
+| Clave de pedimento | `clavePedimento` | `clavePedimentoOp` |
+| Número de parte | `numeroParte` | `numeroParteOp` |
+| Descripción | `descripcion` | `descripcionOp` |
+| Serie | `serie` | `serieOp` |
+| Marca | `marca` | `marcaOp` |
+| Modelo | `modelo` | `modeloOp` |
+
+El backend valida el operador en la capa de aplicación y responde `400` con
+`SOLICITUD_INVALIDA` cuando no pertenece al conjunto soportado. Si el valor está
+vacío, el filtro y su operador se ignoran.
+
+### 13.4 Brechas B-06 que permanecen abiertas
+
+Este sprint **no** agrega campos nuevos porque no existe fuente demostrada:
+
+- **NICO:** no es columna de `dbo.Partidas` ni de `dbo.Importaciones` en el
+  modelo auditado.
+- **UMT / Unidad Tarifa:** no existe una segunda unidad en las tablas de la
+  consulta operativa.
+- **Tipo de activo controlado:** `dbo.ActivoFijo.Tipo` existe en la tabla
+  aislada, pero esa tabla no tiene PK, FK ni relación comprobable con
+  `PARTIDAS`/`IMPORTACIONES`; no se usa como join.
+- **Almacén:** no hay columna de almacén en la fuente operativa.
+
+`SCR-045` describe un catálogo maestro distinto de las partidas operativas. Su
+CRUD, su fuente física y sus 11 columnas siguen sin contrato confirmado; no se
+declara paridad cerrada. La tabla `dbo.ActivoFijo` tampoco se expone como
+`activoId`.

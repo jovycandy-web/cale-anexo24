@@ -1,11 +1,14 @@
 package com.jovycandy.anexo24.operations.fixedassets.application.query;
 
 import com.jovycandy.anexo24.operations.fixedassets.domain.model.ActivoFijo;
+import com.jovycandy.anexo24.operations.fixedassets.domain.model.FiltroTexto;
+import com.jovycandy.anexo24.operations.fixedassets.domain.model.FiltrosActivoFijo;
 import com.jovycandy.anexo24.operations.fixedassets.domain.port.ActivoFijoRepository;
 import com.jovycandy.anexo24.shared.api.Pagina;
 import com.jovycandy.anexo24.shared.exception.SolicitudInvalidaException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -14,6 +17,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -31,23 +37,24 @@ class ListarActivosFijosUseCaseTest {
     @Test
     void aceptaRangoTotalmenteAusente() {
         Pagina<ActivoFijo> esperado = paginaVacia(1, 20);
-        when(activoFijoRepository.findPage(null, null, null, null, null, null,
-                null, null, null, 1, 20)).thenReturn(esperado);
+        when(activoFijoRepository.findPage(any(), eq(1), eq(20))).thenReturn(esperado);
 
-        assertThat(ejecutar(null, null, null, null, null, null,
-                null, null, null, 1, 20)).isSameAs(esperado);
-        verify(activoFijoRepository).findPage(null, null, null, null, null, null,
-                null, null, null, 1, 20);
+        assertThat(ejecutar(filtros(null, null, null, null, null, null, null, null, null), 1, 20))
+                .isSameAs(esperado);
     }
 
     @Test
     void aceptaAmbosExtremosDelRango() {
         Pagina<ActivoFijo> esperado = paginaVacia(1, 20);
-        when(activoFijoRepository.findPage(DESDE, HASTA, null, null, null, null,
-                null, null, null, 1, 20)).thenReturn(esperado);
+        when(activoFijoRepository.findPage(any(), eq(1), eq(20))).thenReturn(esperado);
 
-        assertThat(ejecutar(DESDE, HASTA, null, null, null, null,
-                null, null, null, 1, 20)).isSameAs(esperado);
+        assertThat(ejecutar(filtros(DESDE, HASTA, null, null, null, null, null, null, null), 1, 20))
+                .isSameAs(esperado);
+
+        ArgumentCaptor<FiltrosActivoFijo> captor = ArgumentCaptor.forClass(FiltrosActivoFijo.class);
+        verify(activoFijoRepository).findPage(captor.capture(), eq(1), eq(20));
+        assertThat(captor.getValue().desde()).isEqualTo(DESDE);
+        assertThat(captor.getValue().hasta()).isEqualTo(HASTA);
     }
 
     @Test
@@ -69,57 +76,96 @@ class ListarActivosFijosUseCaseTest {
     void aceptaFechaMaximaDeSqlServer() {
         LocalDate fechaMaxima = LocalDate.of(9999, 12, 31);
         Pagina<ActivoFijo> esperado = paginaVacia(1, 20);
-        when(activoFijoRepository.findPage(fechaMaxima, fechaMaxima, null, null,
-                null, null, null, null, null, 1, 20)).thenReturn(esperado);
+        when(activoFijoRepository.findPage(any(), eq(1), eq(20))).thenReturn(esperado);
 
-        assertThat(ejecutar(fechaMaxima, fechaMaxima, null, null, null, null,
-                null, null, null, 1, 20)).isSameAs(esperado);
-        verify(activoFijoRepository).findPage(fechaMaxima, fechaMaxima, null, null,
-                null, null, null, null, null, 1, 20);
+        assertThat(ejecutar(filtros(fechaMaxima, fechaMaxima, null, null, null, null, null, null, null), 1, 20))
+                .isSameAs(esperado);
     }
 
     @Test
     void aceptaPaginaMaximaYTamanoMaximo() {
         Pagina<ActivoFijo> esperado = paginaVacia(Integer.MAX_VALUE, 100);
-        when(activoFijoRepository.findPage(null, null, null, null, null, null,
-                null, null, null, Integer.MAX_VALUE, 100)).thenReturn(esperado);
+        when(activoFijoRepository.findPage(any(), eq(Integer.MAX_VALUE), eq(100))).thenReturn(esperado);
 
-        assertThat(ejecutar(null, null, null, null, null, null,
-                null, null, null, Integer.MAX_VALUE, 100)).isSameAs(esperado);
+        assertThat(ejecutar(filtros(null, null, null, null, null, null, null, null, null),
+                Integer.MAX_VALUE, 100)).isSameAs(esperado);
     }
 
     @Test
     void rechazaPaginaCeroSinInvocarRepository() {
-        assertThatThrownBy(() -> ejecutar(null, null, null, null, null, null,
-                null, null, null, 0, 20)).isInstanceOf(SolicitudInvalidaException.class);
+        assertThatThrownBy(() -> ejecutar(filtros(null, null, null, null, null, null, null, null, null), 0, 20))
+                .isInstanceOf(SolicitudInvalidaException.class);
         verifyNoInteractions(activoFijoRepository);
     }
 
     @Test
     void rechazaTamanoCeroSinInvocarRepository() {
-        assertThatThrownBy(() -> ejecutar(null, null, null, null, null, null,
-                null, null, null, 1, 0)).isInstanceOf(SolicitudInvalidaException.class);
+        assertThatThrownBy(() -> ejecutar(filtros(null, null, null, null, null, null, null, null, null), 1, 0))
+                .isInstanceOf(SolicitudInvalidaException.class);
         verifyNoInteractions(activoFijoRepository);
     }
 
     @Test
     void rechazaTamanoMayorQueCienSinInvocarRepository() {
-        assertThatThrownBy(() -> ejecutar(null, null, null, null, null, null,
-                null, null, null, 1, 101)).isInstanceOf(SolicitudInvalidaException.class);
+        assertThatThrownBy(() -> ejecutar(filtros(null, null, null, null, null, null, null, null, null), 1, 101))
+                .isInstanceOf(SolicitudInvalidaException.class);
         verifyNoInteractions(activoFijoRepository);
     }
 
     @Test
-    void normalizaBlankYTrimAntesDeEnviarAlRepository() {
-        Pagina<ActivoFijo> esperado = paginaVacia(1, 20);
-        when(activoFijoRepository.findPage(DESDE, HASTA, "5003971", "A1", "500017",
-                "AZUCAR ESTANDAR", null, "MARCA", "MODELO", 1, 20)).thenReturn(esperado);
+    void normalizaTrimYAsignaEqCuandoNoSeInformaOperador() {
+        when(activoFijoRepository.findPage(any(), eq(1), eq(20))).thenReturn(paginaVacia(1, 20));
 
-        assertThat(ejecutar(DESDE, HASTA, " 5003971 ", " A1 ", " 500017 ",
-                " AZUCAR ESTANDAR ", "   ", " MARCA ", " MODELO ", 1, 20))
-                .isSameAs(esperado);
-        verify(activoFijoRepository).findPage(DESDE, HASTA, "5003971", "A1", "500017",
-                "AZUCAR ESTANDAR", null, "MARCA", "MODELO", 1, 20);
+        ejecutar(filtros(DESDE, HASTA, " 5003971 ", " A1 ", " 500017 ",
+                " AZUCAR ESTANDAR ", "   ", " MARCA ", " MODELO "), 1, 20);
+
+        ArgumentCaptor<FiltrosActivoFijo> captor = ArgumentCaptor.forClass(FiltrosActivoFijo.class);
+        verify(activoFijoRepository).findPage(captor.capture(), eq(1), eq(20));
+        FiltrosActivoFijo capturado = captor.getValue();
+        assertThat(capturado.pedimento()).isEqualTo(new FiltroTexto("5003971", "EQ"));
+        assertThat(capturado.clavePedimento()).isEqualTo(new FiltroTexto("A1", "EQ"));
+        assertThat(capturado.numeroParte()).isEqualTo(new FiltroTexto("500017", "EQ"));
+        assertThat(capturado.descripcion()).isEqualTo(new FiltroTexto("AZUCAR ESTANDAR", "EQ"));
+        assertThat(capturado.serie()).isNull();
+        assertThat(capturado.marca()).isEqualTo(new FiltroTexto("MARCA", "EQ"));
+        assertThat(capturado.modelo()).isEqualTo(new FiltroTexto("MODELO", "EQ"));
+    }
+
+    @Test
+    void aceptaTodosLosOperadoresSoportadosYLosNormalizaEnMayusculas() {
+        when(activoFijoRepository.findPage(any(), eq(1), eq(20))).thenReturn(paginaVacia(1, 20));
+
+        for (String operador : List.of("EQ", "NEQ", "CT", "SW", "EW", " ct ", "sw", "ew", "neq")) {
+            ejecutar(new FiltrosActivoFijo(null, null,
+                    new FiltroTexto("P", operador), null, null, null, null, null, null), 1, 20);
+        }
+
+        ArgumentCaptor<FiltrosActivoFijo> captor = ArgumentCaptor.forClass(FiltrosActivoFijo.class);
+        verify(activoFijoRepository, org.mockito.Mockito.times(9))
+                .findPage(captor.capture(), eq(1), eq(20));
+        assertThat(captor.getAllValues()).extracting(f -> f.pedimento().operador())
+                .containsExactly("EQ", "NEQ", "CT", "SW", "EW", "CT", "SW", "EW", "NEQ");
+    }
+
+    @Test
+    void rechazaOperadorDesconocidoSinInvocarRepository() {
+        assertThatThrownBy(() -> ejecutar(new FiltrosActivoFijo(null, null,
+                new FiltroTexto("P", "LIKE"), null, null, null, null, null, null), 1, 20))
+                .isInstanceOf(SolicitudInvalidaException.class)
+                .hasMessageContaining("pedimento");
+        verifyNoInteractions(activoFijoRepository);
+    }
+
+    @Test
+    void ignoraOperadorCuandoElValorEsBlank() {
+        when(activoFijoRepository.findPage(any(), eq(1), eq(20))).thenReturn(paginaVacia(1, 20));
+
+        ejecutar(new FiltrosActivoFijo(null, null,
+                new FiltroTexto("   ", "INVALIDO"), null, null, null, null, null, null), 1, 20);
+
+        ArgumentCaptor<FiltrosActivoFijo> captor = ArgumentCaptor.forClass(FiltrosActivoFijo.class);
+        verify(activoFijoRepository).findPage(captor.capture(), eq(1), eq(20));
+        assertThat(captor.getValue().pedimento()).isNull();
     }
 
     @Test
@@ -131,12 +177,10 @@ class ListarActivosFijosUseCaseTest {
         String serie = "1".repeat(50);
         String marca = "1".repeat(50);
         String modelo = "1".repeat(50);
-        Pagina<ActivoFijo> esperado = paginaVacia(1, 20);
-        when(activoFijoRepository.findPage(DESDE, HASTA, pedimento, clave, numeroParte,
-                descripcion, serie, marca, modelo, 1, 20)).thenReturn(esperado);
+        when(activoFijoRepository.findPage(any(), eq(1), eq(20))).thenReturn(paginaVacia(1, 20));
 
-        assertThat(ejecutar(DESDE, HASTA, pedimento, clave, numeroParte, descripcion,
-                serie, marca, modelo, 1, 20)).isSameAs(esperado);
+        assertThat(ejecutar(filtros(DESDE, HASTA, pedimento, clave, numeroParte, descripcion,
+                serie, marca, modelo), 1, 20)).isNotNull();
     }
 
     @Test
@@ -175,8 +219,8 @@ class ListarActivosFijosUseCaseTest {
     }
 
     private void assertRangoInvalido(LocalDate desde, LocalDate hasta) {
-        assertThatThrownBy(() -> ejecutar(desde, hasta, null, null, null, null,
-                null, null, null, 1, 20)).isInstanceOf(SolicitudInvalidaException.class);
+        assertThatThrownBy(() -> ejecutar(filtros(desde, hasta, null, null, null, null,
+                null, null, null), 1, 20)).isInstanceOf(SolicitudInvalidaException.class);
         verifyNoInteractions(activoFijoRepository);
     }
 
@@ -191,9 +235,25 @@ class ListarActivosFijosUseCaseTest {
     private Pagina<ActivoFijo> ejecutar(LocalDate desde, LocalDate hasta, String pedimento,
                                         String clavePedimento, String numeroParte, String descripcion,
                                         String serie, String marca, String modelo, int pagina, int tamano) {
-        return new ListarActivosFijosUseCase(activoFijoRepository).ejecutar(
-                desde, hasta, pedimento, clavePedimento, numeroParte, descripcion,
-                serie, marca, modelo, pagina, tamano);
+        return ejecutar(filtros(desde, hasta, pedimento, clavePedimento, numeroParte, descripcion,
+                serie, marca, modelo), pagina, tamano);
+    }
+
+    private Pagina<ActivoFijo> ejecutar(FiltrosActivoFijo filtros, int pagina, int tamano) {
+        return new ListarActivosFijosUseCase(activoFijoRepository).ejecutar(filtros, pagina, tamano);
+    }
+
+    private FiltrosActivoFijo filtros(LocalDate desde, LocalDate hasta, String pedimento,
+                                      String clavePedimento, String numeroParte, String descripcion,
+                                      String serie, String marca, String modelo) {
+        return new FiltrosActivoFijo(desde, hasta,
+                new FiltroTexto(pedimento, null),
+                new FiltroTexto(clavePedimento, null),
+                new FiltroTexto(numeroParte, null),
+                new FiltroTexto(descripcion, null),
+                new FiltroTexto(serie, null),
+                new FiltroTexto(marca, null),
+                new FiltroTexto(modelo, null));
     }
 
     private Pagina<ActivoFijo> paginaVacia(int pagina, int tamano) {

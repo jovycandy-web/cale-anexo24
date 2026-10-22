@@ -35,3 +35,6 @@ tmp/
 temp/
 .serena
 .zed
+
+# Evidencia cruda de auditoría: puede contener datos reales, no versionar.
+docs/05-pruebas/auditoria-legacy-2026/evidencias/snapshots/
