@@ -53,10 +53,11 @@ class RegistrarExportacionReporteServiceTest {
     }
 
     @Test
-    void noRegistraSinActorAutenticadoConfiable() {
+    void noEntregaExportacionSinActorAutenticadoConfiable() {
         when(userContext.currentUser()).thenReturn(Optional.empty());
 
-        service.registrar("entradas", "corr-sin-actor");
+        assertThatThrownBy(() -> service.registrar("entradas", "corr-sin-actor"))
+                .isInstanceOf(IllegalStateException.class);
 
         verifyNoInteractions(bitacora);
     }

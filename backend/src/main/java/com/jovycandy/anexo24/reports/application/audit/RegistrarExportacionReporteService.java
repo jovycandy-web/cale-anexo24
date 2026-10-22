@@ -45,13 +45,16 @@ public class RegistrarExportacionReporteService {
     /**
      * Registra una exportación de reporte ya generada por el backend.
      *
-     * <p>Sin actor confiable no se emite el evento, porque no sería atribuible;
-     * en producción el endpoint exige JWT y este caso sólo corresponde a
-     * autenticaciones de prueba sin principal de aplicación. Los fallos de
-     * persistencia de Bitácora se propagan para no reportar éxito sin registro.</p>
+     * <p>Sin actor confiable no se entrega el archivo: el evento no sería
+     * atribuible y la política fail-closed exige que toda exportación quede
+     * registrada. Los fallos de persistencia de Bitácora también se propagan
+     * para no reportar éxito sin registro.</p>
      *
      * @param tipoReporte   identificador controlado del reporte (por ejemplo {@code saldos})
      * @param correlationId correlación normalizada de la solicitud o {@code null}
+     *
+     * @throws IllegalStateException si no hay identidad JWT confiable o la
+     *                               Bitácora no puede persistir el evento
      */
     public void registrar(String tipoReporte, String correlationId) {
         if (tipoReporte == null || !TIPO_REPORTE_PATTERN.matcher(tipoReporte).matches()) {
@@ -59,9 +62,9 @@ public class RegistrarExportacionReporteService {
         }
         Optional<AuthenticatedUserPrincipal> actor = userContext.currentUser();
         if (actor.isEmpty()) {
-            log.warn("Exportación de reportes sin actor autenticado confiable; no se registra evento [{}]",
+            log.error("Exportación de reportes sin actor autenticado confiable; se rechaza la entrega [{}]",
                     correlationId);
-            return;
+            throw new IllegalStateException("No se puede registrar la exportación sin actor autenticado");
         }
         bitacora.registrar(new BitacoraEvento(actor.get().userId(), BitacoraModulo.REPORTES,
                 BitacoraAccion.REPORTE_EXPORTADO, BitacoraResultado.EXITO,

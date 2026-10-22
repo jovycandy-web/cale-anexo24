@@ -50,6 +50,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -763,6 +764,25 @@ class ReportesControllerTest {
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(registrarExportacionReporteService);
+    }
+
+    @Test
+    void exportacionFallaSiNoSePuedeAtribuirElEvento() throws Exception {
+        when(consultarReportesUseCase.exportarEntradas(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(entradaSintetica()));
+        doThrow(new IllegalStateException("sin actor"))
+                .when(registrarExportacionReporteService).registrar(eq("entradas"), any());
+
+        mockMvc.perform(get("/api/v1/reportes/entradas/exportacion")
+                        .param("desde", "2026-01-01")
+                        .param("hasta", "2026-01-31")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isInternalServerError())
+                .andExpect(header().doesNotExist("Content-Disposition"))
+                .andExpect(jsonPath("$.code").value("ERROR_INTERNO"))
+                .andExpect(jsonPath("$.correlationId").exists());
+
+        verify(registrarExportacionReporteService).registrar(eq("entradas"), anyString());
     }
 
     @Test

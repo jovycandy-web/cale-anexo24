@@ -213,7 +213,9 @@ explícita de una consulta, por lo que un evento por petición sería falsificab
 
 Si la persistencia de Bitácora falla, la exportación responde error y no se
 devuelve el archivo (política fail-closed) hasta que negocio defina si la
-auditoría es obligatoria para lecturas y exportaciones.
+auditoría es obligatoria para lecturas y exportaciones. La misma regla aplica si
+la solicitud no tiene una identidad JWT atribuible: el evento no puede
+registrarse y el archivo no se entrega.
 
 ## Recursos no expuestos
 

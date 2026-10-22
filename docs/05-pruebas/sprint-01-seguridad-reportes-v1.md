@@ -22,7 +22,7 @@ cambios de base de datos, migraciones, `CALE_IMMEX` y scripts de least privilege
 
 | ID | Estado previo (auditoría) | Estado real tras Sprint 01 | Evidencia |
 |---|---|---|---|
-| B-16 / RF-096 | `CONFIRMED_GAP` en el legacy (control sólo visual) | `VERIFICADO_EN_ESTE_SPRINT` sólo para reportes; resto de módulos `VERIFICADO_POR_PRUEBA_EXISTENTE` | `@EnableMethodSecurity`; `@PreAuthorize` en los 19 endpoints de consulta y 19 de exportación; `ReportesControllerTest` (83 casos) |
+| B-16 / RF-096 | `CONFIRMED_GAP` en el legacy (control sólo visual) | `VERIFICADO_EN_ESTE_SPRINT` sólo para reportes; resto de módulos `VERIFICADO_POR_PRUEBA_EXISTENTE` | `@EnableMethodSecurity`; `@PreAuthorize` en los 19 endpoints de consulta y 19 de exportación; `ReportesControllerTest` (84 casos) |
 | B-03 / RF-094 | `CONFIRMED_GAP` | `PARTIAL`: exportación instrumentada y probada; generación sin contrato verificable | `BitacoraAccion.REPORTE_EXPORTADO`, `RegistrarExportacionReporteService` |
 | QA-001 | Prueba obsoleta | `VERIFICADO_EN_ESTE_SPRINT` (browser sintético, 5 casos) | `frontend/e2e/reports.spec.ts` |
 | QA-002 | 7 rutas sin smoke | `VERIFICADO_EN_ESTE_SPRINT` (browser sintético, 23 casos) | `frontend/e2e/routes-smoke.spec.ts` (20 rutas + reload + guard) |
@@ -93,6 +93,7 @@ perfiles, actividades, facturación (incluye regresión IDOR) y pedimentos.
 | 401 / 403 | No llegan al controlador; no generan evento |
 | Fallo de consulta o serialización | Excepción antes del registro; no hay evento de éxito |
 | Fallo de persistencia de Bitácora | La excepción se propaga; no se devuelve el archivo (fail-closed) |
+| Actor no atribuible | La exportación se rechaza con `500 ERROR_INTERNO`; no se devuelve el archivo (fail-closed) |
 | Campos | `usuarioId` (JWT), `modulo`, `accion`, `resultado`, `detalle`, `correlationId` |
 | Detalle | `tipoReporte=<identificador controlado>` (máx. 500 caracteres) |
 | No se guarda | JWT, credenciales, SQL, payloads, filas comerciales, binario, stack traces |
@@ -114,14 +115,15 @@ Sprint 01; los conteos sustituyen a los anteriores, no se suman).
 
 | Comando | Resultado | Detalle | Momento |
 |---|---|---|---|
-| `./gradlew.bat test --tests "...ReportesControllerTest"` | PASS | 83 casos (incluye 401/403 de salidas, materiales-utilizados, bitácora y anexo30-inventario-inicial) | Cierre 01.1 |
-| `./gradlew.bat test` | PASS | **794 casos**, 0 fallos; SQL IT `SKIPPED` | Cierre 01.1 |
+| `./gradlew.bat test --tests "...ReportesControllerTest"` | PASS | 84 casos (incluye 401/403 de salidas, materiales-utilizados, bitácora y anexo30-inventario-inicial) | Revisión final PR #4 |
+| `./gradlew.bat test` (sin Docker) | PASS | **795 casos**, 0 fallos; SQL IT `SKIPPED` | Cierre 01.1 |
+| `./gradlew.bat test` (Docker disponible, `JAVA_TOOL_OPTIONS=-Dapi.version=1.44`) | PASS | **1035 casos**, 0 fallos, SQL IT ejecutadas en Testcontainers | Revisión final PR #4 |
 | `pnpm exec playwright test e2e/reports.spec.ts e2e/routes-smoke.spec.ts --project=chromium-desktop` | PASS | **28 casos** (5 Saldos + 23 rutas) | Cierre 01.1 |
 | `pnpm exec playwright test e2e/read-surfaces.spec.ts e2e/billing.spec.ts --project=chromium-desktop` | PASS | **13 casos** (entradas, bitácora, usuarios, facturación) | Cierre 01.1 |
 | `pnpm test -- --watch=false` | PASS | 53 archivos, 348 tests | Sprint 01 |
 | `pnpm lint` | PASS | Sin errores | Sprint 01 |
 | `pnpm build` | PASS | Warning preexistente de presupuesto (640.76 kB vs 500 kB) | Sprint 01 |
-| Docker / Testcontainers | BLOCKED | `npipe:////./pipe/dockerDesktopLinuxEngine` no disponible | Cierre 01.1 |
+| Docker / Testcontainers | DISPONIBLE | SQL IT ejecutadas en contenedores efímeros; sin acceso a LIVE | Revisión final PR #4 |
 | `pnpm e2e` (suite completa) | NO EJECUTADO | Incluye suites con backend real y credenciales | Cierre 01.1 |
 
 ## 6. Validación complementaria (Sprint 01.1)
@@ -141,11 +143,14 @@ usa credenciales. No hay operaciones mutables en las suites ejecutadas.
 `auth.spec.ts`, `bitacora.spec.ts`, `navigation-scroll.spec.ts`,
 `responsive.spec.ts` (`login()` exige `E2E_USERNAME`/`E2E_PASSWORD` reales).
 
-**Persistencia de bitácora:** no verificada contra SQL Server. Sin Docker no hay
-base efímera; no se ejecutó DML ni DDL sobre bases compartidas. Estado:
-`BLOCKED_ENVIRONMENT`. La prueba unitaria del servicio cubre validación de
-`tipoReporte`, actor y `correlationId`; la del controlador cubre
-`detalle`/`correlationId` exactos y ausencia de evento en `204`/`401`/`403`.
+**Persistencia de bitácora:** la infraestructura queda verificada por las SQL IT
+existentes (pedimentos y cargas de catálogos) que ejercitan
+`app24.APP24_C_BITACORA_REGISTRAR` y `app24.BitacoraEvento` en contenedores
+efímeros. No existe una IT específica para `REPORTE_EXPORTADO`, por lo que la
+fila de esa acción concreta no se ejercitó contra SQL Server. La prueba unitaria
+del servicio cubre validación de `tipoReporte`, actor y `correlationId`; la del
+controlador cubre `detalle`/`correlationId` exactos, ausencia de evento en
+`204`/`401`/`403` y rechazo de la exportación cuando la atribución falla.
 
 **Política fail-closed (pendiente de ratificación).** Si falla la persistencia de
 Bitácora, la exportación responde error y no entrega el archivo. Implicaciones:
@@ -156,8 +161,19 @@ Bitácora, la exportación responde error y no entrega el archivo. Implicaciones
   evidencia parcial ni eventos huérfanos.
 - *Operación:* requiere monitoreo de la bitácora como dependencia crítica de
   lectura/exportación.
+- *Atribución:* si el `SecurityContext` no expone un `AuthenticatedUserPrincipal`
+  de JWT validado, `RegistrarExportacionReporteService` no puede atribuir el
+  evento, lanza `IllegalStateException` y el controlador no entrega el XLSX
+  (`500 ERROR_INTERNO`, sin `Content-Disposition`).
 - *Alternativa no adoptada:* fail-open con evento diferido, que prioriza
   disponibilidad y acepta exportaciones sin traza inmediata.
+
+Flujo verificado: `JwtAuthenticationFilter` → `SecurityContext` con
+`AuthenticatedUserPrincipal` → `AuthenticatedUserContext.currentUser()` →
+`RegistrarExportacionReporteService.registrar(...)` → `ReportesController.archivo(...)`.
+En producción la cadena exige JWT válido, por lo que un principal ausente no es
+alcanzable por la ruta normal; la comprobación queda como defensa en profundidad
+y no se apoya en que el caso sea improbable.
 
 No se modificó la política ni se documentó como aprobada. `REPORTE_GENERADO`
 sigue bloqueado: el contrato `GET` actual no distingue consulta de generación y
