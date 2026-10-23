@@ -7,7 +7,13 @@ BEGIN
  SET NOCOUNT ON;
  IF @Pagina<1 OR @Tamano<1 OR @Tamano>100 THROW 50062,'Parámetros de paginación inválidos.',1;
  SET @Filtro=NULLIF(LTRIM(RTRIM(@Filtro)),'');
- SELECT @Total=COUNT_BIG(1) FROM dbo.Proveedores p LEFT JOIN dbo.almacen a ON a.ALMACENKEY=p.ALMACENKEY
+ SELECT @Total=COUNT_BIG(1) FROM dbo.Proveedores p
+ OUTER APPLY (
+  SELECT TOP (1) a.DESCRIPCION
+  FROM dbo.almacen a
+  WHERE a.ALMACENKEY=p.ALMACENKEY
+  ORDER BY a.DESCRIPCION, a.ALMACEN
+ ) a
  WHERE @Filtro IS NULL OR p.Clave LIKE '%'+@Filtro+'%' OR p.Nombre LIKE '%'+@Filtro+'%'
    OR p.Idfiscal LIKE '%'+@Filtro+'%' OR p.Tipone LIKE '%'+@Filtro+'%' OR p.Programa LIKE '%'+@Filtro+'%'
    OR p.CalleNumero LIKE '%'+@Filtro+'%' OR p.Colonia LIKE '%'+@Filtro+'%' OR p.Codigo LIKE '%'+@Filtro+'%'
@@ -20,7 +26,13 @@ BEGIN
   LTRIM(RTRIM(p.Colonia)) colonia,LTRIM(RTRIM(p.Codigo)) codigo,LTRIM(RTRIM(p.Localidad)) localidad,LTRIM(RTRIM(p.Municipio)) municipio,LTRIM(RTRIM(p.Entidad)) entidad,
   LTRIM(RTRIM(p.Telefono)) telefono,LTRIM(RTRIM(p.Fax)) fax,
   CONVERT(BIGINT,p.ALMACENKEY) almacenkey,LTRIM(RTRIM(a.DESCRIPCION)) almacendescripcion
- FROM dbo.Proveedores p LEFT JOIN dbo.almacen a ON a.ALMACENKEY=p.ALMACENKEY
+ FROM dbo.Proveedores p
+ OUTER APPLY (
+  SELECT TOP (1) a.DESCRIPCION
+  FROM dbo.almacen a
+  WHERE a.ALMACENKEY=p.ALMACENKEY
+  ORDER BY a.DESCRIPCION, a.ALMACEN
+ ) a
  WHERE @Filtro IS NULL OR p.Clave LIKE '%'+@Filtro+'%' OR p.Nombre LIKE '%'+@Filtro+'%'
    OR p.Idfiscal LIKE '%'+@Filtro+'%' OR p.Tipone LIKE '%'+@Filtro+'%' OR p.Programa LIKE '%'+@Filtro+'%'
    OR p.CalleNumero LIKE '%'+@Filtro+'%' OR p.Colonia LIKE '%'+@Filtro+'%' OR p.Codigo LIKE '%'+@Filtro+'%'

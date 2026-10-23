@@ -21,8 +21,9 @@ Discovery read-only sobre `CALE_IMMEX` (metadata `INFORMATION_SCHEMA`,
 
 - `dbo.clientes` **no tiene** `ALMACENKEY`. El grid legacy SCR-083 muestra
   "Almacén", pero la tabla LIVE no permite resolverlo; no se expone un valor inventado.
-- `dbo.Proveedores` sí tiene `ALMACENKEY`; la descripción se obtiene con
-  `LEFT JOIN dbo.almacen` por clave. No hay FK declarada.
+- `dbo.Proveedores` sí tiene `ALMACENKEY`; la descripción se resuelve con
+  `OUTER APPLY TOP (1)` ordenado por `DESCRIPCION` y `ALMACEN`, de modo que una
+  clave repetida no duplica proveedores ni infla `@Total`. No hay FK declarada.
 - Tipos distintos: `Idfiscal` es `char(20)` en clientes y
   `char(15)` en proveedores; `Codigo` es `char(15)` y
   `char(10)`; la columna exterior es `Callenumero` en clientes y

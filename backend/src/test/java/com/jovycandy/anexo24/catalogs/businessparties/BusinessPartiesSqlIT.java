@@ -194,6 +194,22 @@ class BusinessPartiesSqlIT {
     }
 
     @Test
+    void proveedoresNoDuplicaFilasSiAlmacenRepiteClave() throws Exception {
+        try (Connection c = connect(); Statement s = c.createStatement()) {
+            s.execute("INSERT dbo.almacen (ALMACENKEY, ALMACEN, DESCRIPCION) VALUES "
+                    + "(2,'ALM2','ALMACEN NORTE ESPEJO')");
+        }
+
+        Result result = callProveedores(null, 1, 20);
+
+        assertEquals(3, result.total);
+        assertEquals(3, result.rows.size());
+        assertEquals(3, result.rows.stream().map(row -> row.get(1)).distinct().count());
+        assertEquals("ALMACEN NORTE", fila(result, "PR001").get(18));
+        assertEquals(1, callProveedores("ALMACEN NORTE", 1, 20).total);
+    }
+
+    @Test
     void losContratosNoSonIdenticosEntreCatalogos() throws Exception {
         List<String> clientes = callClientes(null, 1, 20).columns;
         List<String> proveedores = callProveedores(null, 1, 20).columns;

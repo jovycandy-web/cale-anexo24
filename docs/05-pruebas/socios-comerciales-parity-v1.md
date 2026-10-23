@@ -98,6 +98,9 @@ Consultas ejecutadas (sólo lectura): `INFORMATION_SCHEMA.COLUMNS`,
 - `dbo.almacen` existe con `ALMACENKEY`, `ALMACEN` y
   `DESCRIPCION`. Las 5 filas de proveedores resuelven contra una clave de
   almacén existente; aun así, la unión se documenta como lógica, no como FK.
+- La resolución usa `OUTER APPLY TOP (1)` ordenado por `DESCRIPCION` y `ALMACEN`;
+  una clave repetida no duplica proveedores ni infla `@Total`. Queda cubierto por
+  `BusinessPartiesSqlIT`.
 - Los campos extra de clientes (`apellidos`, `calle`,
   `referencia`, `tipoidentificador`, `codigopostal`) se
   exponen porque están en el formulario legacy de SCR-083. En proveedores no se
