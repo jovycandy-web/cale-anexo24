@@ -160,7 +160,8 @@ INSERT INTO @esperado (esquema, objeto) VALUES
     ('dbo', 'APP24_C_PROVEEDOR_CARGA_CONFIRMAR'),
     ('dbo', 'APP24_C_AGENTE_CARGA_CONFIRMAR'),
     ('dbo', 'APP24_C_ACTA_CARGA_CONFIRMAR'),
-    ('dbo', 'APP24_C_CONSTANCIA_CARGA_CONFIRMAR');
+    ('dbo', 'APP24_C_CONSTANCIA_CARGA_CONFIRMAR'),
+    ('dbo', 'PR_INFORME_ESTRUCTURAS');
 
 IF EXISTS (
     SELECT s.name, o.name
