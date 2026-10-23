@@ -238,7 +238,7 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
             @if (!isTextReport()) {
               <app-operation-period-filter #periodFilter (periodChange)="onPeriodChange($event)" />
               @if (periodMessage()) { <p class="mb-0 mt-2 text-xs text-amber-700" aria-live="polite">{{ periodMessage() }}</p> }
-            } @else {
+            } @else if (!isLegacyEstructuras()) {
               <label><span class="mb-1 block text-xs font-medium text-slate-700">{{ selectedType() === 'rectificaciones' ? 'Pedimento' : selectedType() === 'compulsa-detalle' ? 'Pedimento, clave, fracci\u00f3n, pa\u00eds o estado' : selectedType() === 'rectificaciones-detalle' ? 'Pedimento, clave, pedimento original, existe o estado' : selectedType() === 'vencimientos' ? 'Pedimento, clave o factura' : selectedType() === 'dirigidos' ? 'Documento, clave, producto o factura' : selectedType() === 'analisis-descargas' ? 'Importación, exportación, material o producto' : selectedType() === 'operaciones-bloqueadas' ? 'Pedimento, clave, producto, material o folio' : selectedType() === 'f4' ? 'Documento, importación, clave o tipo' : 'Pedimento, clave o fracción' }}</span><input matInput name="filter" [(ngModel)]="filter" maxlength="60" class="report-input" /></label>
             }
           </div>

@@ -3,7 +3,9 @@
 Metadata obtenida en modo **read-only** desde `CALE_IMMEX` (`sys.procedures`, `sys.parameters`,
 `OBJECT_DEFINITION`). Ningún procedimiento se ejecutó en LIVE ni se modificó su definición.
 
-Definiciones íntegras usadas como fixture: `backend/src/test/resources/sql/legacy/`.
+Definiciones íntegras de referencia: `backend/src/test/resources/sql/legacy/`. Sólo la
+definición y el fixture de Estructuras se ejecutan en SQL aislado; las demás quedan como
+metadata para caracterización futura.
 
 ## Firmas verificadas
 

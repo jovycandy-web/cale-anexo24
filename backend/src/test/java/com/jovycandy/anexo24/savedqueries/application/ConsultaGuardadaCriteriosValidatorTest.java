@@ -49,6 +49,13 @@ class ConsultaGuardadaCriteriosValidatorTest {
     }
 
     @Test
+    void aceptaEstructurasLegacySinPeriodo() {
+        ObjectNode criteria = mapper.createObjectNode().put("type", "estructuras-legacy")
+                .put("product", "P001").put("material", "M001").putNull("from").putNull("to");
+        assertDoesNotThrow(() -> validator.validarYSerializar(ConsultaGuardadaAlcance.REPORTES, criteria));
+    }
+
+    @Test
     void rechazaIdentificadorDeUsuarioNoEnteroEnFiltroDeReporte() {
         ObjectNode criteria = mapper.createObjectNode().put("type", "entradas").put("userId", 1.5);
         assertThrows(SolicitudInvalidaException.class, () -> validator.validarYSerializar(ConsultaGuardadaAlcance.REPORTES, criteria));

@@ -441,6 +441,9 @@ describe('ReportListPage (formato de partidas)', () => {
     internals.selectedType.set('estructuras-legacy');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-operation-period-filter')).toBeNull();
+    expect(fixture.nativeElement.querySelector('input[name=filter]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('input[name=product]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('input[name=material]')).not.toBeNull();
 
     internals.product = ' P001 ';
     internals.material = ' M001 ';

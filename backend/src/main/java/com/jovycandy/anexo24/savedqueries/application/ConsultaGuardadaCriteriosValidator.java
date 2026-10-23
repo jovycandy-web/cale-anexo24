@@ -19,7 +19,7 @@ public class ConsultaGuardadaCriteriosValidator {
             "pedimentoOp", "clavePedimentoOp", "numeroParteOp", "descripcionOp", "serieOp", "marcaOp", "modeloOp");
     private static final Set<String> FILTER_OPERATORS = Set.of("EQ", "NEQ", "CT", "SW", "EW");
     private static final Set<String> REPORT_KEYS = Set.of("type", "from", "to", "customsDocument", "customsCode", "tariffFraction", "partNumber", "material", "product", "userId", "module", "result", "correlationId", "filter");
-    private static final Set<String> REPORT_TYPES = Set.of("entradas", "salidas", "materiales-utilizados", "bitacora", "compulsa", "rectificaciones", "vencimientos", "dirigidos", "analisis-descargas", "operaciones-bloqueadas", "f4", "anexo30-revision-entradas", "anexo30-revision-fracciones", "anexo30-revision-descargas", "anexo30-revision-comparativa", "rectificaciones-detalle", "compulsa-detalle", "saldos");
+    private static final Set<String> REPORT_TYPES = Set.of("entradas", "salidas", "materiales-utilizados", "bitacora", "compulsa", "rectificaciones", "vencimientos", "dirigidos", "analisis-descargas", "operaciones-bloqueadas", "f4", "anexo30-revision-entradas", "anexo30-revision-fracciones", "anexo30-revision-descargas", "anexo30-revision-comparativa", "rectificaciones-detalle", "compulsa-detalle", "saldos", "estructuras-legacy");
 
     /** Serializa JSON canónico sólo después de validar root, llaves, tipo y profundidad. */
     public String validarYSerializar(ConsultaGuardadaAlcance alcance, JsonNode criterios) {
