@@ -20,6 +20,7 @@ import com.jovycandy.anexo24.reports.extended.api.dto.Anexo30FraccionDto;
 import com.jovycandy.anexo24.reports.extended.api.dto.Anexo30DescargaDto;
 import com.jovycandy.anexo24.reports.extended.api.dto.Anexo30ComparativaDto;
 import com.jovycandy.anexo24.reports.extended.api.dto.Anexo30InventarioInicialDto;
+import com.jovycandy.anexo24.reports.extended.api.dto.EstructuraLegacyDto;
 import com.jovycandy.anexo24.reports.extended.api.dto.SaldoDto;
 import com.jovycandy.anexo24.reports.extended.api.dto.VencimientoDto;
 import com.jovycandy.anexo24.reports.extended.application.query.ListarAnalisisDescargasUseCase;
@@ -35,6 +36,7 @@ import com.jovycandy.anexo24.reports.extended.application.query.ListarAnexo30Fra
 import com.jovycandy.anexo24.reports.extended.application.query.ListarAnexo30DescargasUseCase;
 import com.jovycandy.anexo24.reports.extended.application.query.ListarAnexo30ComparativaUseCase;
 import com.jovycandy.anexo24.reports.extended.application.query.ListarAnexo30InventarioInicialUseCase;
+import com.jovycandy.anexo24.reports.extended.application.query.ListarEstructurasLegacyUseCase;
 import com.jovycandy.anexo24.reports.extended.application.query.ListarSaldosUseCase;
 import com.jovycandy.anexo24.reports.extended.application.query.ListarVencimientosUseCase;
 import com.jovycandy.anexo24.reports.extended.domain.model.AnalisisDescarga;
@@ -50,6 +52,7 @@ import com.jovycandy.anexo24.reports.extended.domain.model.Anexo30Fraccion;
 import com.jovycandy.anexo24.reports.extended.domain.model.Anexo30Descarga;
 import com.jovycandy.anexo24.reports.extended.domain.model.Anexo30Comparativa;
 import com.jovycandy.anexo24.reports.extended.domain.model.Anexo30InventarioInicial;
+import com.jovycandy.anexo24.reports.extended.domain.model.EstructuraLegacy;
 import com.jovycandy.anexo24.reports.extended.domain.model.Saldo;
 import com.jovycandy.anexo24.reports.extended.domain.model.Vencimiento;
 import com.jovycandy.anexo24.reports.infrastructure.export.ExportadorXlsxReportes;
@@ -96,6 +99,7 @@ public class ReportesController {
     private final ListarAnexo30ComparativaUseCase listarAnexo30ComparativaUseCase;
     private final ListarAnexo30InventarioInicialUseCase listarAnexo30InventarioInicialUseCase;
     private final ListarSaldosUseCase listarSaldosUseCase;
+    private final ListarEstructurasLegacyUseCase listarEstructurasLegacyUseCase;
 
     public ReportesController(ConsultarReportesUseCase consultarReportesUseCase,
             ExportadorXlsxReportes exportadorXlsxReportes,
@@ -113,7 +117,8 @@ public class ReportesController {
             ListarAnexo30DescargasUseCase listarAnexo30DescargasUseCase,
             ListarAnexo30ComparativaUseCase listarAnexo30ComparativaUseCase,
             ListarAnexo30InventarioInicialUseCase listarAnexo30InventarioInicialUseCase,
-            ListarSaldosUseCase listarSaldosUseCase) {
+            ListarSaldosUseCase listarSaldosUseCase,
+            ListarEstructurasLegacyUseCase listarEstructurasLegacyUseCase) {
         this.consultarReportesUseCase = consultarReportesUseCase;
         this.exportadorXlsxReportes = exportadorXlsxReportes;
         this.listarAnalisisDescargasUseCase = listarAnalisisDescargasUseCase;
@@ -131,6 +136,7 @@ public class ReportesController {
         this.listarAnexo30ComparativaUseCase = listarAnexo30ComparativaUseCase;
         this.listarAnexo30InventarioInicialUseCase = listarAnexo30InventarioInicialUseCase;
         this.listarSaldosUseCase = listarSaldosUseCase;
+        this.listarEstructurasLegacyUseCase = listarEstructurasLegacyUseCase;
     }
 
     @GetMapping("/entradas")
@@ -565,6 +571,39 @@ public class ReportesController {
         List<LineaF4> resultado = listarLineasF4UseCase.exportar(filtro);
         return archivo("f4", List.of("Tipo descarga", "F4", "Fecha", "ImportaciÃ³n", "Clave", "Incorporado", "Saldo"),
                 resultado.stream().map(item -> fila(item.tipoDescarga(), item.f4(), item.fecha(), item.importacion(), item.clave(), item.incorporado(), item.saldo())).toList());
+    }
+
+    @GetMapping("/estructuras-legacy")
+    @PreAuthorize("hasAuthority('REPORTES_GENERAR')")
+    public ResponseEntity<List<EstructuraLegacyDto>> estructurasLegacy(
+            @RequestParam(required = false) String producto,
+            @RequestParam(required = false) String material,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        List<EstructuraLegacy> resultado = listarEstructurasLegacyUseCase.ejecutar(producto, material, desde, hasta);
+        return ResponseEntity.ok(resultado.stream().map(EstructuraLegacyDto::from).toList());
+    }
+
+    @GetMapping("/estructuras-legacy/exportacion")
+    @PreAuthorize("hasAuthority('REPORTES_EXPORTAR')")
+    public ResponseEntity<byte[]> exportarEstructurasLegacy(
+            @RequestParam(required = false) String producto,
+            @RequestParam(required = false) String material,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        List<EstructuraLegacy> resultado = listarEstructurasLegacyUseCase.ejecutar(producto, material, desde, hasta);
+        return archivo("estructuras-legacy",
+                List.of("Código de producto", "Descripción del producto", "Unidad de medida",
+                        "Fecha de inicio estructura", "Fecha de fin estructura", "Código de materia prima",
+                        "Cantidad incorporada", "Cantidad mermada", "Cantidad desperdiciada",
+                        "Código A24 interno", "Descripción de MP", "Unidad MP", "Fracción MP",
+                        "Última salida", "PRODMATKEY", "EstructuraKey"),
+                resultado.stream().map(item -> fila(item.codigoProducto(), item.descripcionProducto(),
+                        item.unidadMedida(), item.inicioEstructura(), item.finEstructura(),
+                        item.codigoMateriaPrima(), item.cantidadIncorporada(), item.cantidadMermada(),
+                        item.cantidadDesperdiciada(), item.productoKey(), item.descripcionMateriaPrima(),
+                        item.unidadMateriaPrima(), item.fraccionMateriaPrima(), item.ultimaSalida(),
+                        item.prodMatKey(), item.estructuraKey())).toList());
     }
 
     private ResponseEntity<byte[]> archivo(String nombre, List<String> encabezados, List<List<Object>> filas) {
