@@ -52,6 +52,7 @@ const REPORTS: ReportOption[] = [
   { type: 'anexo30-revision-comparativa', label: 'Revisi\u00f3n Anexo 30 - Comparativa', icon: 'difference', available: true },
   { type: 'anexo30-revision-inventario-inicial', label: 'Revisi\u00f3n Anexo 30 - Inventario inicial', icon: 'inventory_2', available: true },
   { type: 'saldos', label: 'Saldos', icon: 'account_balance_wallet', available: true },
+  { type: 'estructuras-legacy', label: 'Estructuras (legacy)', icon: 'account_tree', available: true },
 ];
 
 const COLUMNS: Record<ReportType, ReportColumn[]> = {
@@ -187,6 +188,24 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
     { key: 'saldo', label: 'Saldo', format: 'quantity' },
     { key: 'operacion', label: 'Operación' }, { key: 'partida', label: 'Partida' }, { key: 'esaf', label: 'ESAF' },
   ],
+  'estructuras-legacy': [
+    { key: 'codigoProducto', label: 'Código de producto' },
+    { key: 'descripcionProducto', label: 'Descripción del producto' },
+    { key: 'unidadMedida', label: 'Unidad de medida' },
+    { key: 'inicioEstructura', label: 'Inicio estructura', format: 'date' },
+    { key: 'finEstructura', label: 'Fin estructura', format: 'date' },
+    { key: 'codigoMateriaPrima', label: 'Código de materia prima' },
+    { key: 'cantidadIncorporada', label: 'Cantidad incorporada', format: 'quantity' },
+    { key: 'cantidadMermada', label: 'Cantidad mermada', format: 'quantity' },
+    { key: 'cantidadDesperdiciada', label: 'Cantidad desperdiciada', format: 'quantity' },
+    { key: 'productoKey', label: 'Código A24 interno' },
+    { key: 'descripcionMateriaPrima', label: 'Descripción de MP' },
+    { key: 'unidadMateriaPrima', label: 'Unidad MP' },
+    { key: 'fraccionMateriaPrima', label: 'Fracción MP' },
+    { key: 'ultimaSalida', label: 'Última salida', format: 'date' },
+    { key: 'prodMatKey', label: 'PRODMATKEY' },
+    { key: 'estructuraKey', label: 'EstructuraKey' },
+  ],
 };
 
 /** Genera reportes V1 paginados para el periodo obligatorio seleccionado. */
@@ -219,7 +238,7 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
             @if (!isTextReport()) {
               <app-operation-period-filter #periodFilter (periodChange)="onPeriodChange($event)" />
               @if (periodMessage()) { <p class="mb-0 mt-2 text-xs text-amber-700" aria-live="polite">{{ periodMessage() }}</p> }
-            } @else {
+            } @else if (!isLegacyEstructuras()) {
               <label><span class="mb-1 block text-xs font-medium text-slate-700">{{ selectedType() === 'rectificaciones' ? 'Pedimento' : selectedType() === 'compulsa-detalle' ? 'Pedimento, clave, fracci\u00f3n, pa\u00eds o estado' : selectedType() === 'rectificaciones-detalle' ? 'Pedimento, clave, pedimento original, existe o estado' : selectedType() === 'vencimientos' ? 'Pedimento, clave o factura' : selectedType() === 'dirigidos' ? 'Documento, clave, producto o factura' : selectedType() === 'analisis-descargas' ? 'Importación, exportación, material o producto' : selectedType() === 'operaciones-bloqueadas' ? 'Pedimento, clave, producto, material o folio' : selectedType() === 'f4' ? 'Documento, importación, clave o tipo' : 'Pedimento, clave o fracción' }}</span><input matInput name="filter" [(ngModel)]="filter" maxlength="60" class="report-input" /></label>
             }
           </div>
@@ -248,13 +267,19 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
             } @else if (selectedType() === 'anexo30-revision-fracciones') {
               <p class="m-0 text-xs text-slate-500">Registros persistidos de fracción utilizados por el proceso Anexo 30.</p>
             } @else if (selectedType() === 'anexo30-revision-descargas') {
-              <p class="m-0 text-xs text-slate-500">Revisión read-only del �ltimo estado persistido de descargas Anexo 30. Esta consulta no ejecuta ni recalcula el proceso.</p>
+              <p class="m-0 text-xs text-slate-500">Revisión read-only del �ltimo estado persistido de descargas Anexo 30. Esta consulta no ejecuta ni recalcula el proceso.</p>
             } @else if (selectedType() === 'anexo30-revision-comparativa') {
               <p class="m-0 text-xs text-slate-500">Revisi&oacute;n read-only de la &uacute;ltima comparativa A31/A24 persistida. La consulta no ejecuta ni recalcula el proceso de comparaci&oacute;n.</p>
             } @else if (selectedType() === 'saldos') {
               <p class="mb-3 text-xs text-slate-500">Consulta read-only del reporte legacy de saldos.</p>
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <label><span class="mb-1 block text-xs font-medium text-slate-700">Documento / Pedimento</span><input matInput name="customsDocument" [(ngModel)]="customsDocument" maxlength="50" class="report-input" /></label>
+              </div>
+            } @else if (selectedType() === 'estructuras-legacy') {
+              <p class="mb-3 text-xs text-slate-500">Informe legacy de estructuras (dbo.PR_INFORME_ESTRUCTURAS): cantidades, merma, desperdicio y última salida tal como los calcula el procedimiento original. El periodo del procedimiento no filtra resultados.</p>
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <label><span class="mb-1 block text-xs font-medium text-slate-700">Producto</span><input matInput name="product" [(ngModel)]="product" maxlength="50" class="report-input" /></label>
+                <label><span class="mb-1 block text-xs font-medium text-slate-700">Material</span><input matInput name="material" [(ngModel)]="material" maxlength="50" class="report-input" /></label>
               </div>
             } @else if (isOperationalReport()) {
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -309,7 +334,11 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
             } @else {
               <div class="flex min-h-52 flex-col items-center justify-center px-6 py-10 text-center"><mat-icon class="mb-3 h-10 w-10 text-[40px]! text-slate-300" aria-hidden="true">search_off</mat-icon><p class="m-0 text-sm font-medium text-slate-600">No se encontraron resultados</p><span class="mt-1 text-xs text-slate-400">{{ selectedType() === 'vencimientos' ? 'No hay vencimientos de desperdicio para los filtros seleccionados.' : selectedType() === 'dirigidos' ? 'No hay líneas marcadas como dirigidas para los filtros seleccionados.' : selectedType() === 'analisis-descargas' ? 'No hay relaciones de descarga para los filtros seleccionados.' : selectedType() === 'operaciones-bloqueadas' ? 'No hay operaciones bloqueadas para los filtros seleccionados.' : selectedType() === 'f4' ? 'No hay líneas F4 dirigidas para los filtros seleccionados.' : 'No hay registros para el periodo y filtros seleccionados.' }}</span></div>
             }
-            <mat-paginator [length]="totalItems()" [pageIndex]="currentPage - 1" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" (page)="changePage($event)" showFirstLastButtons aria-label="Paginación del reporte" />
+            @if (isLegacyEstructuras()) {
+              <p class="m-0 border-t border-slate-100 px-4 py-2 text-xs text-slate-500">Informe legacy sin paginación: {{ formatTotal() }} filas.</p>
+            } @else {
+              <mat-paginator [length]="totalItems()" [pageIndex]="currentPage - 1" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" (page)="changePage($event)" showFirstLastButtons aria-label="Paginación del reporte" />
+            }
           </section>
         }
       </main>
@@ -386,8 +415,9 @@ export class ReportListPage implements OnInit {
     this.resetResults();
   }
 
-  protected isTextReport(): boolean { return this.selectedType() === 'compulsa' || this.selectedType() === 'compulsa-detalle' || this.selectedType() === 'rectificaciones' || this.selectedType() === 'rectificaciones-detalle' || this.selectedType() === 'vencimientos' || this.selectedType() === 'dirigidos' || this.selectedType() === 'analisis-descargas' || this.selectedType() === 'operaciones-bloqueadas' || this.selectedType() === 'f4' || this.selectedType() === 'anexo30-revision-entradas' || this.selectedType() === 'anexo30-revision-fracciones' || this.selectedType() === 'anexo30-revision-descargas' || this.selectedType() === 'anexo30-revision-comparativa' || this.selectedType() === 'anexo30-revision-inventario-inicial'; }
+  protected isTextReport(): boolean { return this.selectedType() === 'compulsa' || this.selectedType() === 'compulsa-detalle' || this.selectedType() === 'rectificaciones' || this.selectedType() === 'rectificaciones-detalle' || this.selectedType() === 'vencimientos' || this.selectedType() === 'dirigidos' || this.selectedType() === 'analisis-descargas' || this.selectedType() === 'operaciones-bloqueadas' || this.selectedType() === 'f4' || this.selectedType() === 'anexo30-revision-entradas' || this.selectedType() === 'anexo30-revision-fracciones' || this.selectedType() === 'anexo30-revision-descargas' || this.selectedType() === 'anexo30-revision-comparativa' || this.selectedType() === 'anexo30-revision-inventario-inicial' || this.selectedType() === 'estructuras-legacy'; }
   protected isOperationalReport(): boolean { return !this.isTextReport() && this.selectedType() !== 'bitacora'; }
+  protected isLegacyEstructuras(): boolean { return this.selectedType() === 'estructuras-legacy'; }
   protected periodMessage(): string | null {
     if (this.isTextReport()) return null;
     if (!this.fromDate || !this.toDate) return 'Selecciona fecha inicial y fecha final para generar el reporte.';
@@ -397,7 +427,7 @@ export class ReportListPage implements OnInit {
   protected columns(): ReportColumn[] { return COLUMNS[this.selectedType()]; }
   protected displayedColumns(): string[] { return this.columns().map((column) => column.key); }
   protected formatTotal(): string { return new Intl.NumberFormat('es-MX').format(this.totalItems()); }
-  protected canExport(): boolean { return (this.selectedType() === "f4" || this.selectedType() === "dirigidos" || this.selectedType() === "analisis-descargas" || this.selectedType() === "compulsa" || this.selectedType() === "compulsa-detalle" || this.selectedType() === "rectificaciones" || this.selectedType() === "rectificaciones-detalle" || this.selectedType() === "vencimientos" || this.selectedType() === "operaciones-bloqueadas" || this.selectedType() === "anexo30-revision-entradas" || this.selectedType() === "anexo30-revision-fracciones" || this.selectedType() === "anexo30-revision-descargas" || this.selectedType() === "anexo30-revision-comparativa" || this.selectedType() === "anexo30-revision-inventario-inicial" || !this.isTextReport()) && this.auth.hasPermission("REPORTES_EXPORTAR") && this.hasGenerated() && this.items().length > 0; }
+  protected canExport(): boolean { return (this.selectedType() === "f4" || this.selectedType() === "dirigidos" || this.selectedType() === "analisis-descargas" || this.selectedType() === "compulsa" || this.selectedType() === "compulsa-detalle" || this.selectedType() === "rectificaciones" || this.selectedType() === "rectificaciones-detalle" || this.selectedType() === "vencimientos" || this.selectedType() === "operaciones-bloqueadas" || this.selectedType() === "anexo30-revision-entradas" || this.selectedType() === "anexo30-revision-fracciones" || this.selectedType() === "anexo30-revision-descargas" || this.selectedType() === "anexo30-revision-comparativa" || this.selectedType() === "anexo30-revision-inventario-inicial" || this.selectedType() === "estructuras-legacy" || !this.isTextReport()) && this.auth.hasPermission("REPORTES_EXPORTAR") && this.hasGenerated() && this.items().length > 0; }
 
   protected generate(): void {
     if (!this.canGenerate()) return;

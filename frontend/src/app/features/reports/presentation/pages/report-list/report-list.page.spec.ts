@@ -18,6 +18,8 @@ interface PageInternals {
   toDate: Date | null;
   currentPage: number;
   customsDocument: string;
+  product: string;
+  material: string;
   generate(): void;
   hasGenerated(): boolean;
   changePage(event: { pageIndex: number; pageSize: number; length: number }): void;
@@ -39,6 +41,25 @@ const fila: ReportRow = {
 };
 
 const pagina: ReportPage = { items: [fila], total: 1, page: 1, pageSize: 20 };
+
+const estructura: ReportRow = {
+  codigoProducto: 'P001',
+  descripcionProducto: 'Producto',
+  unidadMedida: 'PZA',
+  inicioEstructura: '2020-01-01T00:00:00',
+  finEstructura: null,
+  codigoMateriaPrima: 'M001',
+  cantidadIncorporada: '2.5',
+  cantidadMermada: '0.1',
+  cantidadDesperdiciada: '0',
+  productoKey: '10',
+  descripcionMateriaPrima: 'Material',
+  unidadMateriaPrima: 'KG',
+  fraccionMateriaPrima: '7208',
+  ultimaSalida: null,
+  prodMatKey: '100',
+  estructuraKey: '1001',
+};
 
 describe('ReportListPage (formato de partidas)', () => {
   let fixture: ComponentFixture<ReportListPage>;
@@ -409,6 +430,84 @@ describe('ReportListPage (formato de partidas)', () => {
     fixture.detectChanges();
 
     expect(botones().some((button) => button.textContent?.includes('XLSX'))).toBe(true);
+  });
+
+  it('selecciona estructuras legacy y envía producto y material sin periodo ni paginación', () => {
+    search.execute.mockReturnValue(of({ items: [estructura], total: 1, page: 1, pageSize: 1 }));
+    const internals = fixture.componentInstance as unknown as PageInternals;
+    const page = fixture.componentInstance as unknown as { filteredReports(): { type: string; label: string }[] };
+    expect(page.filteredReports().find((report) => report.type === 'estructuras-legacy')?.label).toBe('Estructuras (legacy)');
+
+    internals.selectedType.set('estructuras-legacy');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-operation-period-filter')).toBeNull();
+    expect(fixture.nativeElement.querySelector('input[name=filter]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('input[name=product]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('input[name=material]')).not.toBeNull();
+
+    internals.product = ' P001 ';
+    internals.material = ' M001 ';
+    internals.generate();
+    fixture.detectChanges();
+
+    expect(search.execute).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'estructuras-legacy', product: ' P001 ', material: ' M001 ',
+    }));
+    expect(fixture.nativeElement.querySelectorAll('[aria-label="Resultados del reporte"] th').length).toBe(16);
+    expect(fixture.nativeElement.querySelectorAll('tbody tr td').length).toBe(16);
+    expect(fixture.nativeElement.querySelector('mat-paginator')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Informe legacy sin paginación: 1 filas.');
+  });
+
+  it('muestra vacío en estructuras legacy', () => {
+    search.execute.mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 0 }));
+    const internals = fixture.componentInstance as unknown as PageInternals;
+    internals.selectedType.set('estructuras-legacy');
+    fixture.detectChanges();
+    internals.generate();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('No se encontraron resultados');
+    expect(fixture.nativeElement.textContent).toContain('Informe legacy sin paginación: 0 filas.');
+  });
+
+  it('muestra error y reintenta en estructuras legacy', () => {
+    search.execute.mockReturnValueOnce(throwError(() => new Error('fallo'))).mockReturnValueOnce(of({ items: [estructura], total: 1, page: 1, pageSize: 1 }));
+    const internals = fixture.componentInstance as unknown as PageInternals;
+    internals.selectedType.set('estructuras-legacy');
+    fixture.detectChanges();
+    internals.generate();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('No pudimos generar el reporte');
+
+    const retry = botones().find((button) => button.textContent?.includes('Reintentar')) as HTMLButtonElement;
+    retry.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('tbody tr')).not.toBeNull();
+  });
+
+  it('ofrece XLSX de estructuras legacy con REPORTES_EXPORTAR', () => {
+    search.execute.mockReturnValue(of({ items: [estructura], total: 1, page: 1, pageSize: 1 }));
+    const internals = fixture.componentInstance as unknown as PageInternals;
+    internals.selectedType.set('estructuras-legacy');
+    fixture.detectChanges();
+    internals.generate();
+    fixture.detectChanges();
+
+    expect(botones().some((button) => button.textContent?.includes('XLSX'))).toBe(true);
+  });
+
+  it('oculta XLSX de estructuras legacy sin REPORTES_EXPORTAR', () => {
+    const auth = TestBed.inject(AuthService) as unknown as { hasPermission: () => boolean };
+    auth.hasPermission = () => false;
+    search.execute.mockReturnValue(of({ items: [estructura], total: 1, page: 1, pageSize: 1 }));
+    const internals = fixture.componentInstance as unknown as PageInternals;
+    internals.selectedType.set('estructuras-legacy');
+    fixture.detectChanges();
+    internals.generate();
+    fixture.detectChanges();
+
+    expect(botones().some((button) => button.textContent?.includes('XLSX'))).toBe(false);
   });
 
   it('oculta XLSX de Anexo 30 sin REPORTES_EXPORTAR', () => {

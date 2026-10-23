@@ -264,5 +264,25 @@ describe('ReportApiService', () => {
     expect(request.request.params.has('hasta')).toBe(false);
     request.flush(new Blob());
   });
+  it('consulta el informe legacy de estructuras sin paginación y con producto o material', () => {
+    let total = -1;
+    service.search({ ...criteria, type: 'estructuras-legacy', product: ' P001 ', material: ' M001 ' }).subscribe((page) => (total = page.total));
+    const request = http.expectOne((candidate) => candidate.url === '/api/v1/reportes/estructuras-legacy');
+    expect(request.request.params.keys().sort()).toEqual(['material', 'producto']);
+    expect(request.request.params.get('producto')).toBe('P001');
+    expect(request.request.params.get('material')).toBe('M001');
+    expect(request.request.params.has('pagina')).toBe(false);
+    request.flush([{ codigoProducto: 'P001' }, { codigoProducto: 'P002' }]);
+    expect(total).toBe(2);
+  });
+
+  it('exporta el informe legacy de estructuras con el mismo filtro', () => {
+    service.export({ ...criteria, type: 'estructuras-legacy', product: 'P001', material: '' }).subscribe();
+    const request = http.expectOne((candidate) => candidate.url === '/api/v1/reportes/estructuras-legacy/exportacion');
+    expect(request.request.responseType).toBe('blob');
+    expect(request.request.params.keys()).toEqual(['producto']);
+    expect(request.request.params.has('tamano')).toBe(false);
+    request.flush(new Blob());
+  });
 
 });

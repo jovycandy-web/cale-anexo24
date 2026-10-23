@@ -20,6 +20,8 @@ import com.jovycandy.anexo24.reports.extended.application.query.ListarAnexo30Des
 import com.jovycandy.anexo24.reports.extended.application.query.ListarAnexo30ComparativaUseCase;
 import com.jovycandy.anexo24.reports.extended.application.query.ListarSaldosUseCase;
 import com.jovycandy.anexo24.reports.extended.application.query.ListarVencimientosUseCase;
+import com.jovycandy.anexo24.reports.extended.application.query.ListarEstructurasLegacyUseCase;
+import com.jovycandy.anexo24.reports.extended.domain.model.EstructuraLegacy;
 import com.jovycandy.anexo24.reports.extended.domain.model.AnalisisDescarga;
 import com.jovycandy.anexo24.reports.extended.domain.model.CompulsaDetalle;
 import com.jovycandy.anexo24.reports.extended.domain.model.LineaF4;
@@ -34,6 +36,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -102,6 +105,9 @@ class ReportesControllerTest {
 
     @MockitoBean
     private ListarSaldosUseCase listarSaldosUseCase;
+
+    @MockitoBean
+    private ListarEstructurasLegacyUseCase listarEstructurasLegacyUseCase;
 
     @MockitoBean
     private ListarAnexo30EntradasUseCase listarAnexo30EntradasUseCase;
@@ -534,6 +540,78 @@ class ReportesControllerTest {
         }
     }
 
+
+    @Test
+    void estructurasLegacyExigeAutenticacionYPermisoDeGeneracion() throws Exception {
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void estructurasLegacyMuestraCamposDeLaFilaYElResultadoVacio() throws Exception {
+        when(listarEstructurasLegacyUseCase.ejecutar(any(), any(), any(), any()))
+                .thenReturn(List.of(new EstructuraLegacy("P001", "Producto", "PZA",
+                        LocalDateTime.of(2020, 1, 1, 0, 0), null, "M001",
+                        new BigDecimal("2.5000000"), new BigDecimal("0.1000000"), BigDecimal.ZERO,
+                        10L, "Material", "KG", "7208", null, 100L, 1001L)), List.of());
+        var solicitud = get("/api/v1/reportes/estructuras-legacy")
+                .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR")));
+        mockMvc.perform(solicitud).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].codigoProducto").value("P001"))
+                .andExpect(jsonPath("$[0].cantidadIncorporada").value(2.5));
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR"))))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+    }
+
+    @Test
+    void estructurasLegacyTimeoutResponde503SinDetallesInternos() throws Exception {
+        when(listarEstructurasLegacyUseCase.ejecutar(any(), any(), any(), any()))
+                .thenThrow(new QueryTimeoutException("detalle SQL sensible"));
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR"))))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("DEPENDENCIA_NO_DISPONIBLE"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("detalle SQL sensible"))));
+    }
+
+    @Test
+    void exportarEstructurasLegacyExigePermisoYUsaArchivoXlsxCompartido() throws Exception {
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy/exportacion")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR"))))
+                .andExpect(status().isForbidden());
+        when(listarEstructurasLegacyUseCase.ejecutar(any(), any(), any(), any()))
+                .thenReturn(List.of(new EstructuraLegacy("P001", "Producto", "PZA",
+                        LocalDateTime.of(2020, 1, 1, 0, 0), null, "M001",
+                        new BigDecimal("2.5"), BigDecimal.ZERO, BigDecimal.ZERO,
+                        10L, "Material", "KG", "7208", null, 100L, 1001L)));
+        MvcResult respuesta = mockMvc.perform(get("/api/v1/reportes/estructuras-legacy/exportacion")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("estructuras-legacy.xlsx")))
+                .andReturn();
+        verify(registrarExportacionReporteService).registrar(eq("estructuras-legacy"), any());
+        try (XSSFWorkbook libro = new XSSFWorkbook(new ByteArrayInputStream(respuesta.getResponse().getContentAsByteArray()))) {
+            var hoja = libro.getSheet("estructuras-legacy");
+            org.junit.jupiter.api.Assertions.assertEquals(16, hoja.getRow(0).getLastCellNum());
+            org.junit.jupiter.api.Assertions.assertEquals("P001", hoja.getRow(1).getCell(0).getStringCellValue());
+        }
+    }
+
+    @Test
+    void exportarEstructurasLegacySinFilasResponde204YNoRegistraEvento() throws Exception {
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy/exportacion"))
+                .andExpect(status().isUnauthorized());
+        when(listarEstructurasLegacyUseCase.ejecutar(any(), any(), any(), any()))
+                .thenReturn(List.of());
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy/exportacion")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isNoContent());
+        verifyNoInteractions(registrarExportacionReporteService);
+    }
 
     @Test
     void listarAnexo30RevisionEntradasSinAutenticacionResponde401() throws Exception {
