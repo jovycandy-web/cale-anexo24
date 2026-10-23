@@ -43,6 +43,9 @@ ALLOWLIST: dict[str, dict[str, dict[str, object]]] = {
     "SystemStatusController.java": {
         "checkDatabase": {"sql": {"SELECT 1"}, "jdbc": True},
     },
+    "EstructuraLegacyStoredProcedureAdapter.java": {
+        "filas": {"jdbc": True},
+    },
 }
 
 DEFAULT_ROOT = "backend/src/main/java"
