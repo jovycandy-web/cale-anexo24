@@ -62,6 +62,7 @@ public class ActivoFijoStoredProcedureAdapter implements ActivoFijoRepository {
             new SqlParameter("Modelo", Types.VARCHAR),
             new SqlParameter("Pagina", Types.INTEGER),
             new SqlParameter("Tamano", Types.INTEGER),
+            new SqlOutParameter(TOTAL_PARAMETER, Types.BIGINT),
             new SqlParameter("PedimentoOp", Types.VARCHAR),
             new SqlParameter("ClavePedimentoOp", Types.VARCHAR),
             new SqlParameter("NumeroParteOp", Types.VARCHAR),
@@ -69,7 +70,6 @@ public class ActivoFijoStoredProcedureAdapter implements ActivoFijoRepository {
             new SqlParameter("SerieOp", Types.VARCHAR),
             new SqlParameter("MarcaOp", Types.VARCHAR),
             new SqlParameter("ModeloOp", Types.VARCHAR),
-            new SqlOutParameter(TOTAL_PARAMETER, Types.BIGINT),
             new SqlReturnResultSet(RESULT_SET_NAME, ACTIVO_FIJO_MAPPER));
 
     private final JdbcTemplate jdbcTemplate;
@@ -102,14 +102,14 @@ public class ActivoFijoStoredProcedureAdapter implements ActivoFijoRepository {
             statement.setString(9, valor(criterios.modelo()));
             statement.setInt(10, pagina);
             statement.setInt(11, tamano);
-            statement.setString(12, operador(criterios.pedimento()));
-            statement.setString(13, operador(criterios.clavePedimento()));
-            statement.setString(14, operador(criterios.numeroParte()));
-            statement.setString(15, operador(criterios.descripcion()));
-            statement.setString(16, operador(criterios.serie()));
-            statement.setString(17, operador(criterios.marca()));
-            statement.setString(18, operador(criterios.modelo()));
-            statement.registerOutParameter(19, Types.BIGINT);
+            statement.registerOutParameter(12, Types.BIGINT);
+            statement.setString(13, operador(criterios.pedimento()));
+            statement.setString(14, operador(criterios.clavePedimento()));
+            statement.setString(15, operador(criterios.numeroParte()));
+            statement.setString(16, operador(criterios.descripcion()));
+            statement.setString(17, operador(criterios.serie()));
+            statement.setString(18, operador(criterios.marca()));
+            statement.setString(19, operador(criterios.modelo()));
             return statement;
         }, DECLARED_PARAMETERS);
 

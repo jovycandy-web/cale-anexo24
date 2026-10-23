@@ -95,6 +95,32 @@ class ActivosFijosSqlIT {
     }
 
     @Test
+    void contratoLegacyDeDoceArgumentosSigueFuncionando() throws Exception {
+        try (Connection c = conectar(DB);
+             CallableStatement cs = c.prepareCall(
+                     "{call dbo.APP24_Q_ACTIVOS_FIJOS_LISTAR(?,?,?,?,?,?,?,?,?,?,?,?)}")) {
+            cs.setNull(1, Types.DATE);
+            cs.setNull(2, Types.DATE);
+            for (int posicion = 3; posicion <= 9; posicion++) {
+                cs.setNull(posicion, Types.VARCHAR);
+            }
+            cs.setInt(10, 1);
+            cs.setInt(11, 20);
+            cs.registerOutParameter(12, Types.BIGINT);
+            cs.execute();
+
+            int filas = 0;
+            try (ResultSet rs = cs.getResultSet()) {
+                while (rs.next()) {
+                    filas++;
+                }
+            }
+            assertEquals(4L, cs.getLong(12));
+            assertEquals(4, filas);
+        }
+    }
+
+    @Test
     void contratoDeTreceColumnas() throws Exception {
         assertEquals(List.of("PARTIDA_ENTRADA_ID", "IMPORTACION_ID", "PEDIMENTO", "CLAVE_PEDIMENTO",
                 "FECHA_IMPORTACION", "NUMERO_PARTE", "DESCRIPCION", "FRACCION", "CANTIDAD", "UNIDAD",
@@ -242,14 +268,14 @@ class ActivosFijosSqlIT {
             setString(cs, 9, filtro.modelo);
             cs.setInt(10, filtro.pagina);
             cs.setInt(11, filtro.tamano);
-            setString(cs, 12, filtro.pedimentoOp);
-            setString(cs, 13, filtro.clavePedimentoOp);
-            setString(cs, 14, filtro.numeroParteOp);
-            setString(cs, 15, filtro.descripcionOp);
-            setString(cs, 16, filtro.serieOp);
-            setString(cs, 17, filtro.marcaOp);
-            setString(cs, 18, filtro.modeloOp);
-            cs.registerOutParameter(19, Types.BIGINT);
+            cs.registerOutParameter(12, Types.BIGINT);
+            setString(cs, 13, filtro.pedimentoOp);
+            setString(cs, 14, filtro.clavePedimentoOp);
+            setString(cs, 15, filtro.numeroParteOp);
+            setString(cs, 16, filtro.descripcionOp);
+            setString(cs, 17, filtro.serieOp);
+            setString(cs, 18, filtro.marcaOp);
+            setString(cs, 19, filtro.modeloOp);
             cs.execute();
 
             List<String> columnas = new ArrayList<>();
@@ -267,7 +293,7 @@ class ActivosFijosSqlIT {
                     filas.add(fila);
                 }
             }
-            return new Resultado(columnas, filas, cs.getLong(19));
+            return new Resultado(columnas, filas, cs.getLong(12));
         }
     }
 

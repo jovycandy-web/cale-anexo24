@@ -91,26 +91,26 @@ class ActivoFijoStoredProcedureAdapterTest {
         verify(callableStatement).setString(9, "MODELO");
         verify(callableStatement).setInt(10, 2);
         verify(callableStatement).setInt(11, 20);
-        verify(callableStatement).setString(12, "CT");
-        verify(callableStatement).setString(13, "EQ");
-        verify(callableStatement).setString(14, "SW");
-        verify(callableStatement).setString(15, "EW");
-        verify(callableStatement).setString(16, "NEQ");
-        verify(callableStatement).setString(17, "EQ");
+        verify(callableStatement).registerOutParameter(12, Types.BIGINT);
+        verify(callableStatement).setString(13, "CT");
+        verify(callableStatement).setString(14, "EQ");
+        verify(callableStatement).setString(15, "SW");
+        verify(callableStatement).setString(16, "EW");
+        verify(callableStatement).setString(17, "NEQ");
         verify(callableStatement).setString(18, "EQ");
-        verify(callableStatement).registerOutParameter(19, Types.BIGINT);
+        verify(callableStatement).setString(19, "EQ");
 
         assertThat(declarations.getValue()).extracting(SqlParameter::getName)
                 .containsExactly("Desde", "Hasta", "Pedimento", "ClavePedimento", "NumeroParte",
                         "Descripcion", "Serie", "Marca", "Modelo", "Pagina", "Tamano",
-                        "PedimentoOp", "ClavePedimentoOp", "NumeroParteOp", "DescripcionOp",
-                        "SerieOp", "MarcaOp", "ModeloOp", "Total", "items");
-        assertThat(declarations.getValue().get(18)).isInstanceOf(SqlOutParameter.class);
+                        "Total", "PedimentoOp", "ClavePedimentoOp", "NumeroParteOp", "DescripcionOp",
+                        "SerieOp", "MarcaOp", "ModeloOp", "items");
+        assertThat(declarations.getValue().get(11)).isInstanceOf(SqlOutParameter.class);
         assertThat(declarations.getValue().subList(0, 19)).extracting(SqlParameter::getSqlType)
                 .containsExactly(Types.DATE, Types.DATE, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR,
                         Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.INTEGER,
-                        Types.INTEGER, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR,
-                        Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.BIGINT);
+                        Types.INTEGER, Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR,
+                        Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR);
     }
 
     @Test
@@ -132,7 +132,7 @@ class ActivoFijoStoredProcedureAdapterTest {
         for (int posicion = 3; posicion <= 9; posicion++) {
             verify(callableStatement).setString(posicion, null);
         }
-        for (int posicion = 12; posicion <= 18; posicion++) {
+        for (int posicion = 13; posicion <= 19; posicion++) {
             verify(callableStatement).setString(posicion, null);
         }
     }
@@ -152,7 +152,7 @@ class ActivoFijoStoredProcedureAdapterTest {
         verify(jdbcTemplate).call(creator.capture(), anyList());
         creator.getValue().createCallableStatement(connection);
         verify(callableStatement).setString(3, null);
-        verify(callableStatement).setString(12, null);
+        verify(callableStatement).setString(13, null);
     }
 
     @Test

@@ -13,21 +13,22 @@ CREATE OR ALTER PROCEDURE dbo.APP24_Q_ACTIVOS_FIJOS_LISTAR
     @Modelo VARCHAR(50) = NULL,
     @Pagina INT = 1,
     @Tamano INT = 20,
+    @Total BIGINT OUTPUT,
     @PedimentoOp VARCHAR(10) = NULL,
     @ClavePedimentoOp VARCHAR(10) = NULL,
     @NumeroParteOp VARCHAR(10) = NULL,
     @DescripcionOp VARCHAR(10) = NULL,
     @SerieOp VARCHAR(10) = NULL,
     @MarcaOp VARCHAR(10) = NULL,
-    @ModeloOp VARCHAR(10) = NULL,
-    @Total BIGINT OUTPUT
+    @ModeloOp VARCHAR(10) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    /* Los parámetros de operador se agregan al final para conservar las
-       posiciones 1..11 del contrato anterior. NULL o vacío equivale a EQ,
-       por lo que un cliente previo mantiene exactamente el mismo resultado. */
+    /* @Total conserva la posición 12 del contrato desplegado en LIVE y los
+       parámetros de operador se agregan al final (13..19). NULL o vacío
+       equivale a EQ, por lo que un cliente previo que envía 12 argumentos
+       mantiene exactamente el mismo resultado. */
 
     IF (@Desde IS NULL AND @Hasta IS NOT NULL)
        OR (@Desde IS NOT NULL AND @Hasta IS NULL)

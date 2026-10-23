@@ -590,8 +590,9 @@ justificada por la brecha B-09.
 
 ### 13.2 Cambio en el procedimiento
 
-`dbo.APP24_Q_ACTIVOS_FIJOS_LISTAR` conserva sus parámetros 1..11 y agrega siete
-parámetros de operador **después de `@Tamano`**, antes de `@Total`:
+`dbo.APP24_Q_ACTIVOS_FIJOS_LISTAR` conserva sus parámetros 1..12 del contrato
+desplegado en LIVE (`@Total BIGINT OUTPUT` sigue en la posición 12) y agrega
+siete parámetros de operador **después de `@Total`**, en las posiciones 13..19:
 
 | Parámetro | Tipo | Default | Semántica |
 |---|---|---|---|
