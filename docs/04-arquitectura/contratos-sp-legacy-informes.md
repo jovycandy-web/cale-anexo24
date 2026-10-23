@@ -38,7 +38,9 @@ Reglas observadas:
 - `Fecha de Fin Estructura` es el siguiente `inicio` del mismo producto.
 - `Ultima Salida` es `MAX(salidas.Fecha)` del producto vía `psalidas.Clave`.
 - Orden: `Codigo A24 Interno`, `Codigo de Producto`, `Fecha de Inicio Estructura`.
-- `RIGHT OUTER JOIN dbo.productos` conserva productos sin estructura (fila con MP nula).
+- `RIGHT OUTER JOIN dbo.productos` no alcanza a conservar productos sin estructura: el
+  `WHERE ... = COALESCE(...)` sobre `productomaterial` descarta esas filas (predicado
+  `NULL = NULL` es `UNKNOWN`). Verificado ejecutando el SP en SQL Server aislado.
 
 Caracterización en SQL Server aislado: `EstructurasLegacySqlIT` (10 escenarios; requiere
 Docker/Testcontainers y se ejecuta en CI).

@@ -22,6 +22,7 @@ import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,23 +71,30 @@ class EstructurasLegacySqlIT {
 
     @Test
     void contratoDeDieciseisColumnasEnOrden() throws Exception {
-        assertEquals(List.of("Codigo de Producto", "Descripcion del Producto", "Unidad de Medida",
+        List<String> esperadas = List.of("Codigo de Producto", "Descripcion del Producto", "Unidad de Medida",
                 "Fecha de Inicio Estructura", "Fecha de Fin Estructura", "Codigo de Materia Prima",
                 "Cantidad Incorporada", "Cantidad Mermada", "Cantidad Desperdiciada",
                 "Codigo A24 Interno", "Descripcion de MP", "Unidad MP", "Fraccion MP",
-                "Ultima Salida", "PRODMATKEY", "EstructuraKey"), consultar(null, null, null, null).columnas());
+                "Ultima Salida", "PRODMATKEY", "EstructuraKey");
+        List<String> reales = consultar(null, null, null, null).columnas();
+        // SQL Server etiqueta la columna sin alias con el casing del identificador
+        // declarado en la tabla, por eso la comparación es insensible a mayúsculas.
+        assertEquals(esperadas.size(), reales.size());
+        for (int i = 0; i < esperadas.size(); i++) {
+            assertEquals(esperadas.get(i).toLowerCase(Locale.ROOT), reales.get(i).toLowerCase(Locale.ROOT),
+                    "columna " + (i + 1));
+        }
     }
 
     @Test
     void sinFiltrosDevuelveTodasLasFilasOrdenadas() throws Exception {
         Resultado r = consultar(null, null, null, null);
-        assertEquals(4, r.filas().size());
+        assertEquals(3, r.filas().size());
         assertEquals("P001", r.filas().get(0).get("Codigo de Producto"));
         assertEquals("P001", r.filas().get(1).get("Codigo de Producto"));
         assertEquals("P002", r.filas().get(2).get("Codigo de Producto"));
-        assertEquals("P003", r.filas().get(3).get("Codigo de Producto"));
-        assertEquals(1001L, ((Number) r.filas().get(0).get("EstructuraKey")).longValue());
-        assertEquals(1002L, ((Number) r.filas().get(1).get("EstructuraKey")).longValue());
+        assertEquals(1001L, ((Number) valor(r.filas().get(0), "EstructuraKey")).longValue());
+        assertEquals(1002L, ((Number) valor(r.filas().get(1), "EstructuraKey")).longValue());
     }
 
     @Test
@@ -113,7 +121,7 @@ class EstructurasLegacySqlIT {
                 ((Timestamp) consultar("P001", null, null, null).filas().get(0).get("Ultima Salida")).toLocalDateTime());
         assertEquals(LocalDateTime.of(2020, 9, 1, 0, 0),
                 ((Timestamp) consultar("P002", null, null, null).filas().get(0).get("Ultima Salida")).toLocalDateTime());
-        assertNull(consultar("P003", null, null, null).filas().get(0).get("Ultima Salida"));
+        assertTrue(consultar("P003", null, null, null).filas().isEmpty());
     }
 
     @Test
@@ -129,16 +137,15 @@ class EstructurasLegacySqlIT {
     }
 
     @Test
-    void productoSinEstructuraConservaLaFilaConMateriaPrimaNula() throws Exception {
-        List<Map<String, Object>> filas = consultar("P003", null, null, null).filas();
-        assertEquals(1, filas.size());
-        assertNull(filas.get(0).get("Codigo de Materia Prima"));
-        assertEquals("Producto Sin Estructura", filas.get(0).get("Descripcion del Producto"));
+    void productoSinEstructuraNoSeDevuelvePorElFiltroDelLegacy() throws Exception {
+        // El WHERE sobre productomaterial descarta los productos sin estructura:
+        // la comparación NULL = NULL es UNKNOWN. El SP no devuelve esa fila.
+        assertTrue(consultar("P003", null, null, null).filas().isEmpty());
     }
 
     @Test
     void parametrosDeFechaNoFiltranEnElLegacy() throws Exception {
-        assertEquals(4, consultar(null, null, "2050-01-01", "2050-12-31").filas().size());
+        assertEquals(3, consultar(null, null, "2050-01-01", "2050-12-31").filas().size());
     }
 
     @Test
@@ -149,6 +156,14 @@ class EstructurasLegacySqlIT {
             assertEquals(antes, contar(s, "dbo.productomaterial"));
             assertEquals(3, contar(s, "dbo.estructuras"));
         }
+    }
+
+    private static Object valor(Map<String, Object> fila, String columna) {
+        return fila.entrySet().stream()
+                .filter(entry -> entry.getKey().equalsIgnoreCase(columna))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElseThrow();
     }
 
     private static int contar(Statement s, String tabla) throws SQLException {
