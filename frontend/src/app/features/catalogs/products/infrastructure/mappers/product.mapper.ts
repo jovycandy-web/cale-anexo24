@@ -7,10 +7,16 @@ export const ProductMapper = {
     return {
       id: dto.id,
       partNumber: dto.clave,
+      clientCode: dto.claveCliente ?? null,
       description: dto.descripcion,
       tariffFraction: dto.fraccion,
       commercialUnit: dto.unidadComercial,
       tariffUnit: dto.unidadTarifaria,
+      nico: dto.nico ?? null,
+      type: dto.tipo ?? null,
+      auxiliary: dto.auxiliar ?? null,
+      warehouseKey: dto.almacenKey ?? null,
+      warehouse: dto.almacen ?? null,
     };
   },
   toPage(dto: ProductPageResponseDto): ProductPage {

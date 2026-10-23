@@ -14,7 +14,13 @@ import java.util.*;
 public class ProveedorJdbcAdapter implements ProveedorRepository {
     static final String PROCEDURE = "dbo.APP24_Q_PROVEEDORES_LISTAR";
     private static final String RESULTADO = "items", TOTAL = "Total";
-    private static final RowMapper<Proveedor> MAPPER = (rs, rowNum) -> new Proveedor(rs.getLong("proveedorkey"), rs.getString("clave"), rs.getString("nombre"), rs.getString("idfiscal"), rs.getString("pais"), rs.getString("correo"));
+    private static final RowMapper<Proveedor> MAPPER = (rs, rowNum) -> new Proveedor(
+            numeroLargo(rs, "proveedorkey"), rs.getString("clave"), rs.getString("nombre"), rs.getString("idfiscal"),
+            rs.getString("tipone"), rs.getString("programa"), rs.getString("callenumero"),
+            entero(rs, "callenumerointerior"), rs.getString("colonia"), rs.getString("codigo"),
+            rs.getString("localidad"), rs.getString("municipio"), rs.getString("entidad"), rs.getString("pais"),
+            rs.getString("telefono"), rs.getString("correo"), rs.getString("fax"),
+            numeroLargo(rs, "almacenkey"), rs.getString("almacendescripcion"));
     private static final List<SqlParameter> PARAMETROS = List.of(new SqlParameter("Filtro", Types.VARCHAR), new SqlParameter("Pagina", Types.INTEGER),
             new SqlParameter("Tamano", Types.INTEGER), new SqlOutParameter(TOTAL, Types.BIGINT),
             new SqlReturnResultSet(RESULTADO, MAPPER));
@@ -28,5 +34,15 @@ public class ProveedorJdbcAdapter implements ProveedorRepository {
         }, PARAMETROS);
         List<Proveedor> items=(List<Proveedor>)out.getOrDefault(RESULTADO,List.of()); Number total=(Number)out.get(TOTAL);
         return new Pagina<>(items,total==null?0L:total.longValue(),pagina,tamano);
+    }
+
+    private static Long numeroLargo(ResultSet rs, String columna) throws SQLException {
+        Object valor = rs.getObject(columna);
+        return valor instanceof Number numero ? numero.longValue() : null;
+    }
+
+    private static Integer entero(ResultSet rs, String columna) throws SQLException {
+        Object valor = rs.getObject(columna);
+        return valor instanceof Number numero ? numero.intValue() : null;
     }
 }

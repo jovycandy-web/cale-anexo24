@@ -200,6 +200,67 @@ Las acciones disponibles incluyen `LOGIN_OK`, `LOGIN_FALLIDO`,
 `PERFIL_ESTADO_CAMBIADO` y `PERFIL_PERMISOS_CAMBIADOS`. El detalle de los eventos
 no contiene contraseñas, hashes, JWT ni cabeceras de autorización.
 
+## Bitácora de reportes
+
+`GET /reportes/{tipo}/exportacion` registra un evento `REPORTE_EXPORTADO`
+(`modulo = REPORTES`, `resultado = EXITO`) sólo cuando el backend generó un
+archivo con contenido. La respuesta `204 No Content` (sin filas), `401` y `403`
+no producen evento. El detalle se limita a `tipoReporte=<identificador>` y
+conserva el `correlationId` de la solicitud (`X-Correlation-Id`).
+
+La consulta paginada `GET /reportes/{tipo}` (generar, filtrar, paginar) **no**
+emite eventos de negocio: el contrato actual no distingue una generación
+explícita de una consulta, por lo que un evento por petición sería falsificable.
+`REPORTE_GENERADO` queda pendiente de un contrato mínimo explícito.
+
+Si la persistencia de Bitácora falla, la exportación responde error y no se
+devuelve el archivo (política fail-closed) hasta que negocio defina si la
+auditoría es obligatoria para lecturas y exportaciones. La misma regla aplica si
+la solicitud no tiene una identidad JWT atribuible: el evento no puede
+registrarse y el archivo no se entrega.
+
+## Catálogo de productos — paridad `SCR-046`
+
+`GET /catalogos/productos` devuelve `items[]` con `id`, `clave`,
+`claveCliente`, `descripcion`, `fraccion`, `unidadComercial`,
+`unidadTarifaria`, `nico`, `tipo`, `auxiliar`, `almacenKey` y `almacen`, más
+`total`, `pagina` y `tamano`. Cualquier campo nullable puede llegar como `null`;
+el frontend lo presenta como `—`.
+
+Parámetros: `filtro` (opcional; búsqueda global server-side sobre clave, código
+de cliente, descripción, fracción, unidades, NICO, tipo, auxiliar, almacén y
+clave de almacén), `pagina` (desde 1) y `tamano` (1–100). El SP
+`dbo.APP24_Q_PRODUCTOS_LISTAR` mantiene el orden `CVE_PRODUCTO ASC,
+PRODUCTOKEY ASC` y calcula `@Total` con el mismo predicado del listado.
+
+`Planta` y `Lista de Materiales` de `SCR-046` no se exponen: no existe columna
+autoritativa ni contrato de relación confirmado. Ver
+`docs/03-diseno/mapeo-productos.md`.
+
+## Catálogo de materiales — paridad parcial `SCR-084`
+
+`GET /catalogos/materiales` devuelve `items[]` con `materialkey`, `clave`,
+`claveProveedor`, `descripcion`, `fraccion`, `nico`, `unidad`, `unidadt`,
+`tipom`, `tipomaterial`, `familia`, `almacenKey` y `almacen`, más `total`,
+`pagina` y `tamano`. Los campos nullable pueden llegar como `null` y el frontend
+los presenta como `-`.
+
+Parámetros: `filtro` (opcional; búsqueda global server-side sobre clave, clave de
+proveedor, descripción, fracción, unidades, NICO, tipo, tipo de material,
+familia, almacén y clave de almacén), `pagina` (desde 1) y `tamano` (1–100). El
+SP `dbo.APP24_Q_MATERIALES_LISTAR` conserva firma, validación, orden
+`clave, materialkey` y `@Total` con el mismo predicado del listado.
+
+`tipom` se expone con el valor almacenado: la equivalencia «nacional/importado»
+del grid legacy no está confirmada por negocio. Alcance y pendientes (CRUD,
+filtros avanzados `B-09`, XLSX) en `docs/03-diseno/mapeo-catalogo-materiales.md`.
+
+**Despliegue pendiente y orden obligatorio:** la versión ampliada del SP no está
+aplicada en `CALE_IMMEX`. Debe ejecutarse `CREATE OR ALTER` (con autorización)
+**antes** de desplegar la API: el adaptador consume las 16 columnas del result
+set y con el SP vigente (10 columnas) la consulta falla. Ver
+`docs/03-diseno/mapeo-catalogo-materiales.md`.
+
 ## Recursos no expuestos
 
 Actividad permanece como catálogo técnico: no expone `POST`, `PUT`, `PATCH` ni
@@ -224,3 +285,30 @@ Fase 4B consume el catálogo real `GET /api/v1/administracion/perfiles`: perfile
 activos para alta/cambio y todos los estados para filtro. La UI no solicita
 `perfilId` manual, no hardcodea IDs ni deduce catálogo desde usuarios. No expone
 pantalla ni CRUD de perfiles.
+
+## Activos fijos — filtros por columna (Sprint 06)
+
+`GET /api/v1/operaciones/activos-fijos` mantiene su contrato V1 y agrega
+operadores opcionales por columna. El detalle del modelo, la justificación
+SP-first y las brechas de paridad están en
+`docs/03-diseno/mapeo-activos-fijos.md` (§13).
+
+| Parámetro | Tipo | Valores | Default |
+|---|---|---|---|
+| `pedimentoOp`, `clavePedimentoOp`, `numeroParteOp`, `descripcionOp`, `serieOp`, `marcaOp`, `modeloOp` | string | `EQ`, `NEQ`, `CT`, `SW`, `EW` | `EQ` |
+
+Reglas:
+
+- El operador sólo se aplica cuando su filtro de valor está informado; si el
+  valor está vacío, ambos se ignoran.
+- Un operador fuera del conjunto responde `400 SOLICITUD_INVALIDA`.
+- `desde` y `hasta` siguen siendo obligatorios en pareja y el rango se aplica a
+  `IMPORTACIONES.Fecha`.
+- Permiso: `OPERACIONES_CONSULTAR`. Errores: `400`, `401`, `403`, `503`.
+- No se agregaron campos (`NICO`, UMT, almacén, tipo controlado) porque no
+  tienen fuente demostrada; ver brechas B-06.
+
+Consumidor frontend: `frontend/src/app/features/operations/fixed-assets`. La
+pantalla conserva CSV y agrega XLSX generado en el navegador, sin endpoint de
+exportación nuevo: ambos formatos descargan el conjunto filtrado completo con
+tope de 10,000 registros y conservan los operadores activos.

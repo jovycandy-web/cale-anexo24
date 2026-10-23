@@ -1,6 +1,8 @@
 package com.jovycandy.anexo24.reports.extended.infrastructure.persistence;
 
 import com.jovycandy.anexo24.reports.extended.domain.model.EstructuraLegacy;
+import com.jovycandy.anexo24.reports.extended.domain.port.EstructuraLegacyRepository;
+import com.jovycandy.anexo24.shared.exception.SolicitudInvalidaException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,12 +18,18 @@ import java.math.BigDecimal;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.sql.DataSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,7 +51,7 @@ class EstructuraLegacyStoredProcedureAdapterTest {
 
     @BeforeEach
     void setUp() {
-        adapter = new EstructuraLegacyStoredProcedureAdapter(jdbcTemplate);
+        adapter = new EstructuraLegacyStoredProcedureAdapter(jdbcTemplate, 30);
     }
 
     @Test
@@ -54,6 +62,7 @@ class EstructuraLegacyStoredProcedureAdapterTest {
 
         callback.doInCallableStatement(callableStatement);
         verify(connection).prepareCall(EstructuraLegacyStoredProcedureAdapter.LLAMADA);
+        verify(callableStatement).setQueryTimeout(30);
         verify(callableStatement).setString(1, "P001");
         verify(callableStatement).setString(2, "M001");
         verify(callableStatement).setTimestamp(3, Timestamp.valueOf("2025-01-02 00:00:00"));
@@ -94,6 +103,78 @@ class EstructuraLegacyStoredProcedureAdapterTest {
         when(callableStatement.getUpdateCount()).thenReturn(-1);
 
         assertThat(ejecutar()).isEmpty();
+    }
+
+    @Test
+    void timeoutConfigurableSeAplicaAntesDeEjecutar() throws Exception {
+        adapter = new EstructuraLegacyStoredProcedureAdapter(jdbcTemplate, 12);
+        when(callableStatement.execute()).thenReturn(false);
+        when(callableStatement.getUpdateCount()).thenReturn(-1);
+
+        assertThat(ejecutar()).isEmpty();
+        verify(callableStatement).setQueryTimeout(12);
+    }
+
+    @Test
+    void rechazaTimeoutNoPositivo() {
+        assertThatThrownBy(() -> new EstructuraLegacyStoredProcedureAdapter(jdbcTemplate, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void detieneLecturaEnFilaDiezMilUnoYConservaErrorSiFallaCancelacion() throws Exception {
+        ResultSet resultSet = Mockito.mock(ResultSet.class);
+        AtomicInteger leidas = new AtomicInteger();
+        when(callableStatement.execute()).thenReturn(true);
+        when(callableStatement.getResultSet()).thenReturn(resultSet);
+        when(resultSet.next()).thenAnswer(invocation -> leidas.incrementAndGet() <= EstructuraLegacyRepository.MAXIMO_FILAS + 1);
+        Mockito.doThrow(new SQLException("cancelación no disponible")).when(callableStatement).cancel();
+
+        assertThatThrownBy(this::ejecutar)
+                .isInstanceOf(SolicitudInvalidaException.class)
+                .hasMessageContaining("10000");
+        assertThat(leidas.get()).isEqualTo(EstructuraLegacyRepository.MAXIMO_FILAS + 1);
+        verify(resultSet).close();
+        verify(callableStatement).cancel();
+    }
+
+    @Test
+    void aceptaDiezMilFilasExactasSinCancelar() throws Exception {
+        ResultSet resultSet = Mockito.mock(ResultSet.class);
+        AtomicInteger leidas = new AtomicInteger();
+        when(callableStatement.execute()).thenReturn(true);
+        when(callableStatement.getResultSet()).thenReturn(resultSet);
+        when(resultSet.next()).thenAnswer(invocation -> leidas.incrementAndGet() <= EstructuraLegacyRepository.MAXIMO_FILAS);
+
+        assertThat(ejecutar()).hasSize(EstructuraLegacyRepository.MAXIMO_FILAS);
+        Mockito.verify(callableStatement, Mockito.never()).cancel();
+        verify(resultSet).close();
+    }
+
+    @Test
+    void propagaExcepcionJdbcParaTraduccionDelTemplateYCierraResultSet() throws Exception {
+        ResultSet resultSet = Mockito.mock(ResultSet.class);
+        when(callableStatement.execute()).thenReturn(true);
+        when(callableStatement.getResultSet()).thenReturn(resultSet);
+        when(resultSet.next()).thenThrow(new SQLTimeoutException("timeout"));
+
+        assertThatThrownBy(this::ejecutar).isInstanceOf(SQLTimeoutException.class);
+        verify(resultSet).close();
+    }
+
+    @Test
+    void jdbcTemplateCierraStatementYConexionCuandoFallaElTimeout() throws Exception {
+        DataSource dataSource = Mockito.mock(DataSource.class);
+        when(dataSource.getConnection()).thenReturn(connection);
+        when(connection.prepareCall(EstructuraLegacyStoredProcedureAdapter.LLAMADA)).thenReturn(callableStatement);
+        Mockito.doThrow(new SQLTimeoutException("timeout")).when(callableStatement).execute();
+        EstructuraLegacyStoredProcedureAdapter real =
+                new EstructuraLegacyStoredProcedureAdapter(new JdbcTemplate(dataSource), 30);
+
+        assertThatThrownBy(() -> real.listar(null, null, null, null))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        verify(callableStatement).close();
+        verify(connection).close();
     }
 
     @Test

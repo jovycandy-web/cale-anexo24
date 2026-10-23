@@ -2,7 +2,9 @@ package com.jovycandy.anexo24.reports.extended.infrastructure.persistence;
 
 import com.jovycandy.anexo24.reports.extended.domain.model.EstructuraLegacy;
 import com.jovycandy.anexo24.reports.extended.domain.port.EstructuraLegacyRepository;
+import com.jovycandy.anexo24.shared.exception.SolicitudInvalidaException;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.CallableStatementCallback;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -45,23 +47,29 @@ public class EstructuraLegacyStoredProcedureAdapter implements EstructuraLegacyR
             largo(rs, "EstructuraKey"));
 
     private final JdbcTemplate jdbcTemplate;
+    private final int queryTimeoutSeconds;
 
-    public EstructuraLegacyStoredProcedureAdapter(@Qualifier("jdbcTemplate") JdbcTemplate jdbcTemplate) {
+    public EstructuraLegacyStoredProcedureAdapter(@Qualifier("jdbcTemplate") JdbcTemplate jdbcTemplate,
+            @Value("${app.reports.legacy-structures.query-timeout-seconds:30}") int queryTimeoutSeconds) {
+        if (queryTimeoutSeconds < 1) {
+            throw new IllegalArgumentException("El timeout del informe de estructuras debe ser positivo.");
+        }
         this.jdbcTemplate = jdbcTemplate;
+        this.queryTimeoutSeconds = queryTimeoutSeconds;
     }
 
     @Override
     public List<EstructuraLegacy> listar(String producto, String material, LocalDate desde, LocalDate hasta) {
         return jdbcTemplate.execute(
-                (CallableStatementCreator) connection -> {
-                    CallableStatement statement = connection.prepareCall(LLAMADA);
+                (CallableStatementCreator) connection -> connection.prepareCall(LLAMADA),
+                (CallableStatementCallback<List<EstructuraLegacy>>) statement -> {
+                    statement.setQueryTimeout(queryTimeoutSeconds);
                     statement.setString(1, producto);
                     statement.setString(2, material);
                     statement.setTimestamp(3, timestamp(desde));
                     statement.setTimestamp(4, timestamp(hasta));
-                    return statement;
-                },
-                (CallableStatementCallback<List<EstructuraLegacy>>) EstructuraLegacyStoredProcedureAdapter::filas);
+                    return filas(statement);
+                });
     }
 
     /*
@@ -77,6 +85,18 @@ public class EstructuraLegacyStoredProcedureAdapter implements EstructuraLegacyR
                 try (ResultSet rs = statement.getResultSet()) {
                     int indice = 0;
                     while (rs != null && rs.next()) {
+                        if (filas.size() == MAXIMO_FILAS) {
+                            // Cancelación best effort; SQL Server puede haber completado
+                            // trabajo previo antes de entregar la primera fila.
+                            try {
+                                statement.cancel();
+                            } catch (SQLException ignored) {
+                                // Conserva el error de límite; JdbcTemplate cierra JDBC.
+                            }
+                            throw new SolicitudInvalidaException(
+                                    "El informe supera las " + MAXIMO_FILAS
+                                            + " filas; acote los filtros de producto o material.");
+                        }
                         filas.add(MAPPER.mapRow(rs, indice++));
                     }
                 }

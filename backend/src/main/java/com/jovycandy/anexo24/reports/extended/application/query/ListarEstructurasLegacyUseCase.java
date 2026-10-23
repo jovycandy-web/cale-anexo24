@@ -13,7 +13,7 @@ import java.util.List;
 public class ListarEstructurasLegacyUseCase {
 
     static final int LONGITUD_MAXIMA_FILTRO = 50;
-    static final int MAXIMO_FILAS = 10_000;
+    static final int MAXIMO_FILAS = EstructuraLegacyRepository.MAXIMO_FILAS;
 
     private final EstructuraLegacyRepository repository;
 

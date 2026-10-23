@@ -3,9 +3,11 @@ package com.jovycandy.anexo24.operations.fixedassets.api;
 import com.jovycandy.anexo24.Anexo24Application;
 import com.jovycandy.anexo24.operations.fixedassets.application.query.ListarActivosFijosUseCase;
 import com.jovycandy.anexo24.operations.fixedassets.domain.model.ActivoFijo;
+import com.jovycandy.anexo24.operations.fixedassets.domain.model.FiltrosActivoFijo;
 import com.jovycandy.anexo24.shared.api.Pagina;
 import com.jovycandy.anexo24.shared.exception.SolicitudInvalidaException;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -20,10 +22,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -55,8 +57,7 @@ class FixedAssetControllerTest {
     @Test
     void autorizadoSinRangoResponde200YSerializaCamposNulos() throws Exception {
         ActivoFijo activo = activoEjemplo();
-        when(useCase.ejecutar(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
-                isNull(), isNull(), isNull(), eq(1), eq(20)))
+        when(useCase.ejecutar(any(), anyInt(), anyInt()))
                 .thenReturn(new Pagina<>(List.of(activo), 1, 1, 20));
 
         mockMvc.perform(get("/api/v1/operaciones/activos-fijos")
@@ -76,27 +77,46 @@ class FixedAssetControllerTest {
     }
 
     @Test
-    void autorizadoConRangoResponde200() throws Exception {
-        when(useCase.ejecutar(DESDE, HASTA, "5003971", "A1", "500017", "AZUCAR ESTANDAR",
-                null, null, null, 1, 20)).thenReturn(new Pagina<>(List.of(), 1, 1, 20));
+    void autorizadoConRangoYOperadoresMapeaElContrato() throws Exception {
+        when(useCase.ejecutar(any(), anyInt(), anyInt()))
+                .thenReturn(new Pagina<>(List.of(), 1, 1, 20));
 
         mockMvc.perform(get("/api/v1/operaciones/activos-fijos")
                         .param("desde", DESDE.toString())
                         .param("hasta", HASTA.toString())
                         .param("pedimento", "5003971")
+                        .param("pedimentoOp", "CT")
                         .param("clavePedimento", "A1")
                         .param("numeroParte", "500017")
                         .param("descripcion", "AZUCAR ESTANDAR")
+                        .param("descripcionOp", "SW")
+                        .param("serie", "SER")
+                        .param("serieOp", "ew")
+                        .param("marca", "MARCA")
+                        .param("modelo", "MODELO")
                         .with(user(usuarioAutorizado())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isArray())
                 .andExpect(jsonPath("$.total").value(1));
+
+        ArgumentCaptor<FiltrosActivoFijo> captor = ArgumentCaptor.forClass(FiltrosActivoFijo.class);
+        verify(useCase).ejecutar(captor.capture(), org.mockito.ArgumentMatchers.eq(1),
+                org.mockito.ArgumentMatchers.eq(20));
+        FiltrosActivoFijo filtros = captor.getValue();
+        assertThat(filtros.desde()).isEqualTo(DESDE);
+        assertThat(filtros.hasta()).isEqualTo(HASTA);
+        assertThat(filtros.pedimento().valor()).isEqualTo("5003971");
+        assertThat(filtros.pedimento().operador()).isEqualTo("CT");
+        assertThat(filtros.clavePedimento().operador()).isNull();
+        assertThat(filtros.descripcion().operador()).isEqualTo("SW");
+        assertThat(filtros.serie().operador()).isEqualTo("ew");
+        assertThat(filtros.marca().operador()).isNull();
+        assertThat(filtros.modelo().operador()).isNull();
     }
 
     @Test
     void soloDesdeResponde400() throws Exception {
-        when(useCase.ejecutar(eq(DESDE), isNull(), isNull(), isNull(), isNull(), isNull(),
-                isNull(), isNull(), isNull(), eq(1), eq(20)))
+        when(useCase.ejecutar(any(), anyInt(), anyInt()))
                 .thenThrow(new SolicitudInvalidaException("rango incompleto"));
 
         mockMvc.perform(get("/api/v1/operaciones/activos-fijos")
@@ -108,8 +128,7 @@ class FixedAssetControllerTest {
 
     @Test
     void soloHastaResponde400() throws Exception {
-        when(useCase.ejecutar(isNull(), eq(HASTA), isNull(), isNull(), isNull(), isNull(),
-                isNull(), isNull(), isNull(), eq(1), eq(20)))
+        when(useCase.ejecutar(any(), anyInt(), anyInt()))
                 .thenThrow(new SolicitudInvalidaException("rango incompleto"));
 
         mockMvc.perform(get("/api/v1/operaciones/activos-fijos")
@@ -121,8 +140,7 @@ class FixedAssetControllerTest {
 
     @Test
     void rangoInvertidoResponde400() throws Exception {
-        when(useCase.ejecutar(eq(HASTA), eq(DESDE), isNull(), isNull(), isNull(), isNull(),
-                isNull(), isNull(), isNull(), eq(1), eq(20)))
+        when(useCase.ejecutar(any(), anyInt(), anyInt()))
                 .thenThrow(new SolicitudInvalidaException("rango inválido"));
 
         mockMvc.perform(get("/api/v1/operaciones/activos-fijos")
@@ -136,12 +154,24 @@ class FixedAssetControllerTest {
     @Test
     void filtroDemasiadoLargoResponde400() throws Exception {
         String descripcion = "D".repeat(251);
-        when(useCase.ejecutar(isNull(), isNull(), isNull(), isNull(), isNull(), eq(descripcion),
-                isNull(), isNull(), isNull(), eq(1), eq(20)))
+        when(useCase.ejecutar(any(), anyInt(), anyInt()))
                 .thenThrow(new SolicitudInvalidaException("filtro inválido"));
 
         mockMvc.perform(get("/api/v1/operaciones/activos-fijos")
                         .param("descripcion", descripcion)
+                        .with(user(usuarioAutorizado())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SOLICITUD_INVALIDA"));
+    }
+
+    @Test
+    void operadorInvalidoResponde400() throws Exception {
+        when(useCase.ejecutar(any(), anyInt(), anyInt()))
+                .thenThrow(new SolicitudInvalidaException("operador inválido"));
+
+        mockMvc.perform(get("/api/v1/operaciones/activos-fijos")
+                        .param("descripcion", "EQUIPO")
+                        .param("descripcionOp", "LIKE")
                         .with(user(usuarioAutorizado())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("SOLICITUD_INVALIDA"));
@@ -157,8 +187,8 @@ class FixedAssetControllerTest {
 
     @Test
     void errorDeBaseDeDatosResponde503() throws Exception {
-        when(useCase.ejecutar(any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                anyInt(), anyInt())).thenThrow(new DataAccessResourceFailureException("BD no disponible"));
+        when(useCase.ejecutar(any(), anyInt(), anyInt()))
+                .thenThrow(new DataAccessResourceFailureException("BD no disponible"));
 
         mockMvc.perform(get("/api/v1/operaciones/activos-fijos")
                         .param("desde", DESDE.toString())

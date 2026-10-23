@@ -25,6 +25,19 @@ Decisiones habilitantes: `../../../03-diseno/decisiones-cierre-auditoria-2026.md
 | B-09 | Filtrado por columna ausente en catálogos/reportes (legacy: operadores DevExpress) | RF-001…056 (varios) | Definir contrato de filtros por columna |
 | B-10 | Cálculos heredados (material utilizado 1.2825, desperdicio/merma) no implementados; se leen persistidos | RF-041, 047 | Implementar cálculo server-side y pruebas con datos históricos |
 
+### Estado tras Sprint 06 (2026-10-22)
+
+| ID | Estado | Evidencia | Qué falta |
+|---|---|---|---|
+| B-06 | **PARCIAL — avance verificado** | Activos fijos expone los 13 campos soportados y detalle completo; `docs/03-diseno/mapeo-activos-fijos.md` §13 documenta la ausencia de fuente para NICO, UMT, tipo de activo controlado y almacén | Fuente del catálogo maestro SCR-045, CRUD y campos sin origen demostrado |
+| B-09 | **PARCIAL — primer caso conectado** | `APP24_Q_ACTIVOS_FIJOS_LISTAR` acepta `EQ/NEQ/CT/SW/EW`; la pantalla `/operaciones/activos-fijos` usa `app-column-filter-input` con parámetros `*Op` server-side, pruebas unitarias y E2E sintético | Extender el contrato a catálogos y reportes; ningún otro módulo está conectado |
+| B-08 | **Sin cambios** | La exportación XLSX de activos fijos no incluye ZIP ni metadatos institucionales | Envolver y agregar encabezado normativo |
+
+La infraestructura compartida nueva (`core/export/xlsx-export.ts` y
+`core/table-filters/**`) está probada, pero B-09 sólo puede considerarse cerrada
+cuando los filtros estén conectados y verificados en el resto de pantallas con
+operadores del legacy.
+
 ## P3 — Mejoras de consistencia y trazabilidad
 
 | ID | Brecha | RF | Acción |

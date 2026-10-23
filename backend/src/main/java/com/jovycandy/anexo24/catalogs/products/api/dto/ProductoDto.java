@@ -8,10 +8,16 @@ import java.math.BigDecimal;
 public record ProductoDto(
         BigDecimal id,
         String clave,
+        String claveCliente,
         String descripcion,
         String fraccion,
         String unidadComercial,
-        String unidadTarifaria) {
+        String unidadTarifaria,
+        String nico,
+        String tipo,
+        String auxiliar,
+        BigDecimal almacenKey,
+        String almacen) {
 
     /**
      * Convierte un producto de dominio a DTO.
@@ -23,9 +29,15 @@ public record ProductoDto(
         return new ProductoDto(
                 producto.id(),
                 producto.clave(),
+                producto.claveCliente(),
                 producto.descripcion(),
                 producto.fraccion(),
                 producto.unidadComercial(),
-                producto.unidadTarifaria());
+                producto.unidadTarifaria(),
+                producto.nico(),
+                producto.tipo(),
+                producto.auxiliar(),
+                producto.almacenKey(),
+                producto.almacen());
     }
 }

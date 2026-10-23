@@ -18,30 +18,71 @@ BEGIN
 
     SET @Filtro = NULLIF(LTRIM(RTRIM(@Filtro)), '');
 
+    -- El filtro es global y del lado del servidor: cubre las columnas de
+    -- texto expuestas y el nombre del almacén resuelto.
     SELECT @Total = COUNT_BIG(1)
-    FROM dbo.material
+    FROM dbo.material AS m
+    OUTER APPLY (
+        SELECT TOP (1) ALMACEN
+        FROM dbo.almacen
+        WHERE ALMACENKEY = m.ALMACENKEY
+    ) AS a
     WHERE @Filtro IS NULL
-       OR clave LIKE '%' + @Filtro + '%'
-       OR descripcion LIKE '%' + @Filtro + '%'
-       OR fraccion LIKE '%' + @Filtro + '%';
+       OR m.clave LIKE '%' + @Filtro + '%'
+       OR m.claveProveedor LIKE '%' + @Filtro + '%'
+       OR m.descripcion LIKE '%' + @Filtro + '%'
+       OR m.fraccion LIKE '%' + @Filtro + '%'
+       OR m.unidad LIKE '%' + @Filtro + '%'
+       OR m.unidadt LIKE '%' + @Filtro + '%'
+       OR m.tipomaterial LIKE '%' + @Filtro + '%'
+       OR m.tipo LIKE '%' + @Filtro + '%'
+       OR m.TIPOM LIKE '%' + @Filtro + '%'
+       OR m.FAMILIA LIKE '%' + @Filtro + '%'
+       OR m.NICO LIKE '%' + @Filtro + '%'
+       OR a.ALMACEN LIKE '%' + @Filtro + '%'
+       OR CONVERT(VARCHAR(20), m.ALMACENKEY) LIKE '%' + @Filtro + '%';
 
+    -- Columnas expuestas según SCR-084 §C. Verificado por metadata read-only
+    -- contra CALE_IMMEX: CLAVEPROVEEDOR, TIPOM, FAMILIA, NICO y ALMACENKEY
+    -- existen en dbo.material; el nombre de almacén se resuelve sin DDL nuevo.
     SELECT
-        materialkey,
-        clave,
-        descripcion,
-        fraccion,
-        unidad,
-        unidadt,
-        tipomaterial,
-        tipo,
-        FactorUM,
-        IGIE
-    FROM dbo.material
+        m.materialkey,
+        m.clave,
+        m.descripcion,
+        m.fraccion,
+        m.unidad,
+        m.unidadt,
+        m.tipomaterial,
+        m.tipo,
+        m.FactorUM,
+        m.IGIE,
+        m.claveProveedor,
+        m.TIPOM,
+        m.FAMILIA,
+        m.NICO,
+        m.ALMACENKEY,
+        a.ALMACEN
+    FROM dbo.material AS m
+    OUTER APPLY (
+        SELECT TOP (1) ALMACEN
+        FROM dbo.almacen
+        WHERE ALMACENKEY = m.ALMACENKEY
+    ) AS a
     WHERE @Filtro IS NULL
-       OR clave LIKE '%' + @Filtro + '%'
-       OR descripcion LIKE '%' + @Filtro + '%'
-       OR fraccion LIKE '%' + @Filtro + '%'
-    ORDER BY clave, materialkey
+       OR m.clave LIKE '%' + @Filtro + '%'
+       OR m.claveProveedor LIKE '%' + @Filtro + '%'
+       OR m.descripcion LIKE '%' + @Filtro + '%'
+       OR m.fraccion LIKE '%' + @Filtro + '%'
+       OR m.unidad LIKE '%' + @Filtro + '%'
+       OR m.unidadt LIKE '%' + @Filtro + '%'
+       OR m.tipomaterial LIKE '%' + @Filtro + '%'
+       OR m.tipo LIKE '%' + @Filtro + '%'
+       OR m.TIPOM LIKE '%' + @Filtro + '%'
+       OR m.FAMILIA LIKE '%' + @Filtro + '%'
+       OR m.NICO LIKE '%' + @Filtro + '%'
+       OR a.ALMACEN LIKE '%' + @Filtro + '%'
+       OR CONVERT(VARCHAR(20), m.ALMACENKEY) LIKE '%' + @Filtro + '%'
+    ORDER BY m.clave, m.materialkey
     OFFSET (CAST(@Pagina AS BIGINT) - 1) * CAST(@Tamano AS BIGINT) ROWS
     FETCH NEXT @Tamano ROWS ONLY;
 END;

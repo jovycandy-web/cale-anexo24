@@ -1,7 +1,15 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
-import { AgentDto, ApiPage, BusinessPartyKind, BusinessPartyPage, BusinessPartyRow, ClientDto, ProviderDto } from '@features/catalogs/business-parties/domain/business-party.model';
+import {
+  AgentDto,
+  ApiPage,
+  BusinessPartyKind,
+  BusinessPartyPage,
+  BusinessPartyRow,
+  ClientDto,
+  ProviderDto,
+} from '@features/catalogs/business-parties/domain/business-party.model';
 
 /** Cliente HTTP para maestros read-only de socios comerciales. */
 @Injectable({ providedIn: 'root' })
@@ -12,7 +20,7 @@ export class BusinessPartyApi {
     const endpoint = kind === 'clients' ? 'clientes' : kind === 'providers' ? 'proveedores' : 'agentes-aduanales';
     let params = new HttpParams().set('pagina', page).set('tamano', pageSize);
     if (filter.trim()) params = params.set('filtro', filter.trim());
-    return this.http.get<ApiPage<ClientDto | ProviderDto | AgentDto>>(`/api/v1/catalogos/${endpoint}`, { params }).pipe(
+    return this.http.get<ApiPage<ClientDto | ProviderDto | AgentDto>>('/api/v1/catalogos/' + endpoint, { params }).pipe(
       map((response) => ({ ...response, items: response.items.map((item) => this.toRow(kind, item)) })),
     );
   }
@@ -23,6 +31,37 @@ export class BusinessPartyApi {
       return { key: agent.clave, name: agent.nombre, fiscalId: agent.rfc, patent: agent.patente, agency: agent.agenciaAduanal };
     }
     const party = item as ClientDto | ProviderDto;
-    return { key: party.clave, name: party.nombre, fiscalId: party.idfiscal, country: party.pais, email: party.correo };
+    const row: BusinessPartyRow = {
+      key: party.clave,
+      name: party.nombre,
+      fiscalId: party.idfiscal,
+      typeNe: party.tipone,
+      program: party.programa,
+      streetAndNumber: party.calleNumero,
+      interiorNumber: party.numeroInterior,
+      neighborhood: party.colonia,
+      code: party.codigo,
+      locality: party.localidad,
+      municipality: party.municipio,
+      state: party.entidad,
+      country: party.pais,
+      phone: party.telefono,
+      email: party.correo,
+      fax: party.fax,
+    };
+    if (kind === 'providers') {
+      const provider = party as ProviderDto;
+      return { ...row, warehouseKey: provider.almacenKey, warehouse: provider.almacenDescripcion };
+    }
+    const client = party as ClientDto;
+    return {
+      ...row,
+      paternalSurname: client.apellidoPaterno,
+      maternalSurname: client.apellidoMaterno,
+      street: client.calle,
+      reference: client.referencia,
+      idType: client.tipoIdentificador,
+      postalCode: client.codigoPostal,
+    };
   }
 }

@@ -45,3 +45,24 @@ Criterios verificables: (1) `reports.spec.ts` deja de contradecir `ReportListPag
 ## Puerta de reemplazo
 
 Sólo evaluar `READY_FOR_LEGACY_REPLACEMENT` cuando catálogo de 83 ventanas y acciones esté auditado, P0 implementados o excluidos por negocio explícitamente, E2E crítico corra en CI aislada, y Controller/negocio acepten evidencia de equivalencia pantalla/acción.
+
+## Estado de ejecución — Sprint 01 (seguridad y trazabilidad de reportes)
+
+Evidencia detallada: `docs/05-pruebas/sprint-01-seguridad-reportes-v1.md`.
+Este estado no modifica las cifras de la auditoría (25 `CUMPLE` / 54 `PARCIAL` /
+19 `NO CUMPLE`) ni la evidencia histórica del legacy.
+
+| ID | Estado | Evidencia nueva | Pendiente |
+|---|---|---|---|
+| `B-16` / RF-096 | `VERIFICADO_EN_ESTE_SPRINT` **sólo reportes** | `@PreAuthorize` en los 19 endpoints de consulta y 19 de exportación; 401/403/200 ejecutados en `ReportesControllerTest` (83 casos) y bloqueo de ruta en `reports.spec.ts` | Resto de módulos: `VERIFICADO_POR_PRUEBA_EXISTENTE`. Bypass con backend real: `NO_VERIFICADO`; requisito global **no cerrado** |
+| `B-03` / RF-094 | `PARCIAL` | `BitacoraAccion.REPORTE_EXPORTADO` + `RegistrarExportacionReporteService`; evento en exportaciones con contenido, sin evento en 204/401/403; exportación rechazada si no hay actor atribuible; infraestructura de bitácora cubierta por SQL IT existentes | `REPORTE_GENERADO` requiere contrato explícito; falta IT específica de `REPORTE_EXPORTADO`; política fail-closed pendiente de ratificación |
+| `QA-001` Saldos | `VERIFICADO_EN_ESTE_SPRINT` | `frontend/e2e/reports.spec.ts`: 5 casos PASS en Chromium (generar, paginar, XLSX, 503, export oculto, `/forbidden`) | Nada; queda ampliar a backend real cuando exista entorno |
+| `QA-002` Rutas | `VERIFICADO_EN_ESTE_SPRINT` | `frontend/e2e/routes-smoke.spec.ts`: 23 casos PASS (20 rutas con reload + login + forbidden + guard de pedimentos) | Nada; cobertura con backend real sigue fuera de este sprint |
+| `QA-005` Reportes/bitácora/RBAC | `VERIFICADO_EN_ESTE_SPRINT` (sintético) / `NO_VERIFICADO` (real) | `reports.spec.ts`, `read-surfaces.spec.ts`, `billing.spec.ts`: 18 casos PASS con API interceptada | `admin-authorization.spec.ts` requiere fixtures multicuenta y entorno aislado |
+| `QA-006` Playwright CI | `BLOCKED_ENVIRONMENT` | Sin cambios en `.github/workflows/ci.yml` | Aprobación de entorno aislado, secretos y limpieza |
+
+Ejecuciones registradas: backend **795 pruebas** sin Docker y **1035** con SQL IT
+en Testcontainers; Angular **348 pruebas** (`pnpm test -- --watch=false`);
+Playwright sintético **41 casos**. No sustituyen ni cierran `QA-006`: la suite
+completa `pnpm e2e` no se ejecutó porque incluye specs con backend real y
+credenciales.

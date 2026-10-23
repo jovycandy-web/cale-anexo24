@@ -2,6 +2,9 @@ package com.jovycandy.anexo24.reports.api.controller;
 
 import com.jovycandy.anexo24.Anexo24Application;
 import com.jovycandy.anexo24.operations.entries.api.dto.EntradaLineaDto;
+import com.jovycandy.anexo24.operations.exits.api.dto.SalidaLineaDto;
+import com.jovycandy.anexo24.operations.usedmaterials.api.dto.MaterialUtilizadoDto;
+import com.jovycandy.anexo24.reports.application.audit.RegistrarExportacionReporteService;
 import com.jovycandy.anexo24.reports.application.query.ConsultarReportesUseCase;
 import com.jovycandy.anexo24.reports.extended.application.query.ListarAnalisisDescargasUseCase;
 import com.jovycandy.anexo24.reports.extended.application.query.ListarOperacionesBloqueadasUseCase;
@@ -17,6 +20,8 @@ import com.jovycandy.anexo24.reports.extended.application.query.ListarAnexo30Des
 import com.jovycandy.anexo24.reports.extended.application.query.ListarAnexo30ComparativaUseCase;
 import com.jovycandy.anexo24.reports.extended.application.query.ListarSaldosUseCase;
 import com.jovycandy.anexo24.reports.extended.application.query.ListarVencimientosUseCase;
+import com.jovycandy.anexo24.reports.extended.application.query.ListarEstructurasLegacyUseCase;
+import com.jovycandy.anexo24.reports.extended.domain.model.EstructuraLegacy;
 import com.jovycandy.anexo24.reports.extended.domain.model.AnalisisDescarga;
 import com.jovycandy.anexo24.reports.extended.domain.model.CompulsaDetalle;
 import com.jovycandy.anexo24.reports.extended.domain.model.LineaF4;
@@ -31,6 +36,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -45,6 +51,11 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -96,6 +107,9 @@ class ReportesControllerTest {
     private ListarSaldosUseCase listarSaldosUseCase;
 
     @MockitoBean
+    private ListarEstructurasLegacyUseCase listarEstructurasLegacyUseCase;
+
+    @MockitoBean
     private ListarAnexo30EntradasUseCase listarAnexo30EntradasUseCase;
 
     @MockitoBean
@@ -106,6 +120,9 @@ class ReportesControllerTest {
 
     @MockitoBean
     private ListarAnexo30ComparativaUseCase listarAnexo30ComparativaUseCase;
+
+    @MockitoBean
+    private RegistrarExportacionReporteService registrarExportacionReporteService;
 
     @Test
     void listarAnalisisDescargasSinAutenticacionResponde401() throws Exception {
@@ -525,6 +542,78 @@ class ReportesControllerTest {
 
 
     @Test
+    void estructurasLegacyExigeAutenticacionYPermisoDeGeneracion() throws Exception {
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void estructurasLegacyMuestraCamposDeLaFilaYElResultadoVacio() throws Exception {
+        when(listarEstructurasLegacyUseCase.ejecutar(any(), any(), any(), any()))
+                .thenReturn(List.of(new EstructuraLegacy("P001", "Producto", "PZA",
+                        LocalDateTime.of(2020, 1, 1, 0, 0), null, "M001",
+                        new BigDecimal("2.5000000"), new BigDecimal("0.1000000"), BigDecimal.ZERO,
+                        10L, "Material", "KG", "7208", null, 100L, 1001L)), List.of());
+        var solicitud = get("/api/v1/reportes/estructuras-legacy")
+                .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR")));
+        mockMvc.perform(solicitud).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].codigoProducto").value("P001"))
+                .andExpect(jsonPath("$[0].cantidadIncorporada").value(2.5));
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR"))))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+    }
+
+    @Test
+    void estructurasLegacyTimeoutResponde503SinDetallesInternos() throws Exception {
+        when(listarEstructurasLegacyUseCase.ejecutar(any(), any(), any(), any()))
+                .thenThrow(new QueryTimeoutException("detalle SQL sensible"));
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR"))))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("DEPENDENCIA_NO_DISPONIBLE"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("detalle SQL sensible"))));
+    }
+
+    @Test
+    void exportarEstructurasLegacyExigePermisoYUsaArchivoXlsxCompartido() throws Exception {
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy/exportacion")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR"))))
+                .andExpect(status().isForbidden());
+        when(listarEstructurasLegacyUseCase.ejecutar(any(), any(), any(), any()))
+                .thenReturn(List.of(new EstructuraLegacy("P001", "Producto", "PZA",
+                        LocalDateTime.of(2020, 1, 1, 0, 0), null, "M001",
+                        new BigDecimal("2.5"), BigDecimal.ZERO, BigDecimal.ZERO,
+                        10L, "Material", "KG", "7208", null, 100L, 1001L)));
+        MvcResult respuesta = mockMvc.perform(get("/api/v1/reportes/estructuras-legacy/exportacion")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("estructuras-legacy.xlsx")))
+                .andReturn();
+        verify(registrarExportacionReporteService).registrar(eq("estructuras-legacy"), any());
+        try (XSSFWorkbook libro = new XSSFWorkbook(new ByteArrayInputStream(respuesta.getResponse().getContentAsByteArray()))) {
+            var hoja = libro.getSheet("estructuras-legacy");
+            org.junit.jupiter.api.Assertions.assertEquals(16, hoja.getRow(0).getLastCellNum());
+            org.junit.jupiter.api.Assertions.assertEquals("P001", hoja.getRow(1).getCell(0).getStringCellValue());
+        }
+    }
+
+    @Test
+    void exportarEstructurasLegacySinFilasResponde204YNoRegistraEvento() throws Exception {
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy/exportacion"))
+                .andExpect(status().isUnauthorized());
+        when(listarEstructurasLegacyUseCase.ejecutar(any(), any(), any(), any()))
+                .thenReturn(List.of());
+        mockMvc.perform(get("/api/v1/reportes/estructuras-legacy/exportacion")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isNoContent());
+        verifyNoInteractions(registrarExportacionReporteService);
+    }
+
+    @Test
     void listarAnexo30RevisionEntradasSinAutenticacionResponde401() throws Exception {
         mockMvc.perform(get("/api/v1/reportes/anexo30-revision-entradas"))
                 .andExpect(status().isUnauthorized());
@@ -703,10 +792,173 @@ class ReportesControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/v1/reportes/compulsa/exportacion", "/api/v1/reportes/compulsa/detalle/exportacion", "/api/v1/reportes/rectificaciones/exportacion", "/api/v1/reportes/rectificaciones/detalle/exportacion", "/api/v1/reportes/vencimientos/exportacion", "/api/v1/reportes/operaciones-bloqueadas/exportacion", "/api/v1/reportes/anexo30-revision-entradas/exportacion", "/api/v1/reportes/anexo30-revision-fracciones/exportacion", "/api/v1/reportes/anexo30-revision-descargas/exportacion", "/api/v1/reportes/anexo30-revision-comparativa/exportacion"})
+    @ValueSource(strings = {"/api/v1/reportes/compulsa/exportacion", "/api/v1/reportes/compulsa/detalle/exportacion", "/api/v1/reportes/rectificaciones/exportacion", "/api/v1/reportes/rectificaciones/detalle/exportacion", "/api/v1/reportes/vencimientos/exportacion", "/api/v1/reportes/operaciones-bloqueadas/exportacion", "/api/v1/reportes/anexo30-revision-entradas/exportacion", "/api/v1/reportes/anexo30-revision-fracciones/exportacion", "/api/v1/reportes/anexo30-revision-descargas/exportacion", "/api/v1/reportes/anexo30-revision-comparativa/exportacion", "/api/v1/reportes/anexo30-revision-inventario-inicial/exportacion"})
     void nuevasExportacionesExigenAutenticacionYPermisoExportar(String ruta) throws Exception {
         mockMvc.perform(get(ruta)).andExpect(status().isUnauthorized());
         mockMvc.perform(get(ruta).with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void exportarEntradasRegistraEventoDeExportacionConCorrelacion() throws Exception {
+        when(consultarReportesUseCase.exportarEntradas(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(entradaSintetica()));
+
+        mockMvc.perform(get("/api/v1/reportes/entradas/exportacion")
+                        .param("desde", "2026-01-01")
+                        .param("hasta", "2026-01-31")
+                        .header("X-Correlation-Id", "corr-export-1")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isOk());
+
+        verify(registrarExportacionReporteService).registrar("entradas", "corr-export-1");
+    }
+
+    @Test
+    void exportacionSinFilasNoRegistraEvento() throws Exception {
+        when(consultarReportesUseCase.exportarEntradas(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/reportes/entradas/exportacion")
+                        .param("desde", "2026-01-01")
+                        .param("hasta", "2026-01-31")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isNoContent());
+
+        verifyNoInteractions(registrarExportacionReporteService);
+    }
+
+    @Test
+    void exportacionDenegadaNoRegistraEvento() throws Exception {
+        mockMvc.perform(get("/api/v1/reportes/entradas/exportacion")
+                        .param("desde", "2026-01-01")
+                        .param("hasta", "2026-01-31")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR"))))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/reportes/entradas/exportacion")
+                        .param("desde", "2026-01-01")
+                        .param("hasta", "2026-01-31"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(registrarExportacionReporteService);
+    }
+
+    @Test
+    void exportacionFallaSiNoSePuedeAtribuirElEvento() throws Exception {
+        when(consultarReportesUseCase.exportarEntradas(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(entradaSintetica()));
+        doThrow(new IllegalStateException("sin actor"))
+                .when(registrarExportacionReporteService).registrar(eq("entradas"), any());
+
+        mockMvc.perform(get("/api/v1/reportes/entradas/exportacion")
+                        .param("desde", "2026-01-01")
+                        .param("hasta", "2026-01-31")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isInternalServerError())
+                .andExpect(header().doesNotExist("Content-Disposition"))
+                .andExpect(jsonPath("$.code").value("ERROR_INTERNO"))
+                .andExpect(jsonPath("$.correlationId").exists());
+
+        verify(registrarExportacionReporteService).registrar(eq("entradas"), anyString());
+    }
+
+    @Test
+    void exportacionesPrioritariasRegistranSuTipoDeReporte() throws Exception {
+        when(consultarReportesUseCase.exportarEntradas(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(entradaSintetica()));
+        when(consultarReportesUseCase.exportarSalidas(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(new SalidaLineaDto(BigDecimal.ONE, BigDecimal.TWO, "PED-1", "A1",
+                        "01010101", "PZA", BigDecimal.TEN, "NP-1", LocalDateTime.of(2026, 1, 1, 0, 0))));
+        when(consultarReportesUseCase.exportarMaterialesUtilizados(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(new MaterialUtilizadoDto(1L, BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE,
+                        BigDecimal.ONE, "PED-1", "PED-2", "MAT-1", "Material", "PROD-1", "Producto",
+                        BigDecimal.TEN, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.TEN, "KG",
+                        LocalDateTime.of(2026, 1, 1, 0, 0))));
+        when(listarSaldosUseCase.exportar(any(), any(), any()))
+                .thenReturn(List.of(org.mockito.Mockito.mock(Saldo.class)));
+
+        mockMvc.perform(get("/api/v1/reportes/entradas/exportacion")
+                        .param("desde", "2026-01-01").param("hasta", "2026-01-31")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/reportes/salidas/exportacion")
+                        .param("desde", "2026-01-01").param("hasta", "2026-01-31")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/reportes/materiales-utilizados/exportacion")
+                        .param("desde", "2026-01-01").param("hasta", "2026-01-31")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/reportes/saldos/exportacion")
+                        .param("desde", "2026-01-01").param("hasta", "2026-01-31")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_EXPORTAR"))))
+                .andExpect(status().isOk());
+
+        verify(registrarExportacionReporteService).registrar(eq("entradas"), anyString());
+        verify(registrarExportacionReporteService).registrar(eq("salidas"), anyString());
+        verify(registrarExportacionReporteService).registrar(eq("materiales-utilizados"), anyString());
+        verify(registrarExportacionReporteService).registrar(eq("saldos"), anyString());
+    }
+
+    private EntradaLineaDto entradaSintetica() {
+        return new EntradaLineaDto(BigDecimal.ONE, BigDecimal.TWO, "PED-1", "A1",
+                LocalDateTime.of(2026, 1, 1, 10, 0), "01010101", "PZA", BigDecimal.TEN, "PARTE",
+                LocalDateTime.of(2026, 1, 2, 10, 0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/reportes/salidas", "/api/v1/reportes/materiales-utilizados"})
+    void consultasConRangoExigenAutenticacionYPermisoDeGenerar(String ruta) throws Exception {
+        mockMvc.perform(get(ruta).param("desde", "2026-01-01").param("hasta", "2026-01-31"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get(ruta).param("desde", "2026-01-01").param("hasta", "2026-01-31")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("OPERACIONES_CONSULTAR"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/reportes/salidas/exportacion",
+            "/api/v1/reportes/materiales-utilizados/exportacion"})
+    void exportacionesConRangoExigenAutenticacionYPermisoDeExportar(String ruta) throws Exception {
+        mockMvc.perform(get(ruta).param("desde", "2026-01-01").param("hasta", "2026-01-31"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get(ruta).param("desde", "2026-01-01").param("hasta", "2026-01-31")
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/reportes/vencimientos", "/api/v1/reportes/dirigidos",
+            "/api/v1/reportes/compulsa", "/api/v1/reportes/compulsa/detalle",
+            "/api/v1/reportes/rectificaciones", "/api/v1/reportes/rectificaciones/detalle",
+            "/api/v1/reportes/operaciones-bloqueadas", "/api/v1/reportes/f4"})
+    void consultasSinRangoRechazanSolicitudesAnonimas(String ruta) throws Exception {
+        mockMvc.perform(get(ruta)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void consultaDeEntradasRechazaSolicitudesAnonimas() throws Exception {
+        mockMvc.perform(get("/api/v1/reportes/entradas")
+                        .param("desde", "2026-01-01").param("hasta", "2026-01-31"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void consultaYExportacionDeBitacoraExigenAutenticacionYPermiso() throws Exception {        String consulta = "/api/v1/reportes/bitacora";
+        String exportacion = "/api/v1/reportes/bitacora/exportacion";
+        String desde = "2026-01-01T00:00:00Z";
+        String hasta = "2026-01-31T00:00:00Z";
+
+        mockMvc.perform(get(consulta).param("desde", desde).param("hasta", hasta))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get(consulta).param("desde", desde).param("hasta", hasta)
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("OPERACIONES_CONSULTAR"))))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get(exportacion).param("desde", desde).param("hasta", hasta))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get(exportacion).param("desde", desde).param("hasta", hasta)
+                        .with(user("usuario").authorities(new SimpleGrantedAuthority("REPORTES_GENERAR"))))
                 .andExpect(status().isForbidden());
     }
 }

@@ -79,7 +79,7 @@ class MaterialJdbcAdapterTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void declaraParametrosYMapeaLasDiezColumnas() throws Exception {
+    void declaraParametrosYMapeaTodasLasColumnas() throws Exception {
         ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
         when(resultSet.getBigDecimal("materialkey"))
                 .thenReturn(new java.math.BigDecimal("42"));
@@ -92,6 +92,12 @@ class MaterialJdbcAdapterTest {
         when(resultSet.getString("tipo")).thenReturn("MP");
         when(resultSet.getBigDecimal("FactorUM")).thenReturn(new java.math.BigDecimal("1.5"));
         when(resultSet.getBigDecimal("IGIE")).thenReturn(new java.math.BigDecimal("16"));
+        when(resultSet.getString("claveProveedor")).thenReturn("PROV-42");
+        when(resultSet.getString("TIPOM")).thenReturn("NACIONAL");
+        when(resultSet.getString("FAMILIA")).thenReturn("ENDULZANTES");
+        when(resultSet.getString("NICO")).thenReturn("8471");
+        when(resultSet.getBigDecimal("ALMACENKEY")).thenReturn(new java.math.BigDecimal("2"));
+        when(resultSet.getString("ALMACEN")).thenReturn("PRINCIPAL");
         when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
                 .thenAnswer(invocation -> {
                     List<SqlParameter> declared = invocation.getArgument(1, List.class);
@@ -117,6 +123,12 @@ class MaterialJdbcAdapterTest {
             assertThat(item.tipo()).isEqualTo("MP");
             assertThat(item.factorUM()).isEqualByComparingTo("1.5");
             assertThat(item.igie()).isEqualByComparingTo("16");
+            assertThat(item.claveProveedor()).isEqualTo("PROV-42");
+            assertThat(item.tipom()).isEqualTo("NACIONAL");
+            assertThat(item.familia()).isEqualTo("ENDULZANTES");
+            assertThat(item.nico()).isEqualTo("8471");
+            assertThat(item.almacenKey()).isEqualByComparingTo("2");
+            assertThat(item.almacen()).isEqualTo("PRINCIPAL");
         });
 
         ArgumentCaptor<List<SqlParameter>> declarations = ArgumentCaptor.forClass(List.class);
@@ -125,6 +137,46 @@ class MaterialJdbcAdapterTest {
                 .extracting(SqlParameter::getName)
                 .containsExactly("Filtro", "Pagina", "Tamano", "Total", "items");
         assertThat(declarations.getValue().get(3)).isInstanceOf(SqlOutParameter.class);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void conservaNullEnLosCamposOpcionales() throws Exception {
+        ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
+        when(resultSet.getBigDecimal("materialkey"))
+                .thenReturn(new java.math.BigDecimal("43"));
+        when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
+                .thenAnswer(invocation -> {
+                    List<SqlParameter> declared = invocation.getArgument(1, List.class);
+                    SqlReturnResultSet resultSetParameter = declared.stream()
+                            .filter(SqlReturnResultSet.class::isInstance)
+                            .map(SqlReturnResultSet.class::cast)
+                            .findFirst()
+                            .orElseThrow();
+                    RowMapper<Material> mapper = (RowMapper<Material>) resultSetParameter.getRowMapper();
+                    return Map.of("items", List.of(mapper.mapRow(resultSet, 1)), "Total", 1L);
+                });
+
+        Pagina<Material> resultado = adapter.findPage(null, 1, 20);
+
+        assertThat(resultado.items()).singleElement().satisfies(item -> {
+            assertThat(item.materialkey()).isEqualByComparingTo("43");
+            assertThat(item.clave()).isNull();
+            assertThat(item.descripcion()).isNull();
+            assertThat(item.fraccion()).isNull();
+            assertThat(item.unidad()).isNull();
+            assertThat(item.unidadt()).isNull();
+            assertThat(item.tipomaterial()).isNull();
+            assertThat(item.tipo()).isNull();
+            assertThat(item.factorUM()).isNull();
+            assertThat(item.igie()).isNull();
+            assertThat(item.claveProveedor()).isNull();
+            assertThat(item.tipom()).isNull();
+            assertThat(item.familia()).isNull();
+            assertThat(item.nico()).isNull();
+            assertThat(item.almacenKey()).isNull();
+            assertThat(item.almacen()).isNull();
+        });
     }
 
     @Test
@@ -155,6 +207,7 @@ class MaterialJdbcAdapterTest {
         return new Material(
                 new java.math.BigDecimal("42"), "MAT-42", "Descripción", "1234567890",
                 "KG", "KG", "NACIONAL", "MP", new java.math.BigDecimal("1.5"),
-                new java.math.BigDecimal("16"));
+                new java.math.BigDecimal("16"), "PROV-42", "NACIONAL", "ENDULZANTES",
+                "8471", new java.math.BigDecimal("2"), "PRINCIPAL");
     }
 }

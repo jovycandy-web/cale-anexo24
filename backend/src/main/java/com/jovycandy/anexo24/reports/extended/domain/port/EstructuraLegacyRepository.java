@@ -7,5 +7,7 @@ import java.util.List;
 
 /** Puerto read-only del informe legacy de estructuras. */
 public interface EstructuraLegacyRepository {
+    int MAXIMO_FILAS = 10_000;
+
     List<EstructuraLegacy> listar(String producto, String material, LocalDate desde, LocalDate hasta);
 }
