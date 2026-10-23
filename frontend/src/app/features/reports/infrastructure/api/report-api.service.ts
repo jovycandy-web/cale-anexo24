@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { ReportRow, ReportSearchCriteria } from '@features/reports/domain/models/report.model';
 
 interface ReportPageResponseDto {
@@ -16,6 +16,11 @@ export class ReportApiService {
   private readonly http = inject(HttpClient);
 
   search(criteria: ReportSearchCriteria): Observable<ReportPageResponseDto> {
+    if (criteria.type === 'estructuras-legacy') {
+      return this.http
+        .get<ReportRow[]>('/api/v1/reportes/estructuras-legacy', { params: this.params(criteria) })
+        .pipe(map((rows) => ({ items: rows, total: rows.length, pagina: 1, tamano: rows.length })));
+    }
     return this.http.get<ReportPageResponseDto>(this.url(criteria), { params: this.params(criteria) });
   }
 
@@ -29,6 +34,12 @@ export class ReportApiService {
   }
 
   private params(criteria: ReportSearchCriteria, pageSize = criteria.pageSize): HttpParams {
+    if (criteria.type === 'estructuras-legacy') {
+      let legacy = new HttpParams();
+      if (criteria.product.trim()) legacy = legacy.set('producto', criteria.product.trim());
+      if (criteria.material.trim()) legacy = legacy.set('material', criteria.material.trim());
+      return legacy;
+    }
     let params = new HttpParams()
       .set('pagina', criteria.page)
       .set('tamano', pageSize);
