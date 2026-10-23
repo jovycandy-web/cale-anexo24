@@ -198,10 +198,13 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
     { key: 'cantidadIncorporada', label: 'Cantidad incorporada', format: 'quantity' },
     { key: 'cantidadMermada', label: 'Cantidad mermada', format: 'quantity' },
     { key: 'cantidadDesperdiciada', label: 'Cantidad desperdiciada', format: 'quantity' },
+    { key: 'productoKey', label: 'Código A24 interno' },
     { key: 'descripcionMateriaPrima', label: 'Descripción de MP' },
     { key: 'unidadMateriaPrima', label: 'Unidad MP' },
     { key: 'fraccionMateriaPrima', label: 'Fracción MP' },
     { key: 'ultimaSalida', label: 'Última salida', format: 'date' },
+    { key: 'prodMatKey', label: 'PRODMATKEY' },
+    { key: 'estructuraKey', label: 'EstructuraKey' },
   ],
 };
 
