@@ -11,6 +11,8 @@ autorización por permiso · **Errores:** `{ code, message, correlationId, detai
 | GET | `/operaciones/{tipo}` | Consulta entradas, salidas, consumo o activo fijo por rango. | Permiso del módulo |
 | GET | `/reportes/{tipo}` | Genera datos de reporte por rango. | `REPORTES_GENERAR` |
 | GET | `/reportes/{tipo}/exportacion` | Exporta reporte con resultados. | `REPORTES_EXPORTAR` |
+| GET | `/reportes/estructuras-legacy` | Informe legacy de estructuras (`dbo.PR_INFORME_ESTRUCTURAS`), sin paginación. | `REPORTES_GENERAR` |
+| GET | `/reportes/estructuras-legacy/exportacion` | Exporta el informe legacy de estructuras a XLSX. | `REPORTES_EXPORTAR` |
 | POST | `/facturacion/cargas` | Valida archivo y crea lote no persistido. | `FACTURACION_CARGAR` |
 | POST | `/facturacion/cargas/{id}/confirmar` | Guarda lote validado. | `FACTURACION_GUARDAR` |
 | GET | `/bitacora` | Consulta read-only paginada con rango UTC obligatorio (`desde`/`hasta`), filtros `usuarioId`, `modulo`, `resultado`, `correlationId` y orden `fecha DESC, id DESC`. | `BITACORA_CONSULTAR` |
