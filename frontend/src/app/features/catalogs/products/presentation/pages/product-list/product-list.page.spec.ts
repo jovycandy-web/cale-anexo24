@@ -32,6 +32,8 @@ interface ProductHarness {
   isLoading: WritableSignal<boolean>;
   selectedProduct: WritableSignal<Product | null>;
   selectProduct(product: Product): void;
+  toggleDetail(product: Product): void;
+  isSelected(product: Product): boolean;
   closeDetail(): void;
   exportCsv(): Promise<void>;
 }
@@ -102,14 +104,25 @@ describe('ProductListPage paridad SCR-046', () => {
     expect(page.items()[0].auxiliary).toBe('AUX-1');
   });
 
-  it('abre y cierra el detalle del producto seleccionado', async () => {
+  it('expande el detalle bajo la fila seleccionada y permite cerrarlo', async () => {
     const { page, fixture } = await configure();
-    page.selectProduct(PRODUCTO);
+    page.toggleDetail(PRODUCTO);
     fixture.detectChanges();
 
     expect(page.selectedProduct()).toEqual(PRODUCTO);
+    expect(page.isSelected(PRODUCTO)).toBe(true);
     expect(fixture.nativeElement.textContent).toContain('Detalle de P0122');
     expect(fixture.nativeElement.textContent).toContain('CLI-P0122');
+    expect(fixture.nativeElement.querySelector('table')?.textContent).toContain('Detalle de P0122');
+
+    page.toggleDetail(PRODUCTO);
+    fixture.detectChanges();
+    expect(page.selectedProduct()).toBeNull();
+    expect(page.isSelected(PRODUCTO)).toBe(false);
+
+    page.selectProduct(PRODUCTO);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Detalle de P0122');
 
     page.closeDetail();
     fixture.detectChanges();

@@ -9,13 +9,14 @@ import { MatTableModule } from '@angular/material/table';
 import { userFacingApiError } from '@core/http/api-error.util';
 import { NotificationService } from '@core/notifications/notification.service';
 import { AppAlertComponent } from '@core/ui/app-alert/app-alert.component';
+import { AppDetailPanelComponent } from '@core/ui/app-detail-panel/app-detail-panel.component';
 import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, serializeCsv } from '@core/export/csv-export';
 import { Product } from '@features/catalogs/products/domain/models/product.model';
 import { SearchProductsUseCase } from '@features/catalogs/products/application/use-cases/search-products.use-case';
 
 /** Consulta del catálogo de productos terminados. */
 @Component({
-  imports: [AppAlertComponent, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatPaginatorModule, MatTableModule],
+  imports: [AppAlertComponent, AppDetailPanelComponent, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatPaginatorModule, MatTableModule],
   selector: 'app-product-list',
   template: `
     <div class="min-h-full bg-[#f4f7fb] text-slate-800">
@@ -56,7 +57,7 @@ import { SearchProductsUseCase } from '@features/catalogs/products/application/u
           <section class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_4px_18px_rgb(15_23_42/4%)]" aria-label="Resultados de productos">
             @if (items().length > 0) {
               <div class="overflow-x-auto">
-                <table mat-table [dataSource]="items()" class="w-full min-w-300" aria-label="Catálogo de productos">
+                <table mat-table [dataSource]="items()" multiTemplateDataRows class="w-full min-w-300" aria-label="Catálogo de productos">
                   <ng-container matColumnDef="partNumber">
                     <th mat-header-cell *matHeaderCellDef class="w-32">Clave</th>
                     <td mat-cell *matCellDef="let product" class="font-medium text-slate-700">{{ product.partNumber }}</td>
@@ -100,35 +101,33 @@ import { SearchProductsUseCase } from '@features/catalogs/products/application/u
                   <ng-container matColumnDef="actions">
                     <th mat-header-cell *matHeaderCellDef class="w-20"><span class="sr-only">Detalle</span></th>
                     <td mat-cell *matCellDef="let product" class="text-right">
-                      <button mat-icon-button type="button" [attr.aria-label]="'Ver detalle de ' + product.partNumber" (click)="selectProduct(product)"><mat-icon>visibility</mat-icon></button>
+                      <button mat-icon-button type="button" [attr.aria-label]="'Ver detalle de ' + product.partNumber" [attr.aria-expanded]="isSelected(product)" (click)="$event.stopPropagation(); selectProduct(product)"><mat-icon>visibility</mat-icon></button>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="detail">
+                    <td mat-cell *matCellDef="let product" [attr.colspan]="displayedColumns.length" class="p-0!">
+                      @if (isSelected(product)) {
+                        <app-detail-panel [title]="'Detalle de ' + product.partNumber" [subtitle]="product.description || 'Sin descripción'" closeLabel="Cerrar detalle del producto" (closed)="closeDetail()">
+                          <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Código cliente</dt><dd class="m-0 text-sm text-slate-800">{{ product.clientCode || '—' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Fracción TIGIE</dt><dd class="m-0 text-sm text-slate-800">{{ product.tariffFraction || '—' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">NICO</dt><dd class="m-0 text-sm text-slate-800">{{ product.nico || '—' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Unidad comercial</dt><dd class="m-0 text-sm text-slate-800">{{ product.commercialUnit || '—' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Unidad tarifaria</dt><dd class="m-0 text-sm text-slate-800">{{ product.tariffUnit || '—' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Tipo</dt><dd class="m-0 text-sm text-slate-800">{{ product.type || '—' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Almacén</dt><dd class="m-0 text-sm text-slate-800">{{ product.warehouse || '—' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Clave de almacén</dt><dd class="m-0 text-sm text-slate-800">{{ product.warehouseKey ?? '—' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Auxiliar</dt><dd class="m-0 text-sm text-slate-800">{{ product.auxiliary || '—' }}</dd></div>
+                          </dl>
+                        </app-detail-panel>
+                      }
                     </td>
                   </ng-container>
                   <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-                  <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: displayedColumns" class="cursor-pointer hover:bg-slate-50" [class.bg-blue-50/40]="isSelected(row)" (click)="toggleDetail(row)"></tr>
+                  <tr mat-row *matRowDef="let row; columns: ['detail']" [class.hidden]="!isSelected(row)"></tr>
                 </table>
               </div>
-              @if (selectedProduct(); as product) {
-                <section class="border-t border-slate-200 bg-slate-50 p-5" aria-labelledby="product-detail-title">
-                  <div class="flex items-start justify-between gap-4">
-                    <div>
-                      <h2 id="product-detail-title" class="m-0 text-base font-semibold text-slate-900">Detalle de {{ product.partNumber }}</h2>
-                      <p class="mt-1 mb-0 text-sm text-slate-600">{{ product.description || 'Sin descripción' }}</p>
-                    </div>
-                    <button mat-icon-button type="button" aria-label="Cerrar detalle del producto" (click)="closeDetail()"><mat-icon>close</mat-icon></button>
-                  </div>
-                  <dl class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Código cliente</dt><dd class="m-0 text-sm text-slate-800">{{ product.clientCode || '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Fracción TIGIE</dt><dd class="m-0 text-sm text-slate-800">{{ product.tariffFraction || '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">NICO</dt><dd class="m-0 text-sm text-slate-800">{{ product.nico || '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Unidad comercial</dt><dd class="m-0 text-sm text-slate-800">{{ product.commercialUnit || '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Unidad tarifaria</dt><dd class="m-0 text-sm text-slate-800">{{ product.tariffUnit || '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Tipo</dt><dd class="m-0 text-sm text-slate-800">{{ product.type || '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Almacén</dt><dd class="m-0 text-sm text-slate-800">{{ product.warehouse || '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Clave de almacén</dt><dd class="m-0 text-sm text-slate-800">{{ product.warehouseKey ?? '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Auxiliar</dt><dd class="m-0 text-sm text-slate-800">{{ product.auxiliary || '—' }}</dd></div>
-                  </dl>
-                </section>
-              }
             } @else {
               <div class="p-4">
                 <app-alert kind="info" title="No encontramos productos" message="Prueba con otra búsqueda o limpia el filtro." [actionLabel]="filter ? 'Limpiar búsqueda' : ''" (action)="clearFilter()" />
@@ -180,6 +179,15 @@ export class ProductListPage implements OnInit {
 
   protected selectProduct(product: Product): void {
     this.selectedProduct.set(product);
+  }
+
+  /** Alterna el detalle bajo la fila; mantener el contexto evita perder la posición. */
+  protected toggleDetail(product: Product): void {
+    this.selectedProduct.set(this.isSelected(product) ? null : product);
+  }
+
+  protected isSelected(product: Product): boolean {
+    return this.selectedProduct()?.id === product.id;
   }
 
   protected closeDetail(): void {

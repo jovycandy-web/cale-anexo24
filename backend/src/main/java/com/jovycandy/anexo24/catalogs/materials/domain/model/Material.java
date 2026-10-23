@@ -18,6 +18,12 @@ import java.math.BigDecimal;
  * @param tipo          tipo corto
  * @param factorUM      factor de conversión unidad
  * @param igie          IGIE aplicable
+ * @param claveProveedor código de parte del proveedor
+ * @param tipom          tipo nacional/importado
+ * @param familia        familia de clasificación
+ * @param nico           NICO asociado
+ * @param almacenKey     clave del almacén (o división) asociado
+ * @param almacen        nombre del almacén resuelto
  */
 public record Material(
         BigDecimal materialkey,
@@ -29,5 +35,11 @@ public record Material(
         String tipomaterial,
         String tipo,
         BigDecimal factorUM,
-        BigDecimal igie) {
+        BigDecimal igie,
+        String claveProveedor,
+        String tipom,
+        String familia,
+        String nico,
+        BigDecimal almacenKey,
+        String almacen) {
 }

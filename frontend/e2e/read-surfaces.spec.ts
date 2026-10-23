@@ -225,3 +225,47 @@ test('Productos deniega ruta sin PRODUCTOS_CONSULTAR', async ({ page }) => {
   await page.goto('/productos');
   await expect(page).toHaveURL(/\/forbidden$/);
 });
+
+test('Materiales expone la paridad SCR-084, filtra en servidor y abre el detalle', async ({ page }) => {
+  const requests: URL[] = [];
+  await page.route('**/api/v1/catalogos/materiales**', async (route) => {
+    const url = new URL(route.request().url());
+    requests.push(url);
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      items: [{ materialkey: 1, clave: '500005', claveProveedor: 'CLAV-PR001', descripcion: 'AZUCAR REFINADA', fraccion: '17019999', unidad: 'KG', unidadt: 'KG', tipomaterial: 'MATERIAL PRIMA', tipom: 'MP', familia: 'ENDULZANTES', nico: 'N', almacenKey: 2, almacen: 'ALM02' }],
+      total: 2,
+      pagina: Number(url.searchParams.get('pagina')),
+      tamano: Number(url.searchParams.get('tamano')),
+    }) });
+  });
+  const monitors = installRuntimeMonitors(page);
+  await authenticateWithPermissions(page, ['MATERIALES_CONSULTAR']);
+  await page.goto('/materiales');
+  const tabla = page.getByRole('table');
+  await expect(tabla.getByRole('cell', { name: '500005', exact: true })).toBeVisible();
+  await expect(tabla.getByRole('cell', { name: 'CLAV-PR001', exact: true })).toBeVisible();
+  await expect(tabla.getByRole('cell', { name: 'AZUCAR REFINADA', exact: true })).toBeVisible();
+  await expect(tabla.getByRole('cell', { name: 'ENDULZANTES', exact: true })).toBeVisible();
+  await expect(tabla.getByRole('cell', { name: 'ALM02', exact: true })).toBeVisible();
+  await page.getByLabel(/Clave, proveedor, descripción/).fill('ENDULZANTES');
+  await page.getByRole('button', { name: 'Consultar' }).click();
+  await expect.poll(() => requests.at(-1)?.searchParams.get('filtro')).toBe('ENDULZANTES');
+  await page.getByRole('button', { name: 'Ver detalle de 500005' }).click();
+  await expect(page.getByRole('heading', { name: 'Detalle de 500005' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Detalle de 500005' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cerrar detalle del material' }).click();
+  await expect(page.getByRole('heading', { name: 'Detalle de 500005' })).toHaveCount(0);
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Exportar CSV' }).click();
+  const artifact = await download;
+  expect(artifact.suggestedFilename()).toBe('materiales.csv');
+  expect(await downloadBytes(artifact)).toBeGreaterThan(0);
+  expect(requests.at(-1)!.searchParams.get('tamano')).toBe('100');
+  await assertNoRuntimeFailures(monitors);
+});
+
+test('Materiales deniega ruta sin MATERIALES_CONSULTAR', async ({ page }) => {
+  await authenticateWithPermissions(page, []);
+  await page.goto('/materiales');
+  await expect(page).toHaveURL(/\/forbidden$/);
+});
