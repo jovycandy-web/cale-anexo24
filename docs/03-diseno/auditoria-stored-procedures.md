@@ -179,7 +179,7 @@ Todos existen LIVE en `dbo`, no en `app24`. Son `APP24_PROPIO` por nomenclatura,
 | `dbo.APP24_Q_ENTRADAS_LISTAR` | EXISTE | 2026-09-19 13:33:08 | 2026-09-21 06:26:22 | rango fecha, filtros pedimento/fracción/parte, paginación, total | 10 |
 | `dbo.APP24_Q_SALIDAS_LISTAR` | EXISTE | 2026-09-21 08:27:27 | 2026-09-21 08:41:03 | rango fecha, filtros pedimento/fracción/parte, paginación, total | 9 |
 | `dbo.APP24_Q_MATERIALES_UTILIZADOS_LISTAR` | EXISTE | 2026-09-21 12:05:23 | 2026-09-21 12:05:23 | rango fecha, material/producto/salida, paginación, total | 17 |
-| `dbo.APP24_Q_ACTIVOS_FIJOS_LISTAR` | EXISTE | 2026-09-21 13:36:40 | 2026-09-21 13:36:40 | rango fecha, pedimento/parte/serie/marca/modelo, paginación, total | 13 |
+| `dbo.APP24_Q_ACTIVOS_FIJOS_LISTAR` | EXISTE | 2026-09-21 13:36:40 | 2026-09-21 13:36:40 | rango fecha, pedimento/parte/serie/marca/modelo con operador `EQ/NEQ/CT/SW/EW`, paginación, total (19 parámetros desde Sprint 06) | 13 |
 | `app24.APP24_Q_PERFILES_LISTAR` | EXISTE LIVE | Fase 5A | Fase 5A | `@Nombre` parcial escapado, `@Estado`, `@Pagina`, `@Tamano`, `@Total OUTPUT` | 4 |
 
 Los seis SP fueron inspeccionados por metadata, parámetros, definición y result set. No se ejecutaron en esta fase. Las seis decisiones son `REUTILIZAR` para sus respectivos adapters ya versionados; no aplican a Materiales catálogo ni Administración.

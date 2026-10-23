@@ -1,10 +1,12 @@
 import { Component, EventEmitter, Output, WritableSignal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { NotificationService } from '@core/notifications/notification.service';
 import { SavedCriteria } from '@features/saved-queries/domain/saved-query.model';
 import { OperationPeriod, OperationPeriodFilterComponent } from '@features/operations/shared/presentation/operation-period-filter/operation-period-filter.component';
+import { ColumnFilterState } from '@core/table-filters/column-filter.model';
 import { FixedAsset, FixedAssetSearchCriteria } from '@features/operations/fixed-assets/domain/models/fixed-asset.model';
 import { SearchFixedAssetsUseCase } from '@features/operations/fixed-assets/application/use-cases/search-fixed-assets.use-case';
 import { FixedAssetListPage } from './fixed-asset-list.page';
@@ -24,6 +26,24 @@ function readBlob(blob: Blob): Promise<string> {
   });
 }
 
+/** Extrae el XML de la hoja de un XLSX store-only generado por la app. */
+function readXlsxSheet(bytes: Uint8Array): string {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const decoder = new TextDecoder();
+  let offset = 0;
+  while (offset + 4 <= bytes.length && view.getUint32(offset, true) === 0x04034b50) {
+    const size = view.getUint32(offset + 18, true);
+    const nameLength = view.getUint16(offset + 26, true);
+    const extraLength = view.getUint16(offset + 28, true);
+    const name = decoder.decode(bytes.subarray(offset + 30, offset + 30 + nameLength));
+    const dataStart = offset + 30 + nameLength + extraLength;
+    if (name === 'xl/worksheets/sheet1.xml') {
+      return decoder.decode(bytes.subarray(dataStart, dataStart + size));
+    }
+    offset = dataStart + size;
+  }
+  return '';
+}
 
 @Component({ selector: 'app-operation-period-filter', standalone: true, template: '' })
 class PeriodFilterStub {
@@ -49,28 +69,41 @@ interface FixedAssetHarness {
   totalItems: WritableSignal<number>;
   isLoading: WritableSignal<boolean>;
   hasSearched: WritableSignal<boolean>;
+  forbidden: WritableSignal<boolean>;
+  error: WritableSignal<string | null>;
+  expandedRowId: WritableSignal<string | number | null>;
   applySavedCriteria(criteria: SavedCriteria): void;
+  savedCriteria(): SavedCriteria;
   canExport(): boolean;
   exportCsv(): Promise<void>;
+  exportXlsx(): Promise<void>;
+  toggleDetail(item: FixedAsset): void;
+  detailFields(item: FixedAsset): { label: string; value: string }[];
+  columnState(field: 'pedimento' | 'clavePedimento' | 'numeroParte' | 'descripcion' | 'serie' | 'marca' | 'modelo'): ColumnFilterState;
+  onColumnStateChange(field: 'pedimento' | 'clavePedimento' | 'numeroParte' | 'descripcion' | 'serie' | 'marca' | 'modelo', state: ColumnFilterState): void;
+  changePage(event: { pageIndex: number; pageSize: number; length: number }): void;
 }
 
-async function configure() {
-  const row: FixedAsset = {
-    entryLineId: 101,
-    importId: 202,
-    customsDocument: 'DOC-1',
-    customsCode: 'A1',
-    importDate: '2026-07-19T23:30:00-06:00',
-    partNumber: 'PART-1',
-    description: 'Equipo de prueba',
-    tariffFraction: '1234.56',
-    quantity: '0002.5000',
-    unit: 'PZA',
-    serialNumber: 'SER-1',
-    brand: 'Marca',
-    model: 'Modelo',
-  };
-  const execute = vi.fn((criteria: FixedAssetSearchCriteria) => of({ items: [row], total: 101, page: criteria.page, pageSize: criteria.pageSize }));
+const ROW: FixedAsset = {
+  entryLineId: 101,
+  importId: 202,
+  customsDocument: 'DOC-1',
+  customsCode: 'A1',
+  importDate: '2026-07-19T23:30:00-06:00',
+  partNumber: 'PART-1',
+  description: 'Equipo de prueba',
+  tariffFraction: '1234.56',
+  quantity: '0002.5000',
+  unit: 'PZA',
+  serialNumber: 'SER-1',
+  brand: 'Marca',
+  model: 'Modelo',
+};
+
+async function configure(options: { failing?: HttpErrorResponse } = {}) {
+  const execute = options.failing
+    ? vi.fn(() => throwError(() => options.failing))
+    : vi.fn((criteria: FixedAssetSearchCriteria) => of({ items: [ROW], total: 101, page: criteria.page, pageSize: criteria.pageSize }));
   const notifications = { success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() };
   TestBed.configureTestingModule({
     imports: [FixedAssetListPage],
@@ -87,16 +120,16 @@ async function configure() {
   fixture.detectChanges();
   await fixture.whenStable();
   const page = fixture.componentInstance as unknown as FixedAssetHarness;
-  return { page, execute, notifications };
+  return { page, execute, notifications, fixture };
 }
 
-describe('FixedAssetListPage CSV export', () => {
+describe('FixedAssetListPage exportaciones', () => {
   beforeEach(() => {
     exportedBlob = undefined;
     downloadedFilename = undefined;
     createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
       exportedBlob = blob as Blob;
-      return 'blob:csv';
+      return 'blob:export';
     });
     revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
     anchorClickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
@@ -147,7 +180,30 @@ describe('FixedAssetListPage CSV export', () => {
     expect(csv).not.toContain('importId');
   });
 
-  it('permite periodo completo, env韆 ambas fechas y bloquea rango parcial o invertido', async () => {
+  it('exporta XLSX con encabezados, tipos y valores reales manteniendo CSV disponible', async () => {
+    const { page, execute } = await configure();
+    page.customsDocument = 'DOC-X';
+    page.isLoading.set(false);
+    page.hasSearched.set(true);
+    page.totalItems.set(101);
+    execute.mockClear();
+
+    await page.exportXlsx();
+
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ customsDocument: 'DOC-X', page: 1, pageSize: 100 }));
+    expect(downloadedFilename).toBe('activos-fijos.xlsx');
+    expect(exportedBlob?.type).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const bytes = new Uint8Array(await exportedBlob!.arrayBuffer());
+    expect(Array.from(bytes.subarray(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
+    const sheet = readXlsxSheet(bytes);
+    expect(sheet).toContain('Fecha importaci贸n');
+    expect(sheet).toContain('Descripci贸n');
+    expect(sheet).toContain('Equipo de prueba');
+    expect(sheet).toContain('<c r="G2" t="inlineStr"><is><t xml:space="preserve">0002.5000</t></is></c>');
+    expect(sheet).not.toContain('<f');
+  });
+
+  it('permite periodo completo, env铆a ambas fechas y bloquea rango parcial o invertido', async () => {
     const { page, execute } = await configure();
     page.isLoading.set(false);
     page.hasSearched.set(true);
@@ -179,6 +235,7 @@ describe('FixedAssetListPage CSV export', () => {
     expect(page.items()).toBe(visibleRows);
     expect(createObjectUrlSpy).not.toHaveBeenCalled();
   });
+
   it('aplica filtros sin periodo y rechaza rango parcial sin cambiar estado', async () => {
     const { page, notifications } = await configure();
     page.currentPage = 4;
@@ -192,5 +249,131 @@ describe('FixedAssetListPage CSV export', () => {
     expect({ fromDate: page.fromDate, toDate: page.toDate, customsDocument: page.customsDocument, currentPage: page.currentPage }).toEqual(snapshot);
     expect(notifications.error).toHaveBeenCalledWith('Esta consulta guardada ya no es compatible con esta pantalla.');
   });
+});
 
+describe('FixedAssetListPage filtros por columna, detalle y permisos', () => {
+  beforeEach(() => {
+    exportedBlob = undefined;
+    downloadedFilename = undefined;
+    createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      exportedBlob = blob as Blob;
+      return 'blob:export';
+    });
+    revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    anchorClickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      downloadedFilename = this.download;
+    });
+  });
+
+  afterEach(() => {
+    createObjectUrlSpy.mockRestore();
+    revokeObjectUrlSpy.mockRestore();
+    anchorClickSpy.mockRestore();
+  });
+
+  it('expone el detalle con los trece campos sin solicitar datos adicionales', async () => {
+    const { page, execute } = await configure();
+    page.isLoading.set(false);
+    page.hasSearched.set(true);
+    page.totalItems.set(101);
+    execute.mockClear();
+
+    page.toggleDetail(ROW);
+
+    expect(page.expandedRowId()).toBe(ROW.entryLineId);
+    const fields = page.detailFields(ROW);
+    expect(fields).toHaveLength(13);
+    expect(fields.map((field) => field.label)).toContain('Importaci贸n');
+    expect(fields.find((field) => field.label === 'Cantidad')?.value).toBe('0002.5000');
+    expect(execute).not.toHaveBeenCalled();
+
+    page.toggleDetail(ROW);
+    expect(page.expandedRowId()).toBeNull();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('conserva el operador por columna al paginar y cierra el detalle', async () => {
+    const { page, execute } = await configure();
+    page.isLoading.set(false);
+    page.hasSearched.set(true);
+    page.totalItems.set(101);
+    page.onColumnStateChange('descripcion', { value: ' EQUIPO ', operator: 'CT' });
+    page.onColumnStateChange('pedimento', { value: 'DOC-9', operator: 'SW' });
+    expect(page.columnState('descripcion')).toEqual({ value: ' EQUIPO ', operator: 'CT' });
+    page.toggleDetail(ROW);
+    execute.mockClear();
+
+    page.changePage({ pageIndex: 1, pageSize: 20, length: 101 });
+
+    expect(page.currentPage).toBe(2);
+    expect(page.expandedRowId()).toBeNull();
+    page.isLoading.set(false);
+    page.totalItems.set(101);
+    await page.exportCsv();
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({
+      page: 1,
+      operators: { descripcion: 'CT', pedimento: 'SW' },
+      description: ' EQUIPO ',
+    }));
+  });
+
+  it('muestra un estado espec铆fico de permiso insuficiente ante 403', async () => {
+    const { page, notifications } = await configure({
+      failing: new HttpErrorResponse({ status: 403, statusText: 'Forbidden' }),
+    });
+
+    await vi.waitFor(() => expect(page.forbidden()).toBe(true));
+
+    expect(page.isLoading()).toBe(false);
+    expect(page.error()).toBeNull();
+    expect(notifications.error).not.toHaveBeenCalledWith('No fue posible consultar los activos fijos.');
+  });
+
+  it('guarda y reaplica los operadores por columna sin degradarlos a igualdad', async () => {
+    const { page, execute } = await configure();
+    page.isLoading.set(false);
+    page.hasSearched.set(true);
+    page.totalItems.set(1);
+    page.onColumnStateChange('descripcion', { value: 'EQUIPO', operator: 'CT' });
+    page.onColumnStateChange('marca', { value: 'ACME', operator: 'SW' });
+
+    const saved = page.savedCriteria();
+    expect(saved['descripcionOp']).toBe('CT');
+    expect(saved['marcaOp']).toBe('SW');
+    expect(saved['serieOp']).toBe('EQ');
+
+    page.applySavedCriteria(saved);
+    expect(page.columnState('descripcion')).toEqual({ value: 'EQUIPO', operator: 'CT' });
+    expect(page.columnState('marca')).toEqual({ value: 'ACME', operator: 'SW' });
+
+    execute.mockClear();
+    await page.exportCsv();
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({
+      operators: expect.objectContaining({ descripcion: 'CT', marca: 'SW' }),
+    }));
+  });
+
+  it('rechaza una consulta guardada con operador fuera del contrato', async () => {
+    const { page, notifications } = await configure();
+    page.applySavedCriteria({
+      from: null, to: null, customsDocument: '', customsCode: '', partNumber: '',
+      description: 'EQUIPO', serialNumber: '', brand: '', model: '', descripcionOp: 'LIKE',
+    });
+
+    expect(notifications.error).toHaveBeenCalledWith('Esta consulta guardada ya no es compatible con esta pantalla.');
+    expect(page.columnState('descripcion').operator).toBe('EQ');
+  });
+
+  it('bloquea la exportaci贸n cuando la consulta termin贸 en error', async () => {
+    const { page } = await configure();
+    page.isLoading.set(false);
+    page.hasSearched.set(true);
+    page.totalItems.set(5);
+    page.error.set('fallo de red');
+    expect(page.canExport()).toBe(false);
+
+    page.error.set(null);
+    page.forbidden.set(true);
+    expect(page.canExport()).toBe(false);
+  });
 });

@@ -15,7 +15,9 @@ public class ConsultaGuardadaCriteriosValidator {
     private static final int MAX_JSON = 4000;
     private static final Set<String> OPERATION_KEYS = Set.of("from", "to", "customsDocument", "customsCode", "tariffFraction", "partNumber");
     private static final Set<String> USED_MATERIAL_KEYS = Set.of("from", "to", "material", "product", "exitCustomsDocument", "exitCustomsCode");
-    private static final Set<String> FIXED_ASSET_KEYS = Set.of("from", "to", "customsDocument", "customsCode", "partNumber", "description", "serialNumber", "brand", "model");
+    private static final Set<String> FIXED_ASSET_KEYS = Set.of("from", "to", "customsDocument", "customsCode", "partNumber", "description", "serialNumber", "brand", "model",
+            "pedimentoOp", "clavePedimentoOp", "numeroParteOp", "descripcionOp", "serieOp", "marcaOp", "modeloOp");
+    private static final Set<String> FILTER_OPERATORS = Set.of("EQ", "NEQ", "CT", "SW", "EW");
     private static final Set<String> REPORT_KEYS = Set.of("type", "from", "to", "customsDocument", "customsCode", "tariffFraction", "partNumber", "material", "product", "userId", "module", "result", "correlationId", "filter");
     private static final Set<String> REPORT_TYPES = Set.of("entradas", "salidas", "materiales-utilizados", "bitacora", "compulsa", "rectificaciones", "vencimientos", "dirigidos", "analisis-descargas", "operaciones-bloqueadas", "f4", "anexo30-revision-entradas", "anexo30-revision-fracciones", "anexo30-revision-descargas", "anexo30-revision-comparativa", "rectificaciones-detalle", "compulsa-detalle", "saldos");
 
@@ -29,6 +31,7 @@ public class ConsultaGuardadaCriteriosValidator {
             if (value == null) continue;
             if ("userId".equals(key)) validarUserId(value);
             else if ("type".equals(key)) validarReportType(value);
+            else if (key.endsWith("Op")) validarOperador(value);
             else validarTexto(key, value);
         }
         validarFechas(alcance, criterios);
@@ -59,6 +62,11 @@ public class ConsultaGuardadaCriteriosValidator {
         if (!value.isTextual() || !REPORT_TYPES.contains(value.textValue())) invalido();
     }
 
+    /** Los operadores guardados deben pertenecer al contrato ejecutable del SP. */
+    private void validarOperador(JsonNode value) {
+        if (!value.isNull() && (!value.isTextual() || !FILTER_OPERATORS.contains(value.textValue()))) invalido();
+    }
+
     private void validarUserId(JsonNode value) {
         if (!value.isNull() && (!value.isIntegralNumber() || !value.canConvertToLong() || value.longValue() <= 0)) invalido();
     }
@@ -86,6 +94,8 @@ public class ConsultaGuardadaCriteriosValidator {
             case "result" -> 20;
             case "correlationId" -> 40;
             case "filter" -> 100;
+            case "pedimentoOp", "clavePedimentoOp", "numeroParteOp", "descripcionOp",
+                    "serieOp", "marcaOp", "modeloOp" -> 10;
             default -> 250;
         };
     }

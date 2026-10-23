@@ -1,6 +1,8 @@
 package com.jovycandy.anexo24.operations.fixedassets.infrastructure.persistence;
 
 import com.jovycandy.anexo24.operations.fixedassets.domain.model.ActivoFijo;
+import com.jovycandy.anexo24.operations.fixedassets.domain.model.FiltroTexto;
+import com.jovycandy.anexo24.operations.fixedassets.domain.model.FiltrosActivoFijo;
 import com.jovycandy.anexo24.shared.api.Pagina;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,15 +59,14 @@ class ActivoFijoStoredProcedureAdapterTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void invocaSpConFechasPresentesParametrosOrdenadosYTotalOut() throws Exception {
+    void invocaSpConParametrosOrdenadosOperadoresYTotalOut() throws Exception {
         ActivoFijo activo = activoEjemplo();
         when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
                 .thenReturn(Map.of("items", List.of(activo), "Total", 2L));
-        when(connection.prepareCall("{call dbo.APP24_Q_ACTIVOS_FIJOS_LISTAR(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}"))
+        when(connection.prepareCall(ActivoFijoStoredProcedureAdapter.LLAMADA))
                 .thenReturn(callableStatement);
 
-        Pagina<ActivoFijo> resultado = adapter.findPage(DESDE, HASTA, "5003971", "A1",
-                "500017", "AZUCAR ESTANDAR", "SERIE", "MARCA", "MODELO", 2, 20);
+        Pagina<ActivoFijo> resultado = adapter.findPage(filtrosCompletos(), 2, 20);
 
         assertThat(resultado.items()).containsExactly(activo);
         assertThat(resultado.total()).isEqualTo(2L);
@@ -78,7 +79,7 @@ class ActivoFijoStoredProcedureAdapterTest {
         verify(jdbcTemplate).call(creator.capture(), declarations.capture());
 
         creator.getValue().createCallableStatement(connection);
-        verify(connection).prepareCall("{call dbo.APP24_Q_ACTIVOS_FIJOS_LISTAR(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}");
+        verify(connection).prepareCall(ActivoFijoStoredProcedureAdapter.LLAMADA);
         verify(callableStatement).setDate(1, java.sql.Date.valueOf(DESDE));
         verify(callableStatement).setDate(2, java.sql.Date.valueOf(HASTA));
         verify(callableStatement).setString(3, "5003971");
@@ -91,26 +92,36 @@ class ActivoFijoStoredProcedureAdapterTest {
         verify(callableStatement).setInt(10, 2);
         verify(callableStatement).setInt(11, 20);
         verify(callableStatement).registerOutParameter(12, Types.BIGINT);
+        verify(callableStatement).setString(13, "CT");
+        verify(callableStatement).setString(14, "EQ");
+        verify(callableStatement).setString(15, "SW");
+        verify(callableStatement).setString(16, "EW");
+        verify(callableStatement).setString(17, "NEQ");
+        verify(callableStatement).setString(18, "EQ");
+        verify(callableStatement).setString(19, "EQ");
 
         assertThat(declarations.getValue()).extracting(SqlParameter::getName)
                 .containsExactly("Desde", "Hasta", "Pedimento", "ClavePedimento", "NumeroParte",
-                        "Descripcion", "Serie", "Marca", "Modelo", "Pagina", "Tamano", "Total", "items");
+                        "Descripcion", "Serie", "Marca", "Modelo", "Pagina", "Tamano",
+                        "Total", "PedimentoOp", "ClavePedimentoOp", "NumeroParteOp", "DescripcionOp",
+                        "SerieOp", "MarcaOp", "ModeloOp", "items");
         assertThat(declarations.getValue().get(11)).isInstanceOf(SqlOutParameter.class);
-        assertThat(declarations.getValue().subList(0, 12)).extracting(SqlParameter::getSqlType)
+        assertThat(declarations.getValue().subList(0, 19)).extracting(SqlParameter::getSqlType)
                 .containsExactly(Types.DATE, Types.DATE, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR,
                         Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.INTEGER,
-                        Types.INTEGER, Types.BIGINT);
+                        Types.INTEGER, Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR,
+                        Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR);
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    void envíaNullSqlParaRangoAusente() throws Exception {
+    void enviaNullParaRangoYFiltrosAusentes() throws Exception {
         when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
                 .thenReturn(Map.of("Total", 0L));
-        when(connection.prepareCall("{call dbo.APP24_Q_ACTIVOS_FIJOS_LISTAR(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}"))
+        when(connection.prepareCall(ActivoFijoStoredProcedureAdapter.LLAMADA))
                 .thenReturn(callableStatement);
 
-        adapter.findPage(null, null, null, null, null, null, null, null, null, 1, 20);
+        adapter.findPage(FiltrosActivoFijo.vacios(), 1, 20);
 
         ArgumentCaptor<CallableStatementCreator> creator =
                 ArgumentCaptor.forClass(CallableStatementCreator.class);
@@ -118,9 +129,34 @@ class ActivoFijoStoredProcedureAdapterTest {
         creator.getValue().createCallableStatement(connection);
         verify(callableStatement).setNull(1, Types.DATE);
         verify(callableStatement).setNull(2, Types.DATE);
+        for (int posicion = 3; posicion <= 9; posicion++) {
+            verify(callableStatement).setString(posicion, null);
+        }
+        for (int posicion = 13; posicion <= 19; posicion++) {
+            verify(callableStatement).setString(posicion, null);
+        }
     }
 
     @Test
+    void ignoraFiltroBlankAunqueTraigaOperador() throws Exception {
+        when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
+                .thenReturn(Map.of("Total", 0L));
+        when(connection.prepareCall(ActivoFijoStoredProcedureAdapter.LLAMADA))
+                .thenReturn(callableStatement);
+
+        adapter.findPage(new FiltrosActivoFijo(null, null,
+                new FiltroTexto("   ", "CT"), null, null, null, null, null, null), 1, 20);
+
+        ArgumentCaptor<CallableStatementCreator> creator =
+                ArgumentCaptor.forClass(CallableStatementCreator.class);
+        verify(jdbcTemplate).call(creator.capture(), anyList());
+        creator.getValue().createCallableStatement(connection);
+        verify(callableStatement).setString(3, null);
+        verify(callableStatement).setString(13, null);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void rowMapperMapeaLosTreceAliasesYAdmiteNulos() throws Exception {
         ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
         when(resultSet.getBigDecimal("PARTIDA_ENTRADA_ID")).thenReturn(new BigDecimal("2001"));
@@ -145,8 +181,7 @@ class ActivoFijoStoredProcedureAdapterTest {
                     return Map.of("items", List.of(mapped), "Total", 1L);
                 });
 
-        Pagina<ActivoFijo> resultado = adapter.findPage(null, null, null, null,
-                null, null, null, null, null, 1, 20);
+        Pagina<ActivoFijo> resultado = adapter.findPage(FiltrosActivoFijo.vacios(), 1, 20);
 
         assertThat(resultado.items()).singleElement().satisfies(activo -> {
             assertThat(activo.partidaEntradaId()).isEqualByComparingTo("2001");
@@ -177,8 +212,7 @@ class ActivoFijoStoredProcedureAdapterTest {
                     return Map.of("items", List.of(mapped), "Total", 1L);
                 });
 
-        Pagina<ActivoFijo> resultado = adapter.findPage(null, null, null, null,
-                null, null, null, null, null, 1, 20);
+        Pagina<ActivoFijo> resultado = adapter.findPage(FiltrosActivoFijo.vacios(), 1, 20);
 
         assertThat(resultado.items()).singleElement().extracting(ActivoFijo::fechaImportacion)
                 .isNull();
@@ -189,13 +223,23 @@ class ActivoFijoStoredProcedureAdapterTest {
         when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
                 .thenReturn(Map.of("Total", 0L));
 
-        Pagina<ActivoFijo> resultado = adapter.findPage(null, null, null, null,
-                null, null, null, null, null, 1, 20);
+        Pagina<ActivoFijo> resultado = adapter.findPage(FiltrosActivoFijo.vacios(), 1, 20);
 
         assertThat(resultado.items()).isEmpty();
         assertThat(resultado.total()).isZero();
         assertThat(resultado.pagina()).isEqualTo(1);
         assertThat(resultado.tamano()).isEqualTo(20);
+    }
+
+    private static FiltrosActivoFijo filtrosCompletos() {
+        return new FiltrosActivoFijo(DESDE, HASTA,
+                new FiltroTexto("5003971", "CT"),
+                new FiltroTexto("A1", "EQ"),
+                new FiltroTexto("500017", "SW"),
+                new FiltroTexto("AZUCAR ESTANDAR", "EW"),
+                new FiltroTexto("SERIE", "NEQ"),
+                new FiltroTexto("MARCA", "EQ"),
+                new FiltroTexto("MODELO", "EQ"));
     }
 
     private static RowMapper<ActivoFijo> mapperFrom(List<SqlParameter> parameters) {

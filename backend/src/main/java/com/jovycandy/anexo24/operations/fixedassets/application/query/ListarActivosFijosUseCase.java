@@ -1,6 +1,9 @@
 package com.jovycandy.anexo24.operations.fixedassets.application.query;
 
 import com.jovycandy.anexo24.operations.fixedassets.domain.model.ActivoFijo;
+import com.jovycandy.anexo24.operations.fixedassets.domain.model.FiltroTexto;
+import com.jovycandy.anexo24.operations.fixedassets.domain.model.FiltrosActivoFijo;
+import com.jovycandy.anexo24.operations.fixedassets.domain.model.OperadorFiltro;
 import com.jovycandy.anexo24.operations.fixedassets.domain.port.ActivoFijoRepository;
 import com.jovycandy.anexo24.shared.api.Pagina;
 import com.jovycandy.anexo24.shared.exception.SolicitudInvalidaException;
@@ -35,47 +38,30 @@ public class ListarActivosFijosUseCase {
     }
 
     /**
-     * Consulta activos fijos con rango opcional en pareja y filtros acumulativos.
+     * Consulta activos fijos validando rango, paginación, longitudes y operadores.
      *
-     * @param desde fecha inicial inclusiva de importación
-     * @param hasta fecha final inclusiva de importación
-     * @param pedimento número de pedimento opcional
-     * @param clavePedimento clave de pedimento opcional
-     * @param numeroParte número de parte opcional
-     * @param descripcion descripción histórica opcional
-     * @param serie número de serie histórico opcional
-     * @param marca marca histórica opcional
-     * @param modelo modelo histórico opcional
-     * @param pagina número de página base 1
-     * @param tamano cantidad solicitada de elementos
+     * @param filtros criterios recibidos desde la capa HTTP; puede ser {@code null}
+     * @param pagina  número de página base 1
+     * @param tamano  cantidad solicitada de elementos, entre 1 y 100
      * @return página de partidas activas
      */
-    public Pagina<ActivoFijo> ejecutar(LocalDate desde, LocalDate hasta, String pedimento,
-                                       String clavePedimento, String numeroParte, String descripcion,
-                                       String serie, String marca, String modelo, int pagina, int tamano) {
-        validarRango(desde, hasta);
+    public Pagina<ActivoFijo> ejecutar(FiltrosActivoFijo filtros, int pagina, int tamano) {
+        FiltrosActivoFijo criterios = filtros == null ? FiltrosActivoFijo.vacios() : filtros;
+        validarRango(criterios.desde(), criterios.hasta());
         validarPaginacion(pagina, tamano);
 
-        String pedimentoNormalizado = normalizarTexto(pedimento);
-        String clavePedimentoNormalizada = normalizarTexto(clavePedimento);
-        String numeroParteNormalizado = normalizarTexto(numeroParte);
-        String descripcionNormalizada = normalizarTexto(descripcion);
-        String serieNormalizada = normalizarTexto(serie);
-        String marcaNormalizada = normalizarTexto(marca);
-        String modeloNormalizado = normalizarTexto(modelo);
+        FiltrosActivoFijo normalizados = new FiltrosActivoFijo(
+                criterios.desde(),
+                criterios.hasta(),
+                validarFiltro(criterios.pedimento(), PEDIMENTO_MAXIMO, "pedimento"),
+                validarFiltro(criterios.clavePedimento(), CLAVE_PEDIMENTO_MAXIMA, "clavePedimento"),
+                validarFiltro(criterios.numeroParte(), NUMERO_PARTE_MAXIMO, "numeroParte"),
+                validarFiltro(criterios.descripcion(), DESCRIPCION_MAXIMA, "descripcion"),
+                validarFiltro(criterios.serie(), SERIE_MAXIMA, "serie"),
+                validarFiltro(criterios.marca(), MARCA_MAXIMA, "marca"),
+                validarFiltro(criterios.modelo(), MODELO_MAXIMO, "modelo"));
 
-        validarLongitud(pedimentoNormalizado, PEDIMENTO_MAXIMO, "pedimento");
-        validarLongitud(clavePedimentoNormalizada, CLAVE_PEDIMENTO_MAXIMA, "clavePedimento");
-        validarLongitud(numeroParteNormalizado, NUMERO_PARTE_MAXIMO, "numeroParte");
-        validarLongitud(descripcionNormalizada, DESCRIPCION_MAXIMA, "descripcion");
-        validarLongitud(serieNormalizada, SERIE_MAXIMA, "serie");
-        validarLongitud(marcaNormalizada, MARCA_MAXIMA, "marca");
-        validarLongitud(modeloNormalizado, MODELO_MAXIMO, "modelo");
-
-        return activoFijoRepository.findPage(
-                desde, hasta, pedimentoNormalizado, clavePedimentoNormalizada,
-                numeroParteNormalizado, descripcionNormalizada, serieNormalizada,
-                marcaNormalizada, modeloNormalizado, pagina, tamano);
+        return activoFijoRepository.findPage(normalizados, pagina, tamano);
     }
 
     private void validarRango(LocalDate desde, LocalDate hasta) {
@@ -98,17 +84,31 @@ public class ListarActivosFijosUseCase {
         }
     }
 
+    /**
+     * Normaliza un filtro y valida longitud y operador.
+     *
+     * @param filtro   filtro recibido; puede ser nulo
+     * @param maximo   longitud máxima permitida después de trim
+     * @param parametro nombre del parámetro para el mensaje de error
+     * @return filtro normalizado, o {@code null} cuando no aporta valor
+     */
+    private FiltroTexto validarFiltro(FiltroTexto filtro, int maximo, String parametro) {
+        if (filtro == null || !filtro.activo()) {
+            return null;
+        }
+        String valor = filtro.valor().trim();
+        validarLongitud(valor, maximo, parametro);
+        OperadorFiltro operador = OperadorFiltro.interpretar(filtro.operador())
+                .orElseThrow(() -> new SolicitudInvalidaException(
+                        "El operador del filtro " + parametro
+                                + " no es válido. Valores permitidos: EQ, NEQ, CT, SW, EW."));
+        return FiltroTexto.con(valor, operador);
+    }
+
     private void validarLongitud(String valor, int maximo, String parametro) {
         if (valor != null && valor.length() > maximo) {
             throw new SolicitudInvalidaException(
                     "El parámetro " + parametro + " supera la longitud permitida.");
         }
-    }
-
-    private String normalizarTexto(String valor) {
-        if (valor == null || valor.isBlank()) {
-            return null;
-        }
-        return valor.trim();
     }
 }

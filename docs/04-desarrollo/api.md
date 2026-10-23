@@ -283,3 +283,30 @@ Fase 4B consume el catálogo real `GET /api/v1/administracion/perfiles`: perfile
 activos para alta/cambio y todos los estados para filtro. La UI no solicita
 `perfilId` manual, no hardcodea IDs ni deduce catálogo desde usuarios. No expone
 pantalla ni CRUD de perfiles.
+
+## Activos fijos — filtros por columna (Sprint 06)
+
+`GET /api/v1/operaciones/activos-fijos` mantiene su contrato V1 y agrega
+operadores opcionales por columna. El detalle del modelo, la justificación
+SP-first y las brechas de paridad están en
+`docs/03-diseno/mapeo-activos-fijos.md` (§13).
+
+| Parámetro | Tipo | Valores | Default |
+|---|---|---|---|
+| `pedimentoOp`, `clavePedimentoOp`, `numeroParteOp`, `descripcionOp`, `serieOp`, `marcaOp`, `modeloOp` | string | `EQ`, `NEQ`, `CT`, `SW`, `EW` | `EQ` |
+
+Reglas:
+
+- El operador sólo se aplica cuando su filtro de valor está informado; si el
+  valor está vacío, ambos se ignoran.
+- Un operador fuera del conjunto responde `400 SOLICITUD_INVALIDA`.
+- `desde` y `hasta` siguen siendo obligatorios en pareja y el rango se aplica a
+  `IMPORTACIONES.Fecha`.
+- Permiso: `OPERACIONES_CONSULTAR`. Errores: `400`, `401`, `403`, `503`.
+- No se agregaron campos (`NICO`, UMT, almacén, tipo controlado) porque no
+  tienen fuente demostrada; ver brechas B-06.
+
+Consumidor frontend: `frontend/src/app/features/operations/fixed-assets`. La
+pantalla conserva CSV y agrega XLSX generado en el navegador, sin endpoint de
+exportación nuevo: ambos formatos descargan el conjunto filtrado completo con
+tope de 10,000 registros y conservan los operadores activos.

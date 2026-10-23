@@ -1,6 +1,8 @@
 package com.jovycandy.anexo24.operations.fixedassets.infrastructure.persistence;
 
 import com.jovycandy.anexo24.operations.fixedassets.domain.model.ActivoFijo;
+import com.jovycandy.anexo24.operations.fixedassets.domain.model.FiltroTexto;
+import com.jovycandy.anexo24.operations.fixedassets.domain.model.FiltrosActivoFijo;
 import com.jovycandy.anexo24.operations.fixedassets.domain.port.ActivoFijoRepository;
 import com.jovycandy.anexo24.shared.api.Pagina;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -28,6 +30,10 @@ public class ActivoFijoStoredProcedureAdapter implements ActivoFijoRepository {
     static final String PROCEDURE_NAME = "dbo.APP24_Q_ACTIVOS_FIJOS_LISTAR";
     static final String RESULT_SET_NAME = "items";
     static final String TOTAL_PARAMETER = "Total";
+
+    /** Sentencia con 18 entradas y el parámetro de salida Total. */
+    static final String LLAMADA = "{call " + PROCEDURE_NAME
+            + "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}";
 
     private static final RowMapper<ActivoFijo> ACTIVO_FIJO_MAPPER = (rs, rowNum) -> new ActivoFijo(
             rs.getBigDecimal("PARTIDA_ENTRADA_ID"),
@@ -57,6 +63,13 @@ public class ActivoFijoStoredProcedureAdapter implements ActivoFijoRepository {
             new SqlParameter("Pagina", Types.INTEGER),
             new SqlParameter("Tamano", Types.INTEGER),
             new SqlOutParameter(TOTAL_PARAMETER, Types.BIGINT),
+            new SqlParameter("PedimentoOp", Types.VARCHAR),
+            new SqlParameter("ClavePedimentoOp", Types.VARCHAR),
+            new SqlParameter("NumeroParteOp", Types.VARCHAR),
+            new SqlParameter("DescripcionOp", Types.VARCHAR),
+            new SqlParameter("SerieOp", Types.VARCHAR),
+            new SqlParameter("MarcaOp", Types.VARCHAR),
+            new SqlParameter("ModeloOp", Types.VARCHAR),
             new SqlReturnResultSet(RESULT_SET_NAME, ACTIVO_FIJO_MAPPER));
 
     private final JdbcTemplate jdbcTemplate;
@@ -74,24 +87,29 @@ public class ActivoFijoStoredProcedureAdapter implements ActivoFijoRepository {
      * {@inheritDoc}
      */
     @Override
-    public Pagina<ActivoFijo> findPage(LocalDate desde, LocalDate hasta, String pedimento,
-                                       String clavePedimento, String numeroParte, String descripcion,
-                                       String serie, String marca, String modelo, int pagina, int tamano) {
+    public Pagina<ActivoFijo> findPage(FiltrosActivoFijo filtros, int pagina, int tamano) {
+        FiltrosActivoFijo criterios = filtros == null ? FiltrosActivoFijo.vacios() : filtros;
         Map<String, Object> resultado = jdbcTemplate.call(connection -> {
-            CallableStatement statement = connection.prepareCall(
-                    "{call " + PROCEDURE_NAME + "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}");
-            setDateOrNull(statement, 1, desde);
-            setDateOrNull(statement, 2, hasta);
-            statement.setString(3, pedimento);
-            statement.setString(4, clavePedimento);
-            statement.setString(5, numeroParte);
-            statement.setString(6, descripcion);
-            statement.setString(7, serie);
-            statement.setString(8, marca);
-            statement.setString(9, modelo);
+            CallableStatement statement = connection.prepareCall(LLAMADA);
+            setDateOrNull(statement, 1, criterios.desde());
+            setDateOrNull(statement, 2, criterios.hasta());
+            statement.setString(3, valor(criterios.pedimento()));
+            statement.setString(4, valor(criterios.clavePedimento()));
+            statement.setString(5, valor(criterios.numeroParte()));
+            statement.setString(6, valor(criterios.descripcion()));
+            statement.setString(7, valor(criterios.serie()));
+            statement.setString(8, valor(criterios.marca()));
+            statement.setString(9, valor(criterios.modelo()));
             statement.setInt(10, pagina);
             statement.setInt(11, tamano);
             statement.registerOutParameter(12, Types.BIGINT);
+            statement.setString(13, operador(criterios.pedimento()));
+            statement.setString(14, operador(criterios.clavePedimento()));
+            statement.setString(15, operador(criterios.numeroParte()));
+            statement.setString(16, operador(criterios.descripcion()));
+            statement.setString(17, operador(criterios.serie()));
+            statement.setString(18, operador(criterios.marca()));
+            statement.setString(19, operador(criterios.modelo()));
             return statement;
         }, DECLARED_PARAMETERS);
 
@@ -100,6 +118,17 @@ public class ActivoFijoStoredProcedureAdapter implements ActivoFijoRepository {
                 .getOrDefault(RESULT_SET_NAME, List.of());
         Number total = (Number) resultado.get(TOTAL_PARAMETER);
         return new Pagina<>(items, total == null ? 0L : total.longValue(), pagina, tamano);
+    }
+
+    private static String valor(FiltroTexto filtro) {
+        return filtro == null || !filtro.activo() ? null : filtro.valor();
+    }
+
+    /**
+     * Envía el operador validado o {@code NULL} para que el SP aplique EQ.
+     */
+    private static String operador(FiltroTexto filtro) {
+        return filtro == null || !filtro.activo() ? null : filtro.operador();
     }
 
     private static void setDateOrNull(CallableStatement statement, int index, LocalDate value)

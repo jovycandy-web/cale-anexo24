@@ -59,4 +59,21 @@ class ConsultaGuardadaCriteriosValidatorTest {
         ObjectNode criteria = mapper.createObjectNode().putNull("from").putNull("to").put("serialNumber", "SERIE-1");
         assertDoesNotThrow(() -> validator.validarYSerializar(ConsultaGuardadaAlcance.ACTIVOS_FIJOS, criteria));
     }
+
+    @Test
+    void aceptaOperadoresDeActivosFijosYSoloLosDelContrato() {
+        ObjectNode validos = mapper.createObjectNode().putNull("from").putNull("to")
+                .put("description", "EQUIPO").put("descripcionOp", "CT")
+                .put("brand", "ACME").put("marcaOp", "SW");
+        assertDoesNotThrow(() -> validator.validarYSerializar(ConsultaGuardadaAlcance.ACTIVOS_FIJOS, validos));
+
+        ObjectNode invalido = mapper.createObjectNode().put("description", "EQUIPO").put("descripcionOp", "LIKE");
+        assertThrows(SolicitudInvalidaException.class,
+                () -> validator.validarYSerializar(ConsultaGuardadaAlcance.ACTIVOS_FIJOS, invalido));
+
+        ObjectNode noTextual = mapper.createObjectNode();
+        noTextual.putObject("serieOp");
+        assertThrows(SolicitudInvalidaException.class,
+                () -> validator.validarYSerializar(ConsultaGuardadaAlcance.ACTIVOS_FIJOS, noTextual));
+    }
 }
