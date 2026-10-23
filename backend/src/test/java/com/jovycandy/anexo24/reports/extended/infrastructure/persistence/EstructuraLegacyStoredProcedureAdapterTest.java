@@ -8,26 +8,21 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.CallableStatementCallback;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.SqlParameter;
-import org.springframework.jdbc.core.SqlReturnResultSet;
 
 import java.math.BigDecimal;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,41 +47,25 @@ class EstructuraLegacyStoredProcedureAdapterTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void invocaElSpConLosCuatroParametrosDelLegacy() throws Exception {
-        when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList())).thenReturn(Map.of());
-        when(connection.prepareCall(EstructuraLegacyStoredProcedureAdapter.LLAMADA)).thenReturn(callableStatement);
+        CallableStatementCallback<List<EstructuraLegacy>> callback =
+                capturarCallback("P001", "M001", LocalDate.of(2025, 1, 2), LocalDate.of(2025, 3, 4));
+        when(callableStatement.execute()).thenReturn(true);
 
-        adapter.listar("P001", "M001", LocalDate.of(2025, 1, 2), LocalDate.of(2025, 3, 4));
-
-        ArgumentCaptor<CallableStatementCreator> creator = ArgumentCaptor.forClass(CallableStatementCreator.class);
-        ArgumentCaptor<List<SqlParameter>> declarations = ArgumentCaptor.forClass(List.class);
-        verify(jdbcTemplate).call(creator.capture(), declarations.capture());
-        creator.getValue().createCallableStatement(connection);
-
+        callback.doInCallableStatement(callableStatement);
+        verify(connection).prepareCall(EstructuraLegacyStoredProcedureAdapter.LLAMADA);
         verify(callableStatement).setString(1, "P001");
         verify(callableStatement).setString(2, "M001");
         verify(callableStatement).setTimestamp(3, Timestamp.valueOf("2025-01-02 00:00:00"));
         verify(callableStatement).setTimestamp(4, Timestamp.valueOf("2025-03-04 00:00:00"));
-
-        assertThat(declarations.getValue()).extracting(SqlParameter::getName)
-                .containsExactly("Producto", "Material", "Desde", "Hasta", "estructuras");
-        assertThat(declarations.getValue().subList(0, 4)).extracting(SqlParameter::getSqlType)
-                .containsExactly(Types.VARCHAR, Types.VARCHAR, Types.TIMESTAMP, Types.TIMESTAMP);
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void enviaNullCuandoLosFiltrosOAusentes() throws Exception {
-        when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList())).thenReturn(Map.of());
-        when(connection.prepareCall(EstructuraLegacyStoredProcedureAdapter.LLAMADA)).thenReturn(callableStatement);
+        CallableStatementCallback<List<EstructuraLegacy>> callback = capturarCallback(null, null, null, null);
+        when(callableStatement.execute()).thenReturn(true);
 
-        adapter.listar(null, null, null, null);
-
-        ArgumentCaptor<CallableStatementCreator> creator = ArgumentCaptor.forClass(CallableStatementCreator.class);
-        verify(jdbcTemplate).call(creator.capture(), anyList());
-        creator.getValue().createCallableStatement(connection);
-
+        callback.doInCallableStatement(callableStatement);
         verify(callableStatement).setString(1, null);
         verify(callableStatement).setString(2, null);
         verify(callableStatement).setTimestamp(3, null);
@@ -94,15 +73,30 @@ class EstructuraLegacyStoredProcedureAdapterTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void devuelveListaVaciaCuandoElSpNoDevuelveFilas() {
-        when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList())).thenReturn(Map.of());
+    void saltaLosConteosDeFilasDelLegacyHastaElPrimerResultSet() throws Exception {
+        ResultSet resultSet = Mockito.mock(ResultSet.class);
+        when(resultSet.getBigDecimal("Cantidad Incorporada")).thenReturn(new BigDecimal("2.5000000"));
+        when(resultSet.next()).thenReturn(true, false);
+        when(callableStatement.execute()).thenReturn(false);
+        when(callableStatement.getUpdateCount()).thenReturn(4);
+        when(callableStatement.getMoreResults()).thenReturn(true);
+        when(callableStatement.getResultSet()).thenReturn(resultSet);
 
-        assertThat(adapter.listar(null, null, null, null)).isEmpty();
+        List<EstructuraLegacy> filas = ejecutar();
+
+        assertThat(filas).hasSize(1);
+        assertThat(filas.get(0).cantidadIncorporada()).isEqualByComparingTo("2.5");
     }
 
     @Test
-    @SuppressWarnings("unchecked")
+    void devuelveListaVaciaCuandoElSpNoDevuelveResultSet() throws Exception {
+        when(callableStatement.execute()).thenReturn(false);
+        when(callableStatement.getUpdateCount()).thenReturn(-1);
+
+        assertThat(ejecutar()).isEmpty();
+    }
+
+    @Test
     void rowMapperMapeaLosDieciseisAliasesYAdmiteNulos() throws Exception {
         ResultSet resultSet = Mockito.mock(ResultSet.class);
         when(resultSet.getString("Codigo de Producto")).thenReturn("P001");
@@ -121,15 +115,11 @@ class EstructuraLegacyStoredProcedureAdapterTest {
         when(resultSet.getTimestamp("Ultima Salida")).thenReturn(Timestamp.valueOf("2020-09-01 00:00:00"));
         when(resultSet.getBigDecimal("PRODMATKEY")).thenReturn(new BigDecimal("100"));
         when(resultSet.getBigDecimal("EstructuraKey")).thenReturn(new BigDecimal("1001"));
-        when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
-                .thenAnswer(invocation -> {
-                    @SuppressWarnings("unchecked")
-                    List<SqlParameter> declared = invocation.getArgument(1, List.class);
-                    EstructuraLegacy mapped = mapperFrom(declared).mapRow(resultSet, 1);
-                    return Map.of("estructuras", List.of(mapped));
-                });
+        when(resultSet.next()).thenReturn(true, false);
+        when(callableStatement.execute()).thenReturn(true);
+        when(callableStatement.getResultSet()).thenReturn(resultSet);
 
-        EstructuraLegacy fila = adapter.listar("P001", "M001", null, null).get(0);
+        EstructuraLegacy fila = ejecutar().get(0);
 
         assertThat(fila.codigoProducto()).isEqualTo("P001");
         assertThat(fila.descripcionProducto()).isEqualTo("Producto Uno");
@@ -145,18 +135,13 @@ class EstructuraLegacyStoredProcedureAdapterTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void rowMapperAdmiteClavesNulas() throws Exception {
         ResultSet resultSet = Mockito.mock(ResultSet.class);
-        when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
-                .thenAnswer(invocation -> {
-                    @SuppressWarnings("unchecked")
-                    List<SqlParameter> declared = invocation.getArgument(1, List.class);
-                    EstructuraLegacy mapped = mapperFrom(declared).mapRow(resultSet, 1);
-                    return Map.of("estructuras", List.of(mapped));
-                });
+        when(resultSet.next()).thenReturn(true, false);
+        when(callableStatement.execute()).thenReturn(true);
+        when(callableStatement.getResultSet()).thenReturn(resultSet);
 
-        EstructuraLegacy fila = adapter.listar(null, null, null, null).get(0);
+        EstructuraLegacy fila = ejecutar().get(0);
 
         assertThat(fila.productoKey()).isNull();
         assertThat(fila.prodMatKey()).isNull();
@@ -164,13 +149,24 @@ class EstructuraLegacyStoredProcedureAdapterTest {
         assertThat(fila.cantidadIncorporada()).isNull();
     }
 
+    private List<EstructuraLegacy> ejecutar() throws Exception {
+        return capturarCallback(null, null, null, null).doInCallableStatement(callableStatement);
+    }
+
     @SuppressWarnings("unchecked")
-    private static RowMapper<EstructuraLegacy> mapperFrom(List<SqlParameter> parameters) {
-        SqlReturnResultSet resultSetParameter = parameters.stream()
-                .filter(SqlReturnResultSet.class::isInstance)
-                .map(SqlReturnResultSet.class::cast)
-                .findFirst()
-                .orElseThrow();
-        return (RowMapper<EstructuraLegacy>) resultSetParameter.getRowMapper();
+    private CallableStatementCallback<List<EstructuraLegacy>> capturarCallback(
+            String producto, String material, LocalDate desde, LocalDate hasta) throws Exception {
+        ArgumentCaptor<CallableStatementCreator> creator = ArgumentCaptor.forClass(CallableStatementCreator.class);
+        @SuppressWarnings("rawtypes")
+        ArgumentCaptor<CallableStatementCallback> callback = ArgumentCaptor.forClass(CallableStatementCallback.class);
+
+        when(jdbcTemplate.execute(any(CallableStatementCreator.class), any(CallableStatementCallback.class)))
+                .thenReturn(List.of());
+        adapter.listar(producto, material, desde, hasta);
+
+        verify(jdbcTemplate).execute(creator.capture(), callback.capture());
+        when(connection.prepareCall(EstructuraLegacyStoredProcedureAdapter.LLAMADA)).thenReturn(callableStatement);
+        creator.getValue().createCallableStatement(connection);
+        return (CallableStatementCallback<List<EstructuraLegacy>>) callback.getValue();
     }
 }

@@ -89,6 +89,7 @@ class RuntimeIdentityDeploymentScriptsIT {
             "APP24_C_AGENTE_CARGA_CONFIRMAR",
             "APP24_C_ACTA_CARGA_CONFIRMAR",
             "APP24_C_CONSTANCIA_CARGA_CONFIRMAR",
+            "PR_INFORME_ESTRUCTURAS",
     };
 
     private static final String[] APP_SP = {

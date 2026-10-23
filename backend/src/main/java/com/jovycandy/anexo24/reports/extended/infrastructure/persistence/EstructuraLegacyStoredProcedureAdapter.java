@@ -3,28 +3,27 @@ package com.jovycandy.anexo24.reports.extended.infrastructure.persistence;
 import com.jovycandy.anexo24.reports.extended.domain.model.EstructuraLegacy;
 import com.jovycandy.anexo24.reports.extended.domain.port.EstructuraLegacyRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.CallableStatementCallback;
+import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.SqlParameter;
-import org.springframework.jdbc.core.SqlReturnResultSet;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.sql.CallableStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /** Consume el procedimiento legacy dbo.PR_INFORME_ESTRUCTURAS sin reimplementarlo. */
 @Repository
 public class EstructuraLegacyStoredProcedureAdapter implements EstructuraLegacyRepository {
 
     static final String PROCEDURE = "dbo.PR_INFORME_ESTRUCTURAS";
-    static final String RESULT_SET = "estructuras";
     static final String LLAMADA = "{call " + PROCEDURE + "(?, ?, ?, ?)}";
 
     private static final RowMapper<EstructuraLegacy> MAPPER = (rs, rowNum) -> new EstructuraLegacy(
@@ -45,13 +44,6 @@ public class EstructuraLegacyStoredProcedureAdapter implements EstructuraLegacyR
             largo(rs, "PRODMATKEY"),
             largo(rs, "EstructuraKey"));
 
-    private static final List<SqlParameter> PARAMETERS = List.of(
-            new SqlParameter("Producto", Types.VARCHAR),
-            new SqlParameter("Material", Types.VARCHAR),
-            new SqlParameter("Desde", Types.TIMESTAMP),
-            new SqlParameter("Hasta", Types.TIMESTAMP),
-            new SqlReturnResultSet(RESULT_SET, MAPPER));
-
     private final JdbcTemplate jdbcTemplate;
 
     public EstructuraLegacyStoredProcedureAdapter(@Qualifier("jdbcTemplate") JdbcTemplate jdbcTemplate) {
@@ -60,17 +52,41 @@ public class EstructuraLegacyStoredProcedureAdapter implements EstructuraLegacyR
 
     @Override
     public List<EstructuraLegacy> listar(String producto, String material, LocalDate desde, LocalDate hasta) {
-        Map<String, Object> result = jdbcTemplate.call(connection -> {
-            var statement = connection.prepareCall(LLAMADA);
-            statement.setString(1, producto);
-            statement.setString(2, material);
-            statement.setTimestamp(3, timestamp(desde));
-            statement.setTimestamp(4, timestamp(hasta));
-            return statement;
-        }, PARAMETERS);
-        @SuppressWarnings("unchecked")
-        List<EstructuraLegacy> filas = (List<EstructuraLegacy>) result.getOrDefault(RESULT_SET, List.of());
-        return filas;
+        return jdbcTemplate.execute(
+                (CallableStatementCreator) connection -> {
+                    CallableStatement statement = connection.prepareCall(LLAMADA);
+                    statement.setString(1, producto);
+                    statement.setString(2, material);
+                    statement.setTimestamp(3, timestamp(desde));
+                    statement.setTimestamp(4, timestamp(hasta));
+                    return statement;
+                },
+                (CallableStatementCallback<List<EstructuraLegacy>>) EstructuraLegacyStoredProcedureAdapter::filas);
+    }
+
+    /*
+     * El procedimiento legacy no usa SET NOCOUNT ON: los INSERT sobre variables
+     * de tabla emiten conteos de filas antes del SELECT. Hay que avanzar por
+     * esos conteos hasta el primer result set real.
+     */
+    private static List<EstructuraLegacy> filas(CallableStatement statement) throws SQLException {
+        boolean esResultSet = statement.execute();
+        while (true) {
+            if (esResultSet) {
+                List<EstructuraLegacy> filas = new ArrayList<>();
+                try (ResultSet rs = statement.getResultSet()) {
+                    int indice = 0;
+                    while (rs != null && rs.next()) {
+                        filas.add(MAPPER.mapRow(rs, indice++));
+                    }
+                }
+                return filas;
+            }
+            if (statement.getUpdateCount() == -1) {
+                return List.of();
+            }
+            esResultSet = statement.getMoreResults();
+        }
     }
 
     private static Timestamp timestamp(LocalDate fecha) {

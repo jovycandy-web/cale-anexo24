@@ -169,15 +169,27 @@ class EstructurasLegacySqlIT {
 
             List<String> columnas = new ArrayList<>();
             List<Map<String, Object>> filas = new ArrayList<>();
-            try (ResultSet rs = cs.getResultSet()) {
-                ResultSetMetaData meta = rs.getMetaData();
+            // El SP legacy no usa SET NOCOUNT ON: los INSERT sobre variables de
+            // tabla emiten conteos de filas antes del SELECT.
+            ResultSet rs = cs.getResultSet();
+            while (rs == null) {
+                if (!cs.getMoreResults() && cs.getUpdateCount() == -1) {
+                    break;
+                }
+                rs = cs.getResultSet();
+            }
+            if (rs == null) {
+                return new Resultado(columnas, filas);
+            }
+            try (ResultSet resultados = rs) {
+                ResultSetMetaData meta = resultados.getMetaData();
                 for (int i = 1; i <= meta.getColumnCount(); i++) {
                     columnas.add(meta.getColumnLabel(i));
                 }
-                while (rs.next()) {
+                while (resultados.next()) {
                     Map<String, Object> fila = new java.util.LinkedHashMap<>();
                     for (int i = 1; i <= meta.getColumnCount(); i++) {
-                        fila.put(columnas.get(i - 1), rs.getObject(i));
+                        fila.put(columnas.get(i - 1), resultados.getObject(i));
                     }
                     filas.add(fila);
                 }
