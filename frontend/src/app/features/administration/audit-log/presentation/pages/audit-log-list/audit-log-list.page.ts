@@ -236,6 +236,10 @@ interface AuditLogSearchResult {
             @if (items().length > 0) {
               <div class="overflow-x-auto">
                 <table mat-table [dataSource]="items()" class="w-full min-w-240" aria-label="Eventos de bitácora">
+                  <ng-container matColumnDef="id">
+                    <th mat-header-cell *matHeaderCellDef class="w-20">Id</th>
+                    <td mat-cell *matCellDef="let entry" class="tabular-nums text-slate-500">{{ entry.id }}</td>
+                  </ng-container>
                   <ng-container matColumnDef="fecha">
                     <th mat-header-cell *matHeaderCellDef>Fecha</th>
                     <td mat-cell *matCellDef="let row" [attr.title]="row.date">{{ formatDate(row.date) }}</td>
@@ -293,7 +297,7 @@ interface AuditLogSearchResult {
   `,
 })
 export class AuditLogListPage {
-  protected readonly displayedColumns = ['fecha', 'usuario', 'modulo', 'accion', 'resultado', 'detalle', 'correlationId'];
+  protected readonly displayedColumns = ['id', 'fecha', 'usuario', 'modulo', 'accion', 'resultado', 'detalle', 'correlationId'];
   protected readonly pageSizeOptions = [20, 50, 100];
   protected readonly loadingRows = [1, 2, 3, 4, 5];
   protected readonly items = signal<AuditLogEntry[]>([]);
@@ -410,7 +414,7 @@ export class AuditLogListPage {
     try {
       const rows = await loadAllCsvPages((page, pageSize) => firstValueFrom(this.searchAuditLog.execute({ ...criteria, page, pageSize })));
       if (!rows.length) { this.notifications.info('No hay eventos para exportar.'); return; }
-      const csv = serializeCsv(['Fecha', 'Usuario ID', 'Usuario', 'Módulo', 'Acción', 'Resultado', 'Detalle', 'Correlation ID'], rows.map((row) => [row.date, row.userId, row.user, row.module, row.action, row.result, row.detail, row.correlationId]));
+      const csv = serializeCsv(['Id', 'Fecha', 'Usuario ID', 'Usuario', 'Módulo', 'Acción', 'Resultado', 'Detalle', 'Correlation ID'], rows.map((row) => [row.id, row.date, row.userId, row.user, row.module, row.action, row.result, row.detail, row.correlationId]));
       downloadCsv('bitacora.csv', csv);
     } catch (cause) {
       this.notifications.error(cause instanceof Error && cause.message === CSV_EXPORT_LIMIT_MESSAGE ? CSV_EXPORT_LIMIT_MESSAGE : 'No fue posible exportar la bitácora.');

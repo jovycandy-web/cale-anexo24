@@ -77,6 +77,10 @@ import { SearchStructuresUseCase } from '@features/catalogs/structures/applicati
                     <th mat-header-cell *matHeaderCellDef>Descripción material</th>
                     <td mat-cell *matCellDef="let line" class="max-w-56">{{ line.materialDescription }}</td>
                   </ng-container>
+                  <ng-container matColumnDef="materialUnit">
+                    <th mat-header-cell *matHeaderCellDef class="w-24">Unidad</th>
+                    <td mat-cell *matCellDef="let line">{{ line.materialUnit || '—' }}</td>
+                  </ng-container>
                   <ng-container matColumnDef="materialTariffFraction">
                     <th mat-header-cell *matHeaderCellDef class="w-36">Fracción material</th>
                     <td mat-cell *matCellDef="let line">{{ line.materialTariffFraction }}</td>
@@ -94,7 +98,7 @@ import { SearchStructuresUseCase } from '@features/catalogs/structures/applicati
                     <td mat-cell *matCellDef="let line" class="text-right tabular-nums">{{ formatQuantity(line.scrapQuantity) }}</td>
                   </ng-container>
                   <ng-container matColumnDef="startDate">
-                    <th mat-header-cell *matHeaderCellDef class="w-32">Inicio</th>
+                    <th mat-header-cell *matHeaderCellDef class="w-32">Fecha vigencia</th>
                     <td mat-cell *matCellDef="let line">{{ formatDate(line.startDate) }}</td>
                   </ng-container>
                   <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
@@ -114,7 +118,7 @@ import { SearchStructuresUseCase } from '@features/catalogs/structures/applicati
   `,
 })
 export class StructureListPage implements OnInit {
-  protected readonly displayedColumns = ['productCode', 'productDescription', 'materialCode', 'materialDescription', 'materialTariffFraction', 'incorporatedQuantity', 'wasteQuantity', 'scrapQuantity', 'startDate'];
+  protected readonly displayedColumns = ['productCode', 'productDescription', 'materialCode', 'materialDescription', 'materialUnit', 'materialTariffFraction', 'incorporatedQuantity', 'scrapQuantity', 'wasteQuantity', 'startDate'];
   protected readonly items = signal<StructureLine[]>([]);
   protected readonly totalItems = signal(0);
   protected readonly isLoading = signal(false);

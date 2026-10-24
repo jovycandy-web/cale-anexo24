@@ -20,10 +20,10 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from '@layout/navi
         @for (group of groups(); track group.label) {
           @if (collapsed && !isMobile) {
             <button type="button" class="nav-item group-button rail-group" [matMenuTriggerFor]="railMenu" [matTooltip]="group.label" [attr.aria-label]="group.label"><mat-icon>{{group.icon}}</mat-icon></button>
-            <mat-menu #railMenu="matMenu" xPosition="after">@for(item of group.items; track item.route){<a mat-menu-item [routerLink]="item.route" (click)="navigate()"><mat-icon>{{item.icon}}</mat-icon><span>{{item.label}}</span></a>}</mat-menu>
+            <mat-menu #railMenu="matMenu" xPosition="after">@for(item of group.items; track item.label){<a mat-menu-item [routerLink]="item.route" [queryParams]="item.queryParams" (click)="navigate()"><mat-icon>{{item.icon}}</mat-icon><span>{{item.label}}</span></a>}</mat-menu>
           } @else {
             <button type="button" class="nav-item group-button" [class.group-active]="groupActive(group)" [attr.aria-expanded]="isExpanded(group.label)" (click)="toggleGroup(group.label)"><mat-icon>{{group.icon}}</mat-icon><span class="sidebar-copy">{{group.label}}</span><mat-icon class="chevron" [class.rotated]="isExpanded(group.label)">expand_more</mat-icon></button>
-            @if (isExpanded(group.label)) { <div class="group-children">@for(item of group.items; track item.route){<a [routerLink]="item.route" routerLinkActive="nav-active" class="nav-item child-item" (click)="navigate()"><mat-icon>{{item.icon}}</mat-icon><span>{{item.label}}</span></a>}</div> }
+            @if (isExpanded(group.label)) { <div class="group-children">@for(item of group.items; track item.label){<a [routerLink]="item.route" [queryParams]="item.queryParams" routerLinkActive="nav-active" class="nav-item child-item" (click)="navigate()"><mat-icon>{{item.icon}}</mat-icon><span>{{item.label}}</span></a>}</div> }
           }
         }
       </nav>
@@ -38,7 +38,7 @@ export class SidebarComponent {
   protected readonly auth=inject(AuthService); private readonly router=inject(Router); private readonly expanded=signal(new Set<string>(NAVIGATION_GROUPS.map(g=>g.label)));
   protected readonly groups=computed(() => NAVIGATION_GROUPS.map(group=>({...group,items:group.items.filter(item=>this.allowed(item))})).filter(group=>group.items.length));
   protected isExpanded(label:string):boolean{return this.expanded().has(label);} protected toggleGroup(label:string):void{this.expanded.update(current=>{const next=new Set(current);if(next.has(label)) next.delete(label); else next.add(label);return next;});}
-  protected groupActive(group:NavigationGroup):boolean{return group.items.some(item=>this.router.url===item.route||this.router.url.startsWith(item.route+'/'));}
+  protected groupActive(group:NavigationGroup):boolean{const path=this.router.url.split('?')[0];return group.items.some(item=>path===item.route||path.startsWith(item.route+'/'));}
   protected navigate():void{if(this.isMobile)this.mobileClosed.emit();}
   private allowed(item:NavigationItem):boolean{return item.permission?this.auth.hasPermission(item.permission):!!item.anyOfPermissions?.some(permission=>this.auth.hasPermission(permission));}
 }

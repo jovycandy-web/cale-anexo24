@@ -92,11 +92,11 @@ import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, serializeCsv } 
                     <td mat-cell *matCellDef="let m">{{ m.nico || '-' }}</td>
                   </ng-container>
                   <ng-container matColumnDef="unit">
-                    <th mat-header-cell *matHeaderCellDef class="w-28">Unidad</th>
+                    <th mat-header-cell *matHeaderCellDef class="w-28">UMC</th>
                     <td mat-cell *matCellDef="let m">{{ m.unit || '-' }}</td>
                   </ng-container>
                   <ng-container matColumnDef="umc">
-                    <th mat-header-cell *matHeaderCellDef class="w-28">Unidad tarifa</th>
+                    <th mat-header-cell *matHeaderCellDef class="w-28">Unidad TIGIE</th>
                     <td mat-cell *matCellDef="let m">{{ m.umc || '-' }}</td>
                   </ng-container>
                   <ng-container matColumnDef="nationalType">
@@ -129,8 +129,8 @@ import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, serializeCsv } 
                             <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Clave proveedor</dt><dd class="m-0 text-sm text-slate-800">{{ m.supplierCode || '-' }}</dd></div>
                             <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Fracción</dt><dd class="m-0 text-sm text-slate-800">{{ m.tariffFraction || '-' }}</dd></div>
                             <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">NICO</dt><dd class="m-0 text-sm text-slate-800">{{ m.nico || '-' }}</dd></div>
-                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Unidad comercial</dt><dd class="m-0 text-sm text-slate-800">{{ m.unit || '-' }}</dd></div>
-                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Unidad tarifa</dt><dd class="m-0 text-sm text-slate-800">{{ m.umc || '-' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">UMC</dt><dd class="m-0 text-sm text-slate-800">{{ m.unit || '-' }}</dd></div>
+                            <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Unidad TIGIE</dt><dd class="m-0 text-sm text-slate-800">{{ m.umc || '-' }}</dd></div>
                             <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">TIPOM</dt><dd class="m-0 text-sm text-slate-800">{{ m.nationalType || '-' }}</dd></div>
                             <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Tipo de material</dt><dd class="m-0 text-sm text-slate-800">{{ m.materialType || '-' }}</dd></div>
                             <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Familia</dt><dd class="m-0 text-sm text-slate-800">{{ m.family || '-' }}</dd></div>
@@ -233,7 +233,7 @@ export class MaterialListPage implements OnInit {
       const rows = await loadAllCsvPages((page, pageSize) => firstValueFrom(this.searchMaterials.execute({ filter, page, pageSize })));
       if (!rows.length) { this.notifications.info('No hay registros para exportar.'); return; }
       const csv = serializeCsv(
-        ['Clave MP', 'Clave proveedor', 'Descripción comercial', 'Fracción', 'NICO', 'Unidad', 'Unidad tarifa', 'TIPOM', 'Tipo de material', 'Familia', 'Almacén'],
+        ['Clave MP', 'Clave proveedor', 'Descripción comercial', 'Fracción', 'NICO', 'UMC', 'Unidad TIGIE', 'TIPOM', 'Tipo de material', 'Familia', 'Almacén'],
         rows.map((row) => [row.partNumber, row.supplierCode, row.description, row.tariffFraction, row.nico, row.unit, row.umc, row.nationalType, row.materialType, row.family, row.warehouse]),
       );
       downloadCsv('materiales.csv', csv);

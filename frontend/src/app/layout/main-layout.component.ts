@@ -8,7 +8,10 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { Router, RouterOutlet } from '@angular/router';
 import { AuthService } from '@core/auth/auth.service';
 import { ConfirmService } from '@core/ui/confirm-dialog/confirm.service';
+import { CompanyGeneralData } from '@features/catalogs/general-data/domain/company-general-data.model';
+import { CompanyGeneralDataApi } from '@features/catalogs/general-data/infrastructure/company-general-data.api';
 import { SidebarComponent } from '@layout/navigation/sidebar.component';
+import { catchError, of } from 'rxjs';
 
 /** Shell autenticado: navegación, encabezado y contenido de la aplicación. */
 @Component({
@@ -45,6 +48,12 @@ import { SidebarComponent } from '@layout/navigation/sidebar.component';
             </button>
           }
           <span class="hidden text-[13px] font-medium tracking-wide text-slate-200 sm:inline">ANEXO 24 <span class="mx-1 text-slate-500">·</span> Control de Inventarios</span>
+          @if (company()?.razonSocial) {
+            <span class="ml-4 hidden truncate text-[13px] text-slate-300 lg:inline">{{ company()!.razonSocial }}</span>
+          }
+          @if (company()?.rfc) {
+            <span class="ml-2 hidden rounded bg-slate-700/60 px-2 py-0.5 text-[11px] font-medium tracking-wide text-slate-300 lg:inline">RFC {{ company()!.rfc }}</span>
+          }
           <span class="flex-1"></span>
         </mat-toolbar>
 
@@ -62,8 +71,19 @@ export class MainLayoutComponent {
   private readonly router = inject(Router);
   private readonly confirm = inject(ConfirmService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly companyApi = inject(CompanyGeneralDataApi);
+  /** Identidad empresarial real; se degrada a vacío si el endpoint no responde. */
+  protected readonly company = signal<CompanyGeneralData | null>(null);
 
   constructor() {
+    this.companyApi
+      .get()
+      .pipe(
+        catchError(() => of(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((data) => this.company.set(data));
+
     inject(BreakpointObserver)
       .observe(Breakpoints.Handset)
       .pipe(takeUntilDestroyed(this.destroyRef))

@@ -1,31 +1,64 @@
 import { describe, expect, it } from 'vitest';
 import { NAVIGATION_GROUPS } from './navigation.config';
 
+/** Alcance cerrado de la versión de presentación (Sprint 09). */
 describe('navigation.config', () => {
-  it('ubica Actas en Operaciones y no en Catálogos', () => {
-    const operaciones = NAVIGATION_GROUPS.find((group) => group.label === 'Operaciones');
-    const actas = operaciones?.items.find((item) => item.label === 'Actas');
-    expect(actas).toMatchObject({ route: '/operaciones/actas', permission: 'ACTAS_CARGAR' });
+  const groupLabels = NAVIGATION_GROUPS.map((group) => group.label);
 
-    const catalogos = NAVIGATION_GROUPS.find((group) => group.label === 'Catálogos');
-    expect(catalogos?.items.some((item) => item.route === '/operaciones/actas')).toBe(false);
+  it('expone sólo los cuatro grupos del alcance', () => {
+    expect(groupLabels).toEqual(['Catálogos', 'Módulos', 'Reporte de Aduanas', 'Gestión']);
   });
 
-  it('ubica Constancias en Operaciones y no en Catálogos', () => {
-    const operaciones = NAVIGATION_GROUPS.find((group) => group.label === 'Operaciones');
-    const constancias = operaciones?.items.find((item) => item.label === 'Constancias');
-    expect(constancias).toMatchObject({ route: '/operaciones/constancias', permission: 'CONSTANCIAS_CARGAR' });
-
+  it('conserva los cuatro catálogos del módulo SAT en orden legacy', () => {
     const catalogos = NAVIGATION_GROUPS.find((group) => group.label === 'Catálogos');
-    expect(catalogos?.items.some((item) => item.route === '/operaciones/constancias')).toBe(false);
+    expect(catalogos?.items.map((item) => item.route)).toEqual([
+      '/catalogos/datos-generales',
+      '/materiales',
+      '/productos',
+      '/estructuras',
+    ]);
   });
 
-  it('muestra importaciones para cualquier permiso de carga de catálogo', () => {
-    const interfaces = NAVIGATION_GROUPS.find((group) => group.label === 'Interfaces');
-    const importaciones = interfaces?.items.find((item) => item.label === 'Importaciones de catálogos');
-    expect(importaciones).toMatchObject({
-      route: '/catalogos/importaciones',
-      anyOfPermissions: ['MATERIALES_CARGAR', 'PRODUCTOS_CARGAR', 'CLIENTES_CARGAR', 'PROVEEDORES_CARGAR', 'AGENTES_CARGAR'],
-    });
+  it('conserva los cuatro módulos del módulo SAT en orden legacy', () => {
+    const modulos = NAVIGATION_GROUPS.find((group) => group.label === 'Módulos');
+    expect(modulos?.items.map((item) => item.label)).toEqual([
+      'Entradas',
+      'Materiales utilizados',
+      'Salidas',
+      'Activo fijo',
+    ]);
+  });
+
+  it('deep-linkea los cuatro reportes de aduanas al módulo de reportes existente', () => {
+    const aduanas = NAVIGATION_GROUPS.find((group) => group.label === 'Reporte de Aduanas');
+    expect(aduanas?.items.map((item) => [item.route, item.queryParams?.['tipo']])).toEqual([
+      ['/reportes', 'entradas'],
+      ['/reportes', 'salidas'],
+      ['/reportes', 'saldos'],
+      ['/reportes', 'materiales-utilizados'],
+    ]);
+    expect(aduanas?.items.every((item) => item.permission === 'REPORTES_GENERAR')).toBe(true);
+  });
+
+  it('agrupa la gestión administrativa del alcance', () => {
+    const gestion = NAVIGATION_GROUPS.find((group) => group.label === 'Gestión');
+    expect(gestion?.items.map((item) => item.label)).toEqual([
+      'Usuarios',
+      'Actividades',
+      'Perfiles',
+      'Consulta bitácora',
+    ]);
+    expect(gestion?.items.find((item) => item.label === 'Actividades')?.route).toBe('/actividades');
+  });
+
+  it('oculta del menú los módulos fuera del alcance sin borrar sus rutas', () => {
+    const routes = NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.route));
+    expect(routes.some((route) => route.includes('/operaciones/actas'))).toBe(false);
+    expect(routes.some((route) => route.includes('/operaciones/constancias'))).toBe(false);
+    expect(routes.some((route) => route.includes('/operaciones/pedimentos'))).toBe(false);
+    expect(routes.some((route) => route.includes('/catalogos/importaciones'))).toBe(false);
+    expect(routes).not.toContain('/facturacion');
+    expect(routes).not.toContain('/catalogos/socios-comerciales');
+    expect(routes).not.toContain('/catalogos');
   });
 });

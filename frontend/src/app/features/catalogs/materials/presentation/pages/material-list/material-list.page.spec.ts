@@ -140,7 +140,7 @@ describe('MaterialListPage paridad SCR-084', () => {
     expect(execute).toHaveBeenCalledWith({ filter: 'ENDULZANTES', page: 1, pageSize: 100 });
     expect(downloadedFilename).toBe('materiales.csv');
     const csv = await readBlob(exportedBlob!);
-    expect(csv).toContain('Clave MP,Clave proveedor,Descripción comercial,Fracción,NICO,Unidad,Unidad tarifa,TIPOM,Tipo de material,Familia,Almacén');
+    expect(csv).toContain('Clave MP,Clave proveedor,Descripción comercial,Fracción,NICO,UMC,Unidad TIGIE,TIPOM,Tipo de material,Familia,Almacén');
     expect(csv).toContain('500005,CLAV-PR001,AZUCAR REFINADA,17019999,N,KG,KG,MP,MATERIAL PRIMA,ENDULZANTES,ALM02');
     expect(csv).not.toContain('warehouseKey');
   });
