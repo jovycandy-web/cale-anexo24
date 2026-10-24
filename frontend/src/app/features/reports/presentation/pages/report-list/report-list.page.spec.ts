@@ -13,6 +13,7 @@ import { ReportListPage } from './report-list.page';
 
 interface PageInternals {
   selectedType: WritableSignal<string>;
+  columns(): { key: string; label: string }[];
   applySavedCriteria(criteria: SavedCriteria): void;
   fromDate: Date | null;
   toDate: Date | null;
@@ -528,6 +529,23 @@ describe('ReportListPage (formato de partidas)', () => {
     expect(page.filteredReports().map((report) => report.type)).toEqual(['compulsa', 'compulsa-detalle']);
     expect(page.hasGenerated()).toBe(false);
   });
+  it('presenta el reporte de salidas con las ocho columnas legacy y fecha de entrada en su posición', () => {
+    const internals = fixture.componentInstance as unknown as PageInternals;
+    internals.selectedType.set('salidas');
+    const columnas = internals.columns().map((column) => [column.key, column.label]);
+    expect(columnas).toEqual([
+      ['pedimento', 'Pedimento'],
+      ['fechaEntrada', 'Fecha de entrada'],
+      ['clavePedimento', 'Clave del pedimento'],
+      ['fraccion', 'Fracción'],
+      ['unidadComercial', 'UMC'],
+      ['cantidad', 'Cantidad'],
+      ['numeroParte', 'Nº parte'],
+      ['fechaPago', 'Fecha de pago'],
+    ]);
+    expect(columnas.map(([key]) => key)).not.toContain('fechaPresentacion');
+  });
+
   it('restaura filtros guardados sin generar reporte y no muta ante preset incompatible', () => {
     const internals = fixture.componentInstance as unknown as PageInternals;
     internals.currentPage = 4;

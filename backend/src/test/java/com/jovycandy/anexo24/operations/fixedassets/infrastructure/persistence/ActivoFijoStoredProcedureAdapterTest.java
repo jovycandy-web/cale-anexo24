@@ -268,6 +268,7 @@ class ActivoFijoStoredProcedureAdapterTest {
                 "KG",
                 null,
                 null,
+                null,
                 null);
     }
 }
