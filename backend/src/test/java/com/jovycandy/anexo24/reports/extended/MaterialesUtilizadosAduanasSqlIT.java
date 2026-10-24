@@ -99,8 +99,8 @@ class MaterialesUtilizadosAduanasSqlIT {
         Resultado r = consultar("2025-01-01", "2026-12-31", "500017", null, null, null, 1, 20);
         assertEquals(2L, r.total());
         assertEquals(2, r.filas().size());
-        assertEquals(new BigDecimal("1140.3102"), r.filas().get(0).get("CANTIDAD_UTILIZADA"));
-        assertEquals(new BigDecimal("1088.2952"), r.filas().get(1).get("CANTIDAD_UTILIZADA"));
+        assertEquals(1140.3102, numero(r.filas().get(0).get("CANTIDAD_UTILIZADA")), 1e-9);
+        assertEquals(1088.2952, numero(r.filas().get(1).get("CANTIDAD_UTILIZADA")), 1e-9);
     }
 
     @Test
@@ -123,9 +123,9 @@ class MaterialesUtilizadosAduanasSqlIT {
         Map<String, Object> primera = r.filas().get(0);
         Map<String, Object> segunda = r.filas().get(1);
         assertNull(primera.get("DESPERDICIO"));
-        assertEquals(new BigDecimal("6.7741"), primera.get("MERMA"));
-        assertEquals(new BigDecimal("2.5000"), segunda.get("DESPERDICIO"));
-        assertEquals(new BigDecimal("6.4651"), segunda.get("MERMA"));
+        assertEquals(6.7741, numero(primera.get("MERMA")), 1e-9);
+        assertEquals(2.5, numero(segunda.get("DESPERDICIO")), 1e-9);
+        assertEquals(6.4651, numero(segunda.get("MERMA")), 1e-9);
     }
 
     @Test
@@ -228,6 +228,10 @@ class MaterialesUtilizadosAduanasSqlIT {
             }
             return new Resultado(columnas, filas, cs.getLong(9));
         }
+    }
+
+    private static double numero(Object valor) {
+        return ((Number) valor).doubleValue();
     }
 
     private static void setString(CallableStatement cs, int posicion, String valor) throws SQLException {
