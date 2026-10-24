@@ -34,10 +34,10 @@ describe('ReportApiService', () => {
 
   it('usa filtros especÃ­ficos y exportaciÃ³n XLSX para materiales utilizados', () => {
     service.export({ ...criteria, type: 'materiales-utilizados', material: ' MAT ', product: ' PROD ', customsDocument: ' S-1 ', customsCode: ' RT ' }).subscribe();
-    const request = http.expectOne((candidate) => candidate.url === '/api/v1/reportes/materiales-utilizados/exportacion');
+    const request = http.expectOne((candidate) => candidate.url === '/api/v1/reportes/materiales-utilizados-aduanas/exportacion');
     expect(request.request.responseType).toBe('blob');
     expect(request.request.params.get('material')).toBe('MAT');
-    expect(request.request.params.get('pedimentoSalida')).toBe('S-1');
+    expect(request.request.params.get('pedimentoImportacion')).toBe('S-1');
     expect(request.request.params.get('tamano')).toBe('100');
     request.flush(new Blob());
   });
