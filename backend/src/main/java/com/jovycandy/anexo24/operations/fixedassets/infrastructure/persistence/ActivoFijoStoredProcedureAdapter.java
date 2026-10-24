@@ -48,7 +48,8 @@ public class ActivoFijoStoredProcedureAdapter implements ActivoFijoRepository {
             rs.getString("UNIDAD"),
             rs.getString("NUMERO_SERIE"),
             rs.getString("MARCA"),
-            rs.getString("MODELO"));
+            rs.getString("MODELO"),
+            rs.getTimestamp("FECHA_ENTRADA") == null ? null : rs.getTimestamp("FECHA_ENTRADA").toLocalDateTime());
 
     private static final List<SqlParameter> DECLARED_PARAMETERS = List.of(
             new SqlParameter("Desde", Types.DATE),

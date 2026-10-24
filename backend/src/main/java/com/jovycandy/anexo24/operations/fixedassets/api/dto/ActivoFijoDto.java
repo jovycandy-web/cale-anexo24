@@ -19,7 +19,8 @@ public record ActivoFijoDto(
         String unidad,
         String numeroSerie,
         String marca,
-        String modelo) {
+        String modelo,
+        LocalDateTime fechaEntrada) {
 
     /**
      * Convierte un activo fijo de dominio a DTO de presentación.
@@ -41,6 +42,7 @@ public record ActivoFijoDto(
                 activoFijo.unidad(),
                 activoFijo.numeroSerie(),
                 activoFijo.marca(),
-                activoFijo.modelo());
+                activoFijo.modelo(),
+                activoFijo.fechaEntrada());
     }
 }

@@ -9,4 +9,6 @@ export interface ExitLine {
   quantity: number | string | null;
   partNumber: string | null;
   paymentDate: string | null;
+  presentationDate: string | null;
+  entryDate: string | null;
 }

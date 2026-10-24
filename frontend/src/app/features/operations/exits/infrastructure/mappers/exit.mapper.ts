@@ -14,6 +14,8 @@ export const ExitMapper = {
       quantity: dto.cantidad,
       partNumber: dto.numeroParte,
       paymentDate: dto.fechaPago,
+      presentationDate: dto.fechaPresentacion,
+      entryDate: dto.fechaEntrada,
     };
   },
 

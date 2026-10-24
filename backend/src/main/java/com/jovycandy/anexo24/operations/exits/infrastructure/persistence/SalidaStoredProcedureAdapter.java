@@ -38,7 +38,9 @@ public class SalidaStoredProcedureAdapter implements SalidaRepository {
             rs.getString("UNIDAD_COMERCIAL"),
             rs.getBigDecimal("CANTIDAD"),
             rs.getString("NUMERO_PARTE"),
-            localDateTime(rs, "FECHA_PAGO"));
+            localDateTime(rs, "FECHA_PAGO"),
+            localDateTime(rs, "FECHA_PRESENTACION"),
+            localDateTime(rs, "FECHA_ENTRADA"));
 
     private static final List<SqlParameter> DECLARED_PARAMETERS = List.of(
             new SqlParameter("Desde", Types.DATE),

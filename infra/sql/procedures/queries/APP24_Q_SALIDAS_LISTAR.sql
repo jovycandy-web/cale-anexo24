@@ -72,6 +72,8 @@ BEGIN
             p.Cantidad AS CANTIDAD,
             LTRIM(RTRIM(p.Clave)) AS NUMERO_PARTE,
             s.Fecha AS FECHA_PAGO,
+            s.FechadePresentacion AS FECHA_PRESENTACION,
+            s.FechaEntrada AS FECHA_ENTRADA,
             ROW_NUMBER() OVER (
                 ORDER BY s.Fecha, s.Documento, s.SalidaKey, p.partida, p.Psalidakey
             ) AS APP24_ROW_NUMBER
@@ -99,7 +101,9 @@ BEGIN
         UNIDAD_COMERCIAL,
         CANTIDAD,
         NUMERO_PARTE,
-        FECHA_PAGO
+        FECHA_PAGO,
+        FECHA_PRESENTACION,
+        FECHA_ENTRADA
     FROM Lineas
     WHERE APP24_ROW_NUMBER BETWEEN @FilaInicial AND @FilaFinal
     ORDER BY APP24_ROW_NUMBER;

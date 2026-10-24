@@ -64,6 +64,8 @@ function configure() {
     commercialUnit: 'PZA',
     quantity: -125.5,
     partNumber: 'PART-2',
+    presentationDate: '2026-05-10T00:30:00Z',
+    entryDate: null,
   };
   const execute = vi.fn((criteria: OperationSearchCriteria) => of({ items: [row], total: 101, page: criteria.page, pageSize: criteria.pageSize }));
   const notifications = { success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() };

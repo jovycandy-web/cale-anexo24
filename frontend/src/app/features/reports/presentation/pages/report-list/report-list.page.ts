@@ -63,9 +63,11 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
     { key: 'cantidadComercial', label: 'Cantidad', format: 'quantity' }, { key: 'numeroParte', label: 'N° parte' },
   ],
   salidas: [
-    { key: 'pedimento', label: 'Pedimento' }, { key: 'clavePedimento', label: 'Clave' },
-    { key: 'fechaPago', label: 'Fecha de pago', format: 'date' }, { key: 'fraccion', label: 'Fracción' },
-    { key: 'unidadComercial', label: 'UMC' }, { key: 'cantidad', label: 'Cantidad', format: 'quantity' }, { key: 'numeroParte', label: 'N° parte' },
+    { key: 'pedimento', label: 'Pedimento' }, { key: 'fechaEntrada', label: 'Fecha de entrada', format: 'date' },
+    { key: 'clavePedimento', label: 'Clave del pedimento' },
+    { key: 'fraccion', label: 'Fracción' }, { key: 'unidadComercial', label: 'UMC' },
+    { key: 'cantidad', label: 'Cantidad', format: 'quantity' }, { key: 'numeroParte', label: 'Nº parte' },
+    { key: 'fechaPago', label: 'Fecha de pago', format: 'date' },
   ],
   'materiales-utilizados': [
     { key: 'fecha', label: 'Fecha', format: 'date' }, { key: 'pedimentoEntrada', label: 'Pedimento entrada' },
