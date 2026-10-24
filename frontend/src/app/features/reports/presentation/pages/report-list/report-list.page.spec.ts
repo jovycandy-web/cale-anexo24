@@ -546,6 +546,18 @@ describe('ReportListPage (formato de partidas)', () => {
     expect(columnas.map(([key]) => key)).not.toContain('fechaPresentacion');
   });
 
+  it('expone los cuatro filtros del reporte aduanero con etiquetas expl�citas', () => {
+    const internals = fixture.componentInstance as unknown as PageInternals;
+    internals.selectedType.set('materiales-utilizados');
+    fixture.detectChanges();
+    const texto = (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
+    expect(texto).toContain('Pedimento de importaci\u00f3n');
+    expect(texto).toContain('Pedimento de exportaci\u00f3n');
+    expect(texto).toContain('Material');
+    expect(texto).toContain('Producto');
+    expect(texto).not.toContain('Clave de pedimento');
+    expect(texto).not.toContain('N� parte');
+  });
   it('restaura filtros guardados sin generar reporte y no muta ante preset incompatible', () => {
     const internals = fixture.componentInstance as unknown as PageInternals;
     internals.currentPage = 4;

@@ -297,12 +297,13 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
               </div>
             } @else if (isOperationalReport()) {
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <label><span class="mb-1 block text-xs font-medium text-slate-700">Pedimento</span><input matInput name="customsDocument" [(ngModel)]="customsDocument" maxlength="50" class="report-input" /></label>
-                <label><span class="mb-1 block text-xs font-medium text-slate-700">Clave de pedimento</span><input matInput name="customsCode" [(ngModel)]="customsCode" maxlength="5" class="report-input" /></label>
                 @if (selectedType() !== 'materiales-utilizados') {
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Clave de pedimento</span><input matInput name="customsCode" [(ngModel)]="customsCode" maxlength="5" class="report-input" /></label>
                   <label><span class="mb-1 block text-xs font-medium text-slate-700">Fracción</span><input matInput name="tariffFraction" [(ngModel)]="tariffFraction" maxlength="15" class="report-input" /></label>
                   <label><span class="mb-1 block text-xs font-medium text-slate-700">N° parte</span><input matInput name="partNumber" [(ngModel)]="partNumber" maxlength="50" class="report-input" /></label>
                 } @else {
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Pedimento de importación</span><input matInput name="customsDocument" [(ngModel)]="customsDocument" maxlength="60" class="report-input" /></label>
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Pedimento de exportación</span><input matInput name="partNumber" [(ngModel)]="partNumber" maxlength="60" class="report-input" /></label>
                   <label><span class="mb-1 block text-xs font-medium text-slate-700">Material</span><input matInput name="material" [(ngModel)]="material" maxlength="50" class="report-input" /></label>
                   <label><span class="mb-1 block text-xs font-medium text-slate-700">Producto</span><input matInput name="product" [(ngModel)]="product" maxlength="50" class="report-input" /></label>
                 }
