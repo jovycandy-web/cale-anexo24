@@ -12,7 +12,7 @@ import { NAVIGATION_GROUPS, NAVIGATION_LINKS, NavigationGroup, NavigationItem } 
   selector: 'app-sidebar', styleUrl: './sidebar.component.scss',
   template: `
     <aside id="main-navigation" class="app-sidebar" [class.sidebar-compact]="collapsed && !isMobile" [class.mobile-open]="mobileOpen" aria-label="Navegación principal">
-      <header class="sidebar-brand"><span class="sidebar-copy brand-copy"><strong>Anexo 24</strong><small>Control de inventarios</small></span>
+      <header class="sidebar-brand"><span class="sidebar-copy brand-copy"><strong>CALE Anexo 24</strong><small>Control de inventarios</small></span>
         @if (!isMobile) { <button type="button" class="icon-button" [attr.aria-label]="collapsed ? 'Expandir menú lateral':'Contraer menú lateral'" (click)="collapsedChange.emit(!collapsed)"><mat-icon>{{collapsed?'menu_open':'menu'}}</mat-icon></button> }
       </header>
       <nav class="sidebar-nav" aria-label="Secciones de la aplicación">

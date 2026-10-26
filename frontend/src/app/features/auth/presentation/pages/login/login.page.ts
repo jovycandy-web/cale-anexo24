@@ -53,7 +53,7 @@ import { AppAlertComponent } from '@core/ui/app-alert/app-alert.component';
                 <rect width="12" height="12" x="6" y="10" />
               </svg>
             </div>
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Anexo 24</h1>
+            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">CALE Anexo 24</h1>
             <p class="mt-4 text-sm text-slate-500">Ingresa tus credenciales para continuar</p>
           </header>
 
