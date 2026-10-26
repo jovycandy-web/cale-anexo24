@@ -227,6 +227,8 @@ class SalidaStoredProcedureAdapterTest {
                 "KG",
                 new BigDecimal("12.3400"),
                 "300099",
-                LocalDateTime.of(2026, 8, 18, 0, 0));
+                LocalDateTime.of(2026, 8, 18, 0, 0),
+                null,
+                null);
     }
 }

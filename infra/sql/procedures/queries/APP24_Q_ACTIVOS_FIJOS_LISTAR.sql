@@ -189,6 +189,7 @@ BEGIN
             LTRIM(RTRIM(p.serie)) AS NUMERO_SERIE,
             LTRIM(RTRIM(p.marca)) AS MARCA,
             LTRIM(RTRIM(p.modelo)) AS MODELO,
+            i.Fecha_ad AS FECHA_ENTRADA,
             ROW_NUMBER() OVER (
                 ORDER BY i.Fecha DESC, i.Ipedimentokey DESC, p.Partidakey DESC
             ) AS APP24_ROW_NUMBER
@@ -269,7 +270,8 @@ BEGIN
         UNIDAD,
         NUMERO_SERIE,
         MARCA,
-        MODELO
+        MODELO,
+        FECHA_ENTRADA
     FROM ActivosFijos
     WHERE APP24_ROW_NUMBER BETWEEN @FilaInicial AND @FilaFinal
     ORDER BY APP24_ROW_NUMBER;

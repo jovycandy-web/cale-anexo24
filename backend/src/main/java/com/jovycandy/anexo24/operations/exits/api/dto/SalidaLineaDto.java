@@ -15,7 +15,9 @@ public record SalidaLineaDto(
         String unidadComercial,
         BigDecimal cantidad,
         String numeroParte,
-        LocalDateTime fechaPago) {
+        LocalDateTime fechaPago,
+        LocalDateTime fechaPresentacion,
+        LocalDateTime fechaEntrada) {
 
     /**
      * Convierte una línea de dominio a DTO de presentación.
@@ -33,6 +35,8 @@ public record SalidaLineaDto(
                 salida.unidadComercial(),
                 salida.cantidad(),
                 salida.numeroParte(),
-                salida.fechaPago());
+                salida.fechaPago(),
+                salida.fechaPresentacion(),
+                salida.fechaEntrada());
     }
 }

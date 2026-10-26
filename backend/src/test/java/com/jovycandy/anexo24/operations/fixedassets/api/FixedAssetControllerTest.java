@@ -212,6 +212,7 @@ class FixedAssetControllerTest {
                 "KG",
                 null,
                 null,
+                null,
                 null);
     }
 

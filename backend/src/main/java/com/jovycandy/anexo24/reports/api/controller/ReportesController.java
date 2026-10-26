@@ -542,8 +542,8 @@ public class ReportesController {
             @RequestParam(required = false) String fraccion, @RequestParam(required = false) String numeroParte) {
         List<SalidaLineaDto> resultado = consultarReportesUseCase.exportarSalidas(
                 desde, hasta, pedimento, clavePedimento, fraccion, numeroParte);
-        return archivo("salidas", List.of("Salida", "Partida", "Pedimento", "Clave pedimento", "FracciÃ³n", "Unidad comercial", "Cantidad", "NÃºmero parte", "Fecha pago"),
-                resultado.stream().map(item -> fila(item.salidaId(), item.partidaId(), item.pedimento(), item.clavePedimento(), item.fraccion(), item.unidadComercial(), item.cantidad(), item.numeroParte(), item.fechaPago())).toList());
+        return archivo("salidas", List.of("Salida", "Partida", "Pedimento", "Clave pedimento", "FracciÃ³n", "Unidad comercial", "Cantidad", "NÃºmero parte", "Fecha pago", "Fecha de presentaci\u00f3n", "Fecha entrada"),
+                resultado.stream().map(item -> fila(item.salidaId(), item.partidaId(), item.pedimento(), item.clavePedimento(), item.fraccion(), item.unidadComercial(), item.cantidad(), item.numeroParte(), item.fechaPago(), item.fechaPresentacion(), item.fechaEntrada())).toList());
     }
 
     @GetMapping("/materiales-utilizados/exportacion")

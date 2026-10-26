@@ -13,5 +13,7 @@ public record SalidaLinea(
         String unidadComercial,
         BigDecimal cantidad,
         String numeroParte,
-        LocalDateTime fechaPago) {
+        LocalDateTime fechaPago,
+        LocalDateTime fechaPresentacion,
+        LocalDateTime fechaEntrada) {
 }

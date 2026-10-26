@@ -17,5 +17,6 @@ public record ActivoFijo(
         String unidad,
         String numeroSerie,
         String marca,
-        String modelo) {
+        String modelo,
+        LocalDateTime fechaEntrada) {
 }
