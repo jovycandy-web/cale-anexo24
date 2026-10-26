@@ -190,7 +190,7 @@ describe('ReportListPage (formato de partidas)', () => {
     expect(fixture.nativeElement.querySelector('tbody tr')).not.toBeNull();
     search.execute.mockReturnValueOnce(of({ items: [], total: 0, page: 1, pageSize: 20 }));
     internals.generate(); fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('No se encontraron resultados');
+    expect(fixture.nativeElement.textContent).toContain('Sin resultados para estos filtros');
   });
 
   it.each(['anexo30-revision-fracciones', 'anexo30-revision-descargas'] as const)('muestra error y reintenta %s', (type) => {
@@ -239,7 +239,7 @@ describe('ReportListPage (formato de partidas)', () => {
     expect(fixture.nativeElement.querySelector('tbody tr')).not.toBeNull();
     search.execute.mockReturnValueOnce(of({ items: [], total: 0, page: 1, pageSize: 20 }));
     internals.generate(); fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('No se encontraron resultados');
+    expect(fixture.nativeElement.textContent).toContain('Sin resultados para estos filtros');
   });
 
   it('comparativa error y reintento', () => {
@@ -330,7 +330,7 @@ describe('ReportListPage (formato de partidas)', () => {
     expect(fixture.nativeElement.querySelector('tbody tr')).not.toBeNull();
     search.execute.mockReturnValueOnce(of({ items: [], total: 0, page: 1, pageSize: 20 }));
     internals.generate(); fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('No se encontraron resultados');
+    expect(fixture.nativeElement.textContent).toContain('Sin resultados para estos filtros');
     search.execute.mockReset().mockReturnValueOnce(throwError(() => new Error('fallo'))).mockReturnValueOnce(of(pagina));
     internals.generate(); fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('No pudimos generar el reporte');
@@ -382,7 +382,7 @@ describe('ReportListPage (formato de partidas)', () => {
     expect(fixture.nativeElement.querySelector('tbody tr')).not.toBeNull();
     search.execute.mockReturnValueOnce(of({ items: [], total: 0, page: 1, pageSize: 20 }));
     internals.generate(); fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('No se encontraron resultados');
+    expect(fixture.nativeElement.textContent).toContain('Sin resultados para estos filtros');
     search.execute.mockReset().mockReturnValueOnce(throwError(() => new Error('fallo'))).mockReturnValueOnce(of(pagina));
     internals.generate(); fixture.detectChanges();
     const retry = botones().find((button) => button.textContent?.includes('Reintentar')) as HTMLButtonElement;
@@ -468,7 +468,7 @@ describe('ReportListPage (formato de partidas)', () => {
     internals.generate();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('No se encontraron resultados');
+    expect(fixture.nativeElement.textContent).toContain('Sin resultados para estos filtros');
     expect(fixture.nativeElement.textContent).toContain('Informe legacy sin paginación: 0 filas.');
   });
 
