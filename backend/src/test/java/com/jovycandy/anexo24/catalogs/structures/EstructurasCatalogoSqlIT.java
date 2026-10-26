@@ -145,6 +145,82 @@ class EstructurasCatalogoSqlIT {
     }
 
     @Test
+    void filtraPorPeriodoDeVigencia() throws Exception {
+        assertEquals(3L, consultar("2025-01-01", "2025-01-31", null, null, 1, 20).total());
+        assertEquals(4L, consultar("2025-01-01", "2025-02-28", null, null, 1, 20).total());
+        assertEquals(1L, consultar("2025-02-01", "2025-02-28", null, null, 1, 20).total());
+        assertEquals(0L, consultar("2026-01-01", "2026-12-31", null, null, 1, 20).total());
+    }
+
+    @Test
+    void aplicaSoloDesde() throws Exception {
+        Resultado r = consultar("2025-02-01", null, null, null, 1, 20);
+        assertEquals(1L, r.total());
+        assertEquals("2025-02-10", String.valueOf(r.filas().getFirst().get("FECHA_INICIO")).substring(0, 10));
+    }
+
+    @Test
+    void aplicaSoloHasta() throws Exception {
+        assertEquals(3L, consultar(null, "2025-01-31", null, null, 1, 20).total());
+    }
+
+    @Test
+    void respetaLimitesInclusivosDelDia() throws Exception {
+        assertEquals(3L, consultar("2025-01-30", "2025-01-30", null, null, 1, 20).total());
+        assertEquals(0L, consultar("2025-01-31", "2025-01-31", null, null, 1, 20).total());
+    }
+
+    @Test
+    void totalYPaginacionSeRecalculanTrasFiltrar() throws Exception {
+        Resultado p1 = consultar("2025-01-01", "2025-02-28", null, null, 1, 2);
+        assertEquals(4L, p1.total());
+        assertEquals(2, p1.filas().size());
+        Resultado p3 = consultar("2025-01-01", "2025-02-28", null, null, 3, 2);
+        assertEquals(4L, p3.total());
+        assertTrue(p3.filas().isEmpty());
+    }
+
+    @Test
+    void combinaPeriodoConProductoYMaterial() throws Exception {
+        assertEquals(2L, consultar("2025-01-01", "2025-01-31", "990001", null, 1, 20).total());
+        assertEquals(1L, consultar("2025-01-01", "2025-01-31", null, "880002", 1, 20).total());
+        assertEquals(0L, consultar("2025-02-01", "2025-02-28", "990002", null, 1, 20).total());
+    }
+
+    @Test
+    void rangoInvertidoNoDevuelveFilas() throws Exception {
+        assertEquals(0L, consultar("2025-02-28", "2025-01-01", null, null, 1, 20).total());
+    }
+
+    @Test
+    void fechaMaximaNoProduceDesbordamiento() throws Exception {
+        assertEquals(4L, consultar(null, "9999-12-31", null, null, 1, 20).total());
+        assertEquals(4L, consultar("2025-01-01", "9999-12-31", null, null, 1, 20).total());
+    }
+
+    @Test
+    void firmaAnteriorDeCincoParametrosSigueOperando() throws Exception {
+        try (Connection c = conectar(DB);
+             CallableStatement cs = c.prepareCall(
+                     "{call dbo.APP24_Q_ESTRUCTURAS_LISTAR(?,?,?,?,?)}")) {
+            setString(cs, 1, null);
+            setString(cs, 2, null);
+            cs.setInt(3, 1);
+            cs.setInt(4, 20);
+            cs.registerOutParameter(5, Types.BIGINT);
+            cs.execute();
+            try (ResultSet rs = cs.getResultSet()) {
+                int filas = 0;
+                while (rs.next()) {
+                    filas++;
+                }
+                assertEquals(4, filas);
+            }
+            assertEquals(4L, cs.getLong(5));
+        }
+    }
+
+    @Test
     void compilaEnNivelDeCompatibilidadCien() throws Exception {
         try (Connection c = conectar(DB); Statement s = c.createStatement()) {
             s.execute("ALTER DATABASE " + DB + " SET COMPATIBILITY_LEVEL = 100");

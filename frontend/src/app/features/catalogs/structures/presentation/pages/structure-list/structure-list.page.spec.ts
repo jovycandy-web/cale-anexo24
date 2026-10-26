@@ -116,4 +116,20 @@ describe('StructureListPage paridad SCR-006', () => {
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({ from: '2025-01-01', to: '2025-12-31' }));
     expect(page.currentPage).toBe(1);
   });
+
+  it('exporta el CSV con los ocho campos de la pantalla', async () => {
+    const { fixture } = await configure();
+    let blobs: Blob | undefined;
+    const urlSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => { blobs = blob as Blob; return 'blob:csv'; });
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    await (fixture.componentInstance as unknown as { exportCsv(): Promise<void> }).exportCsv();
+    const texto = await blobs!.text();
+
+    expect(texto.split(/\r?\n/)[0]).toBe('Producto,Fecha vigencia,Material,Descripción,Unidad,Incorporado,Desperdicio,Merma');
+    expect(texto).toContain('300770,2018-08-01,500017,ACHAMOYADOS WORMS REVOLCADO,KG');
+
+    urlSpy.mockRestore(); revokeSpy.mockRestore(); clickSpy.mockRestore();
+  });
 });
