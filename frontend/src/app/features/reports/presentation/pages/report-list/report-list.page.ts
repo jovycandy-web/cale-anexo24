@@ -32,6 +32,14 @@ interface ReportColumn {
   format?: 'date' | 'quantity' | 'partida';
 }
 
+/** Reportes de uso frecuente; el resto se revela con "Más reportes". */
+const PRIMARY_REPORT_TYPES: ReadonlySet<ReportType> = new Set<ReportType>([
+  'entradas',
+  'salidas',
+  'saldos',
+  'materiales-utilizados',
+]);
+
 /** Nombres de archivo descriptivos para reportes cuyo tipo resulta ambiguo. */
 const EXPORT_FILENAMES: Partial<Record<ReportType, string>> = {
   'materiales-utilizados': 'materiales-utilizados-aduanas',
@@ -236,14 +244,20 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
         <section class="mb-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_4px_18px_rgb(15_23_42/4%)]" aria-label="Configuración del reporte">
           <label class="mb-3 block"><span class="mb-1 block text-xs font-medium text-slate-700">Buscar reporte</span><input matInput name="reportSearch" [(ngModel)]="reportSearch" class="report-input" aria-label="Buscar reporte" /></label>
           @if (filteredReports().length) {
-          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5" role="list" aria-label="Tipo de reporte">
-            @for (report of filteredReports(); track report.type) {
+          <div id="reportes-disponibles" class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5" role="list" aria-label="Tipo de reporte">
+            @for (report of visibleReports(); track report.type) {
               <button type="button" class="flex min-h-20 items-center gap-3 rounded-xl border px-3 text-left transition disabled:cursor-not-allowed disabled:opacity-55" [class.border-blue-500]="selectedType() === report.type" [class.bg-blue-50]="selectedType() === report.type" [class.border-slate-200]="selectedType() !== report.type" [class.bg-white]="selectedType() !== report.type" [disabled]="!report.available" [attr.aria-current]="selectedType() === report.type ? 'true' : null" (click)="selectReport(report)">
                 <mat-icon [class.text-blue-600]="selectedType() === report.type" [class.text-slate-400]="selectedType() !== report.type" aria-hidden="true">{{ report.icon }}</mat-icon>
                 <span class="text-sm font-medium text-slate-700">{{ report.label }} @if (!report.available) { <small class="block text-xs font-normal text-slate-400">No disponible</small> }</span>
               </button>
             }
           </div>
+          @if (!reportSearch.trim() && secondaryReports().length) {
+            <button type="button" class="mt-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-50 focus:ring-4 focus:ring-blue-500/10" [attr.aria-expanded]="showAllReports()" aria-controls="reportes-disponibles" (click)="toggleAllReports()">
+              <mat-icon class="text-[18px]!" aria-hidden="true">{{ showAllReports() ? 'expand_less' : 'expand_more' }}</mat-icon>
+              <span>{{ showAllReports() ? 'Menos reportes' : 'Más reportes' }} ({{ secondaryReports().length }})</span>
+            </button>
+          }
           } @else { <p class="m-0 rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">No se encontraron reportes.</p> }
 
           <div class="mt-4 border-t border-slate-100 pt-4">
@@ -375,6 +389,7 @@ export class ReportListPage implements OnInit {
   protected readonly isLoading = signal(false);
   protected readonly isExporting = signal(false);
   protected readonly hasGenerated = signal(false);
+  protected readonly showAllReports = signal(false);
   protected readonly error = signal<string | null>(null);
   protected fromDate: Date | null = null;
   protected toDate: Date | null = null;
@@ -403,9 +418,12 @@ export class ReportListPage implements OnInit {
     this.route?.queryParamMap.subscribe((params) => {
       const type = params.get('tipo');
       const report = REPORTS.find((option) => option.type === type && option.available);
-      if (report && report.type !== this.selectedType()) {
-        this.selectedType.set(report.type);
-        this.resetResults();
+      if (report) {
+        if (!PRIMARY_REPORT_TYPES.has(report.type)) this.showAllReports.set(true);
+        if (report.type !== this.selectedType()) {
+          this.selectedType.set(report.type);
+          this.resetResults();
+        }
       }
     });
   }
@@ -413,6 +431,21 @@ export class ReportListPage implements OnInit {
   protected filteredReports(): ReportOption[] {
     const query = this.reportSearch.trim().toLocaleLowerCase();
     return query ? REPORTS.filter((report) => report.label.toLocaleLowerCase().includes(query)) : REPORTS;
+  }
+
+  /** Reportes visibles en la rejilla: los frecuentes y, si se pidió, el resto. */
+  protected visibleReports(): ReportOption[] {
+    const reports = this.filteredReports();
+    if (this.reportSearch.trim() || this.showAllReports()) return reports;
+    return reports.filter((report) => PRIMARY_REPORT_TYPES.has(report.type));
+  }
+
+  protected secondaryReports(): ReportOption[] {
+    return this.filteredReports().filter((report) => !PRIMARY_REPORT_TYPES.has(report.type));
+  }
+
+  protected toggleAllReports(): void {
+    this.showAllReports.update((expanded) => !expanded);
   }
 
   protected selectReport(report: ReportOption): void {
