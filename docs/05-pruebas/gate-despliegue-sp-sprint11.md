@@ -28,10 +28,10 @@ Columnas nuevas: `FECHA_PAGO_IMPO`, `CANTIDAD_IMPO`, `FRACCION_IMPO`, `NUMERO_PA
 | Result set | 15 columnas | 15 columnas (sin cambio) |
 | Cuerpo | 2 647 caracteres | 3 024 caracteres |
 | Hash SHA-256 del cuerpo instalado | `BB686E4A9AEFDD2C21E799AFBBAD83D1F48E0B64EF7AE61742E2A8C399F38325` | — |
-| Hash SHA-256 del archivo propuesto | — | `0e1781bbe911817f8be7e78249db3d80ab61ddf21e03fc6137754f516b95f4bc` |
+| Hash SHA-256 del archivo propuesto | — | `673ace3175fd14793514c803300a9ecd883eec3cfb7228d7da321ace4fcc0f29` |
 | Última modificación instalada | `2026-09-19T12:38:30` | — |
 
-Semántica del filtro: `e.INICIO >= @Desde` y `e.INICIO < DATEADD(DAY, 1, @Hasta)` (límite superior inclusivo por día). Sin periodo (`NULL`) el comportamiento es el actual.
+Semántica del filtro: `e.INICIO >= CAST(@Desde AS DATETIME)` y `CONVERT(DATE, e.INICIO) <= @Hasta` (límite superior inclusivo por día). Sin periodo (`NULL`) el comportamiento es el actual. La comparación por día evita el desbordamiento de `DATEADD(DAY, 1, '9999-12-31')` que rompía la consulta en el límite máximo.
 
 ## 2. Compatibilidad transitoria
 
