@@ -138,7 +138,7 @@ interface UsedMaterialSearchResult {
           <section class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_4px_18px_rgb(15_23_42/4%)]" aria-label="Resultados de materiales utilizados">
             @if (items().length > 0) {
               <div class="overflow-x-auto">
-                <table mat-table [dataSource]="items()" class="w-full min-w-290" aria-label="Materiales utilizados">
+                <table mat-table [dataSource]="items()" multiTemplateDataRows class="w-full min-w-290" aria-label="Materiales utilizados">
                   <ng-container matColumnDef="expand">
                     <th mat-header-cell *matHeaderCellDef class="w-12"><span class="sr-only">Detalle</span></th>
                     <td mat-cell *matCellDef="let item">
@@ -188,113 +188,118 @@ interface UsedMaterialSearchResult {
                     <th mat-header-cell *matHeaderCellDef>Unidad</th>
                     <td mat-cell *matCellDef="let item">{{ formatText(item.unit) }}</td>
                   </ng-container>
+                  <ng-container matColumnDef="detail">
+                    <td mat-cell *matCellDef="let item" [attr.colspan]="displayedColumns.length" class="p-0!">
+                    @if (expandedItem(); as detail) {
+                      <app-detail-panel
+                        [title]="'Detalle de la descarga ' + detail.dischargeId"
+                        [subtitle]="formatText(detail.materialCode) + ' · ' + formatText(detail.productCode)"
+                        closeLabel="Cerrar detalle de la descarga"
+                        (closed)="collapseDetail()"
+                      >
+                        <div id="used-material-detail" class="grid grid-cols-1 gap-5 xl:grid-cols-3">
+                          <section aria-labelledby="used-material-detail-import">
+                            <h3 id="used-material-detail-import" class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Importación</h3>
+                            <dl class="m-0 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pedimento</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.entryCustomsDocument) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fecha de pago</dt>
+                                <dd class="m-0 text-sm text-slate-700">{{ formatDate(detail.importPaymentDate) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Cantidad importada</dt>
+                                <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.importQuantity) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fracción</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.importTariffFraction) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Número de parte</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.importPartNumber) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">UMC</dt>
+                                <dd class="m-0 text-sm text-slate-700">{{ formatText(detail.importUnit) }}</dd>
+                              </div>
+                              <div class="min-w-0 sm:col-span-2">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Descripción del material</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.materialDescription) }}</dd>
+                              </div>
+                            </dl>
+                          </section>
+                          <section aria-labelledby="used-material-detail-export">
+                            <h3 id="used-material-detail-export" class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Exportación</h3>
+                            <dl class="m-0 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pedimento</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.exitCustomsDocument) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fecha de pago</dt>
+                                <dd class="m-0 text-sm text-slate-700">{{ formatDate(detail.date) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Cantidad exportada</dt>
+                                <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.exportQuantity) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fracción</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.exportTariffFraction) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Número de parte</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.exportPartNumber) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">UMC</dt>
+                                <dd class="m-0 text-sm text-slate-700">{{ formatText(detail.exportUnit) }}</dd>
+                              </div>
+                              <div class="min-w-0 sm:col-span-2">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Descripción del producto</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.productDescription) }}</dd>
+                              </div>
+                            </dl>
+                          </section>
+                          <section aria-labelledby="used-material-detail-consumption">
+                            <h3 id="used-material-detail-consumption" class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Consumo del material</h3>
+                            <dl class="m-0 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Cantidad utilizada</dt>
+                                <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.incorporatedQuantity) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Unidad del material</dt>
+                                <dd class="m-0 text-sm text-slate-700">{{ formatText(detail.unit) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Descarga</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ detail.dischargeId }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Salida / partida</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ detail.exitId }} / {{ detail.exitLineId }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Entrada / partida</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ detail.entryId }} / {{ detail.entryLineId }}</dd>
+                              </div>
+                            </dl>
+                          </section>
+                        </div>
+                      </app-detail-panel>
+                    }
+                    </td>
+                  </ng-container>
                   <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-                  <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: displayedColumns" [class.bg-blue-50/40]="expandedRowId() === row.dischargeId"></tr>
+                  <tr mat-row *matRowDef="let row; columns: ['detail']" [class.hidden]="expandedRowId() !== row.dischargeId"></tr>
                 </table>
               </div>
 
-              @if (expandedItem(); as detail) {
-                <app-detail-panel
-                  [title]="'Detalle de la descarga ' + detail.dischargeId"
-                  [subtitle]="formatText(detail.materialCode) + ' · ' + formatText(detail.productCode)"
-                  closeLabel="Cerrar detalle de la descarga"
-                  (closed)="collapseDetail()"
-                >
-                  <div id="used-material-detail" class="grid grid-cols-1 gap-5 xl:grid-cols-3">
-                    <section aria-labelledby="used-material-detail-import">
-                      <h3 id="used-material-detail-import" class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Importación</h3>
-                      <dl class="m-0 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pedimento</dt>
-                          <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.entryCustomsDocument) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fecha de pago</dt>
-                          <dd class="m-0 text-sm text-slate-700">{{ formatDate(detail.importPaymentDate) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Cantidad importada</dt>
-                          <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.importQuantity) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fracción</dt>
-                          <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.importTariffFraction) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Número de parte</dt>
-                          <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.importPartNumber) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">UMC</dt>
-                          <dd class="m-0 text-sm text-slate-700">{{ formatText(detail.importUnit) }}</dd>
-                        </div>
-                        <div class="min-w-0 sm:col-span-2">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Descripción del material</dt>
-                          <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.materialDescription) }}</dd>
-                        </div>
-                      </dl>
-                    </section>
-                    <section aria-labelledby="used-material-detail-export">
-                      <h3 id="used-material-detail-export" class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Exportación</h3>
-                      <dl class="m-0 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pedimento</dt>
-                          <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.exitCustomsDocument) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fecha de pago</dt>
-                          <dd class="m-0 text-sm text-slate-700">{{ formatDate(detail.date) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Cantidad exportada</dt>
-                          <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.exportQuantity) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fracción</dt>
-                          <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.exportTariffFraction) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Número de parte</dt>
-                          <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.exportPartNumber) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">UMC</dt>
-                          <dd class="m-0 text-sm text-slate-700">{{ formatText(detail.exportUnit) }}</dd>
-                        </div>
-                        <div class="min-w-0 sm:col-span-2">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Descripción del producto</dt>
-                          <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.productDescription) }}</dd>
-                        </div>
-                      </dl>
-                    </section>
-                    <section aria-labelledby="used-material-detail-consumption">
-                      <h3 id="used-material-detail-consumption" class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Consumo del material</h3>
-                      <dl class="m-0 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Cantidad utilizada</dt>
-                          <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.incorporatedQuantity) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Unidad del material</dt>
-                          <dd class="m-0 text-sm text-slate-700">{{ formatText(detail.unit) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Descarga</dt>
-                          <dd class="m-0 break-words text-sm text-slate-700">{{ detail.dischargeId }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Salida / partida</dt>
-                          <dd class="m-0 break-words text-sm text-slate-700">{{ detail.exitId }} / {{ detail.exitLineId }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Entrada / partida</dt>
-                          <dd class="m-0 break-words text-sm text-slate-700">{{ detail.entryId }} / {{ detail.entryLineId }}</dd>
-                        </div>
-                      </dl>
-                    </section>
-                  </div>
-                </app-detail-panel>
-              }
             } @else {
               <div class="flex min-h-52 flex-col items-center justify-center px-6 py-10 text-center" aria-label="Sin resultados">
                 <mat-icon class="mb-3 h-10 w-10 text-[40px]! text-slate-300" aria-hidden="true">search_off</mat-icon>

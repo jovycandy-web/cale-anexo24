@@ -233,6 +233,10 @@ describe('UsedMaterialListPage detalle expandible', () => {
 
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(toggle.getAttribute('aria-controls')).toBe('used-material-detail');
+    expect(fixture.nativeElement.querySelector('table #used-material-detail')).not.toBeNull();
+    const panel = fixture.nativeElement.querySelector('#used-material-detail') as HTMLElement;
+    expect(panel.closest('tr')).not.toBeNull();
+    expect(panel.closest('table')).not.toBeNull();
     const detalle = fixture.nativeElement.querySelector('#used-material-detail')?.textContent ?? '';
     expect(detalle).toContain('Importación');
     expect(detalle).toContain('Exportación');
