@@ -121,10 +121,23 @@ class ActivosFijosSqlIT {
     }
 
     @Test
-    void contratoDeTreceColumnas() throws Exception {
+    void contratoDeCatorceColumnas() throws Exception {
         assertEquals(List.of("PARTIDA_ENTRADA_ID", "IMPORTACION_ID", "PEDIMENTO", "CLAVE_PEDIMENTO",
                 "FECHA_IMPORTACION", "NUMERO_PARTE", "DESCRIPCION", "FRACCION", "CANTIDAD", "UNIDAD",
-                "NUMERO_SERIE", "MARCA", "MODELO"), consultar(Filtro.de()).columnas());
+                "NUMERO_SERIE", "MARCA", "MODELO", "FECHA_ENTRADA"), consultar(Filtro.de()).columnas());
+    }
+
+    @Test
+    void fechaDeEntradaYFechaDePagoSonColumnasDistintas() throws Exception {
+        try (Connection c = conectar(DB); Statement s = c.createStatement()) {
+            s.execute("UPDATE dbo.Importaciones SET Fecha = '2021-03-05', Fecha_ad = '2021-02-11'"
+                    + " WHERE Ipedimentokey = 1");
+        }
+        Resultado r = consultar(Filtro.de().numeroParte("P-001", "EQ"));
+        assertEquals(1, r.total());
+        java.util.Map<String, Object> fila = r.filas().getFirst();
+        assertEquals("2021-03-05", String.valueOf(fila.get("FECHA_IMPORTACION")).substring(0, 10));
+        assertEquals("2021-02-11", String.valueOf(fila.get("FECHA_ENTRADA")).substring(0, 10));
     }
 
     @Test
