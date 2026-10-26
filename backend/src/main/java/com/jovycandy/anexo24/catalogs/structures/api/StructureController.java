@@ -64,6 +64,14 @@ public class StructureController {
             @RequestParam(required = false) String producto,
             @Parameter(description = "Clave del material", in = ParameterIn.QUERY)
             @RequestParam(required = false) String material,
+            @Parameter(description = "Fecha inicial de vigencia; formato YYYY-MM-DD", in = ParameterIn.QUERY)
+            @RequestParam(required = false)
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            java.time.LocalDate desde,
+            @Parameter(description = "Fecha final de vigencia; formato YYYY-MM-DD", in = ParameterIn.QUERY)
+            @RequestParam(required = false)
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            java.time.LocalDate hasta,
             @Parameter(description = "Número de página base 1", example = "1",
                     in = ParameterIn.QUERY)
             @RequestParam(defaultValue = "1") int pagina,
@@ -71,7 +79,7 @@ public class StructureController {
                     in = ParameterIn.QUERY)
             @RequestParam(defaultValue = "20") int tamano) {
         Pagina<EstructuraDetalle> paginaDominio = listarEstructurasUseCase
-                .ejecutar(producto, material, pagina, tamano);
+                .ejecutar(producto, material, desde, hasta, pagina, tamano);
         Pagina<EstructuraDetalleDto> paginaDto = new Pagina<>(
                 paginaDominio.items().stream().map(EstructuraDetalleDto::from).toList(),
                 paginaDominio.total(),

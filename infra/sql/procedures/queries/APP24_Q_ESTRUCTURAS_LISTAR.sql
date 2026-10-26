@@ -6,7 +6,9 @@ CREATE OR ALTER PROCEDURE dbo.APP24_Q_ESTRUCTURAS_LISTAR
     @Material VARCHAR(50) = NULL,
     @Pagina INT = 1,
     @Tamano INT = 20,
-    @Total BIGINT OUTPUT
+    @Total BIGINT OUTPUT,
+    @Desde DATE = NULL,
+    @Hasta DATE = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -31,7 +33,9 @@ BEGIN
     WHERE p.CVE_PRODUCTO IS NOT NULL
       AND pm.CVE_MATERIAL IS NOT NULL
       AND (@Producto IS NULL OR p.CVE_PRODUCTO = @Producto)
-      AND (@Material IS NULL OR pm.CVE_MATERIAL = @Material);
+      AND (@Material IS NULL OR pm.CVE_MATERIAL = @Material)
+      AND (@Desde IS NULL OR e.INICIO >= CAST(@Desde AS DATETIME))
+      AND (@Hasta IS NULL OR e.INICIO < DATEADD(DAY, 1, CAST(@Hasta AS DATETIME)));
 
     SELECT
         e.ESTRUCTURAKEY AS ESTRUCTURAKEY,
@@ -68,6 +72,8 @@ BEGIN
       AND pm.CVE_MATERIAL IS NOT NULL
       AND (@Producto IS NULL OR p.CVE_PRODUCTO = @Producto)
       AND (@Material IS NULL OR pm.CVE_MATERIAL = @Material)
+      AND (@Desde IS NULL OR e.INICIO >= CAST(@Desde AS DATETIME))
+      AND (@Hasta IS NULL OR e.INICIO < DATEADD(DAY, 1, CAST(@Hasta AS DATETIME)))
     ORDER BY
         p.PRODUCTOKEY,
         e.INICIO,

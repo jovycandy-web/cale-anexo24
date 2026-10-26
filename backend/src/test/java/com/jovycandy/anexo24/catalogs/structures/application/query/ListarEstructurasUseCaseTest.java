@@ -26,65 +26,65 @@ class ListarEstructurasUseCaseTest {
     @Test
     void normalizaProductoYMaterialNulosVaciosYBlank() {
         Pagina<EstructuraDetalle> esperado = paginaVacia(1, 20);
-        when(estructuraRepository.findPage(null, null, 1, 20)).thenReturn(esperado);
+        when(estructuraRepository.findPage(null, null, null, null, 1, 20)).thenReturn(esperado);
         ListarEstructurasUseCase useCase = new ListarEstructurasUseCase(estructuraRepository);
 
-        assertThat(useCase.ejecutar(null, null, 1, 20)).isSameAs(esperado);
-        assertThat(useCase.ejecutar("", "", 1, 20)).isSameAs(esperado);
-        assertThat(useCase.ejecutar("   ", "   ", 1, 20)).isSameAs(esperado);
+        assertThat(useCase.ejecutar(null, null, null, null, 1, 20)).isSameAs(esperado);
+        assertThat(useCase.ejecutar("", "", null, null, 1, 20)).isSameAs(esperado);
+        assertThat(useCase.ejecutar("   ", "   ", null, null, 1, 20)).isSameAs(esperado);
         verify(estructuraRepository, org.mockito.Mockito.times(3))
-                .findPage(null, null, 1, 20);
+                .findPage(null, null, null, null, 1, 20);
     }
 
     @Test
     void recortaProductoYMaterial() {
         Pagina<EstructuraDetalle> esperado = paginaVacia(2, 20);
-        when(estructuraRepository.findPage("200060", "MAT-1", 2, 20)).thenReturn(esperado);
+        when(estructuraRepository.findPage("200060", "MAT-1", null, null, 2, 20)).thenReturn(esperado);
 
         assertThat(new ListarEstructurasUseCase(estructuraRepository)
-                .ejecutar("  200060  ", "  MAT-1  ", 2, 20)).isSameAs(esperado);
-        verify(estructuraRepository).findPage("200060", "MAT-1", 2, 20);
+                .ejecutar("  200060  ", "  MAT-1  ", null, null, 2, 20)).isSameAs(esperado);
+        verify(estructuraRepository).findPage("200060", "MAT-1", null, null, 2, 20);
     }
 
     @Test
     void aceptaTamanoMaximo() {
         Pagina<EstructuraDetalle> esperado = paginaVacia(1, 100);
-        when(estructuraRepository.findPage(null, null, 1, 100)).thenReturn(esperado);
+        when(estructuraRepository.findPage(null, null, null, null, 1, 100)).thenReturn(esperado);
 
         assertThat(new ListarEstructurasUseCase(estructuraRepository)
-                .ejecutar(null, null, 1, 100)).isSameAs(esperado);
-        verify(estructuraRepository).findPage(null, null, 1, 100);
+                .ejecutar(null, null, null, null, 1, 100)).isSameAs(esperado);
+        verify(estructuraRepository).findPage(null, null, null, null, 1, 100);
     }
 
     @Test
     void aceptaPaginaGrandeYLaEnviaAlRepository() {
         Pagina<EstructuraDetalle> esperado = paginaVacia(Integer.MAX_VALUE, 100);
-        when(estructuraRepository.findPage(null, null, Integer.MAX_VALUE, 100))
+        when(estructuraRepository.findPage(null, null, null, null, Integer.MAX_VALUE, 100))
                 .thenReturn(esperado);
 
         assertThat(new ListarEstructurasUseCase(estructuraRepository)
-                .ejecutar(null, null, Integer.MAX_VALUE, 100)).isSameAs(esperado);
-        verify(estructuraRepository).findPage(null, null, Integer.MAX_VALUE, 100);
+                .ejecutar(null, null, null, null, Integer.MAX_VALUE, 100)).isSameAs(esperado);
+        verify(estructuraRepository).findPage(null, null, null, null, Integer.MAX_VALUE, 100);
     }
 
     @Test
     void rechazaPaginaMenorQueUno() {
         assertThatThrownBy(() -> new ListarEstructurasUseCase(estructuraRepository)
-                .ejecutar(null, null, 0, 20))
+                .ejecutar(null, null, null, null, 0, 20))
                 .isInstanceOf(SolicitudInvalidaException.class);
     }
 
     @Test
     void rechazaTamanoMenorQueUno() {
         assertThatThrownBy(() -> new ListarEstructurasUseCase(estructuraRepository)
-                .ejecutar(null, null, 1, 0))
+                .ejecutar(null, null, null, null, 1, 0))
                 .isInstanceOf(SolicitudInvalidaException.class);
     }
 
     @Test
     void rechazaTamanoMayorQueCien() {
         assertThatThrownBy(() -> new ListarEstructurasUseCase(estructuraRepository)
-                .ejecutar(null, null, 1, 101))
+                .ejecutar(null, null, null, null, 1, 101))
                 .isInstanceOf(SolicitudInvalidaException.class);
     }
 

@@ -53,6 +53,18 @@ public class EstructuraStoredProcedureAdapter implements EstructuraRepository {
             new SqlOutParameter(TOTAL_PARAMETER, Types.BIGINT),
             new SqlReturnResultSet(RESULT_SET_NAME, ESTRUCTURA_DETALLE_MAPPER));
 
+    private static final List<SqlParameter> DECLARED_PARAMETERS_CON_PERIODO = List.of(
+            new SqlParameter("Producto", Types.VARCHAR),
+            new SqlParameter("Material", Types.VARCHAR),
+            new SqlParameter("Pagina", Types.INTEGER),
+            new SqlParameter("Tamano", Types.INTEGER),
+            new SqlOutParameter(TOTAL_PARAMETER, Types.BIGINT),
+            new SqlParameter("Desde", Types.DATE),
+            new SqlParameter("Hasta", Types.DATE),
+            new SqlReturnResultSet(RESULT_SET_NAME, ESTRUCTURA_DETALLE_MAPPER));
+
+    private Boolean soportaPeriodo;
+
     private final JdbcTemplate jdbcTemplate;
 
     /**
@@ -70,17 +82,32 @@ public class EstructuraStoredProcedureAdapter implements EstructuraRepository {
     @Override
     @SuppressWarnings("unchecked")
     public Pagina<EstructuraDetalle> findPage(String producto, String material,
+                                               java.time.LocalDate desde, java.time.LocalDate hasta,
                                                int pagina, int tamano) {
+        boolean conPeriodo = soportaPeriodo();
         Map<String, Object> resultado = jdbcTemplate.call(connection -> {
-            CallableStatement statement = connection.prepareCall(
-                    "{call " + PROCEDURE_NAME + "(?, ?, ?, ?, ?)}");
+            CallableStatement statement = connection.prepareCall(conPeriodo
+                    ? "{call " + PROCEDURE_NAME + "(?, ?, ?, ?, ?, ?, ?)}"
+                    : "{call " + PROCEDURE_NAME + "(?, ?, ?, ?, ?)}");
             statement.setString(1, producto);
             statement.setString(2, material);
             statement.setInt(3, pagina);
             statement.setInt(4, tamano);
             statement.registerOutParameter(5, Types.BIGINT);
+            if (conPeriodo) {
+                if (desde == null) {
+                    statement.setNull(6, Types.DATE);
+                } else {
+                    statement.setDate(6, java.sql.Date.valueOf(desde));
+                }
+                if (hasta == null) {
+                    statement.setNull(7, Types.DATE);
+                } else {
+                    statement.setDate(7, java.sql.Date.valueOf(hasta));
+                }
+            }
             return statement;
-        }, DECLARED_PARAMETERS);
+        }, conPeriodo ? DECLARED_PARAMETERS_CON_PERIODO : DECLARED_PARAMETERS);
 
         List<EstructuraDetalle> items = (List<EstructuraDetalle>) resultado
                 .getOrDefault(RESULT_SET_NAME, List.of());
@@ -92,5 +119,26 @@ public class EstructuraStoredProcedureAdapter implements EstructuraRepository {
             throws SQLException {
         Timestamp timestamp = resultSet.getTimestamp(column);
         return timestamp == null ? null : timestamp.toLocalDateTime();
+    }
+
+    /**
+     * Detecta si el procedimiento instalado ya acepta el periodo de vigencia.
+     * Se consulta una sola vez mediante metadatos JDBC, sin SQL embebido.
+     */
+    private boolean soportaPeriodo() {
+        if (soportaPeriodo == null) {
+            Boolean detectado = jdbcTemplate.execute((org.springframework.jdbc.core.ConnectionCallback<Boolean>) connection -> {
+                int columnas = 0;
+                try (ResultSet columnasProcedimiento = connection.getMetaData()
+                        .getProcedureColumns(null, "dbo", "APP24_Q_ESTRUCTURAS_LISTAR", "%")) {
+                    while (columnasProcedimiento.next()) {
+                        columnas++;
+                    }
+                }
+                return columnas >= 7;
+            });
+            soportaPeriodo = Boolean.TRUE.equals(detectado);
+        }
+        return soportaPeriodo;
     }
 }

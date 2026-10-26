@@ -1,17 +1,27 @@
 import { WritableSignal } from '@angular/core';
+import { Component, EventEmitter, Output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { of } from 'rxjs';
 import { NotificationService } from '@core/notifications/notification.service';
 import { StructureLine } from '@features/catalogs/structures/domain/models/structure-line.model';
 import { SearchStructuresUseCase } from '@features/catalogs/structures/application/use-cases/search-structures.use-case';
+import { OperationPeriodFilterComponent } from '@features/operations/shared/presentation/operation-period-filter/operation-period-filter.component';
 import { StructureListPage } from './structure-list.page';
+
+@Component({ selector: 'app-operation-period-filter', standalone: true, template: '' })
+class PeriodFilterStub {
+  @Output() readonly periodChange = new EventEmitter<{ start: Date | null; end: Date | null }>();
+  clear(): void { this.periodChange.emit({ start: null, end: null }); }
+  set(): void { /* no-op */ }
+}
 
 interface StructureHarness {
   items: WritableSignal<StructureLine[]>;
   totalItems: WritableSignal<number>;
   isLoading: WritableSignal<boolean>;
   displayedColumns: string[];
+  currentPage: number;
 }
 
 const LINEA: StructureLine = {
@@ -41,6 +51,10 @@ async function configure() {
       { provide: NotificationService, useValue: { success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() } },
     ],
   });
+  TestBed.overrideComponent(StructureListPage, {
+    remove: { imports: [OperationPeriodFilterComponent] },
+    add: { imports: [PeriodFilterStub] },
+  });
   const fixture = TestBed.createComponent(StructureListPage);
   fixture.detectChanges();
   await fixture.whenStable();
@@ -49,7 +63,7 @@ async function configure() {
   page.items.set([LINEA]);
   page.totalItems.set(1);
   fixture.detectChanges();
-  return { page, fixture };
+  return { page, fixture, execute };
 }
 
 describe('StructureListPage paridad SCR-006', () => {
@@ -88,5 +102,18 @@ describe('StructureListPage paridad SCR-006', () => {
     expect(texto).not.toContain('Fracción material');
     expect(texto).toContain('500017');
     expect(texto).toContain('ACHAMOYADOS WORMS REVOLCADO');
+  });
+
+  it('filtra por periodo de vigencia y lo envía a la consulta', async () => {
+    const { page, execute, fixture } = await configure();
+    execute.mockClear();
+
+    expect(fixture.nativeElement.querySelector('app-operation-period-filter')).not.toBeNull();
+    const stub = fixture.debugElement.query(
+      (element) => element.name === 'app-operation-period-filter');
+    stub.componentInstance.periodChange.emit({ start: new Date(2025, 0, 1), end: new Date(2025, 11, 31) });
+
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ from: '2025-01-01', to: '2025-12-31' }));
+    expect(page.currentPage).toBe(1);
   });
 });

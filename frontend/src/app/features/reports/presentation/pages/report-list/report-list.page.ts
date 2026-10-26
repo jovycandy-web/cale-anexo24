@@ -32,13 +32,8 @@ interface ReportColumn {
   format?: 'date' | 'quantity' | 'partida';
 }
 
-/** Reportes de uso frecuente; el resto se revela con "Más reportes". */
-const PRIMARY_REPORT_TYPES: ReadonlySet<ReportType> = new Set<ReportType>([
-  'entradas',
-  'salidas',
-  'saldos',
-  'materiales-utilizados',
-]);
+/** Reportes de uso frecuente, en el orden en que se muestran siempre. */
+const PRIMARY_REPORT_TYPES: readonly ReportType[] = ['entradas', 'salidas', 'materiales-utilizados', 'saldos'];
 
 /** Nombres de archivo descriptivos para reportes cuyo tipo resulta ambiguo. */
 const EXPORT_FILENAMES: Partial<Record<ReportType, string>> = {
@@ -419,7 +414,7 @@ export class ReportListPage implements OnInit {
       const type = params.get('tipo');
       const report = REPORTS.find((option) => option.type === type && option.available);
       if (report) {
-        if (!PRIMARY_REPORT_TYPES.has(report.type)) this.showAllReports.set(true);
+        if (!PRIMARY_REPORT_TYPES.includes(report.type)) this.showAllReports.set(true);
         if (report.type !== this.selectedType()) {
           this.selectedType.set(report.type);
           this.resetResults();
@@ -433,15 +428,23 @@ export class ReportListPage implements OnInit {
     return query ? REPORTS.filter((report) => report.label.toLocaleLowerCase().includes(query)) : REPORTS;
   }
 
-  /** Reportes visibles en la rejilla: los frecuentes y, si se pidió, el resto. */
+  /** Reportes visibles: los frecuentes siempre primero y, si se pidió, el resto. */
   protected visibleReports(): ReportOption[] {
     const reports = this.filteredReports();
-    if (this.reportSearch.trim() || this.showAllReports()) return reports;
-    return reports.filter((report) => PRIMARY_REPORT_TYPES.has(report.type));
+    if (this.reportSearch.trim() || this.showAllReports()) return this.conPrimariosPrimero(reports);
+    return this.conPrimariosPrimero(reports).filter((report) => PRIMARY_REPORT_TYPES.includes(report.type));
   }
 
   protected secondaryReports(): ReportOption[] {
-    return this.filteredReports().filter((report) => !PRIMARY_REPORT_TYPES.has(report.type));
+    return this.filteredReports().filter((report) => !PRIMARY_REPORT_TYPES.includes(report.type));
+  }
+
+  private conPrimariosPrimero(reports: ReportOption[]): ReportOption[] {
+    const primarios = PRIMARY_REPORT_TYPES
+      .map((type) => reports.find((report) => report.type === type))
+      .filter((report): report is ReportOption => Boolean(report));
+    const resto = reports.filter((report) => !PRIMARY_REPORT_TYPES.includes(report.type));
+    return [...primarios, ...resto];
   }
 
   protected toggleAllReports(): void {

@@ -84,7 +84,7 @@ class EstructurasCatalogoSqlIT {
 
     @Test
     void devuelveFilasConContratoDeQuinceColumnas() throws Exception {
-        Resultado r = consultar(null, null, 1, 20);
+        Resultado r = consultar(null, null, null, null, 1, 20);
         assertEquals(COLUMNAS, r.columnas());
         assertEquals(4L, r.total());
         assertEquals(4, r.filas().size());
@@ -92,7 +92,7 @@ class EstructurasCatalogoSqlIT {
 
     @Test
     void resuelveDescripcionUnidadYFraccionDelMaterial() throws Exception {
-        Map<String, Object> fila = consultar(null, null, 1, 20).filas().getFirst();
+        Map<String, Object> fila = consultar(null, null, null, null, 1, 20).filas().getFirst();
         assertEquals("990001", fila.get("CVE_PRODUCTO"));
         assertEquals("PRODUCTO UNO", fila.get("PRODUCTO_DESCRIPCION"));
         assertEquals("880001", fila.get("CVE_MATERIAL"));
@@ -103,14 +103,14 @@ class EstructurasCatalogoSqlIT {
 
     @Test
     void calculaFechaFinConLaSiguienteVigenciaDelMismoProducto() throws Exception {
-        List<Map<String, Object>> filas = consultar("990001", null, 1, 20).filas();
+        List<Map<String, Object>> filas = consultar(null, null, "990001", null, 1, 20).filas();
         assertEquals(3, filas.size());
         for (Map<String, Object> fila : filas) {
             if ("2025-01-30".equals(String.valueOf(fila.get("FECHA_INICIO")).substring(0, 10))) {
                 assertEquals("2025-02-10", String.valueOf(fila.get("FECHA_FIN")).substring(0, 10));
             }
         }
-        Map<String, Object> vigente = consultar("990001", "880001", 1, 20).filas().stream()
+        Map<String, Object> vigente = consultar(null, null, "990001", "880001", 1, 20).filas().stream()
                 .filter(fila -> "2025-02-10".equals(String.valueOf(fila.get("FECHA_INICIO")).substring(0, 10)))
                 .findFirst()
                 .orElseThrow();
@@ -119,7 +119,7 @@ class EstructurasCatalogoSqlIT {
 
     @Test
     void conservaCantidadesDecimalesCompletas() throws Exception {
-        Map<String, Object> fila = consultar("990001", "880001", 1, 20).filas().getFirst();
+        Map<String, Object> fila = consultar(null, null, "990001", "880001", 1, 20).filas().getFirst();
         assertEquals(new BigDecimal("4.500000"), fila.get("CANT_UTILIZADA"));
         assertEquals(new BigDecimal("0.020000"), fila.get("CANT_MERMADA"));
         assertEquals(new BigDecimal("0.030000"), fila.get("CANT_DESPERDICIADA"));
@@ -127,19 +127,19 @@ class EstructurasCatalogoSqlIT {
 
     @Test
     void filtraPorProductoYMaterialSinDuplicar() throws Exception {
-        assertEquals(1L, consultar("990002", null, 1, 20).total());
-        assertEquals(3L, consultar(null, "880001", 1, 20).total());
-        assertEquals(0L, consultar("990999", null, 1, 20).total());
-        assertEquals(0L, consultar(null, "889999", 1, 20).total());
+        assertEquals(1L, consultar(null, null, "990002", null, 1, 20).total());
+        assertEquals(3L, consultar(null, null, null, "880001", 1, 20).total());
+        assertEquals(0L, consultar(null, null, "990999", null, 1, 20).total());
+        assertEquals(0L, consultar(null, null, null, "889999", 1, 20).total());
     }
 
     @Test
     void paginacionYtotalSonCoherentes() throws Exception {
-        Resultado p1 = consultar(null, null, 1, 2);
+        Resultado p1 = consultar(null, null, null, null, 1, 2);
         assertEquals(4L, p1.total());
         assertEquals(2, p1.filas().size());
 
-        Resultado p3 = consultar(null, null, 3, 2);
+        Resultado p3 = consultar(null, null, null, null, 3, 2);
         assertEquals(4L, p3.total());
         assertTrue(p3.filas().isEmpty());
     }
@@ -155,19 +155,29 @@ class EstructurasCatalogoSqlIT {
                 assertEquals(100, rs.getInt(1));
             }
         }
-        assertEquals(4L, consultar(null, null, 1, 20).total());
+        assertEquals(4L, consultar(null, null, null, null, 1, 20).total());
     }
 
-    private static Resultado consultar(String producto, String material, int pagina, int tamano)
-            throws SQLException {
+    private static Resultado consultar(String desde, String hasta, String producto, String material,
+                                       int pagina, int tamano) throws SQLException {
         try (Connection c = conectar(DB);
              CallableStatement cs = c.prepareCall(
-                     "{call dbo.APP24_Q_ESTRUCTURAS_LISTAR(?,?,?,?,?)}")) {
+                     "{call dbo.APP24_Q_ESTRUCTURAS_LISTAR(?,?,?,?,?,?,?)}")) {
             setString(cs, 1, producto);
             setString(cs, 2, material);
             cs.setInt(3, pagina);
             cs.setInt(4, tamano);
             cs.registerOutParameter(5, Types.BIGINT);
+            if (desde == null) {
+                cs.setNull(6, Types.DATE);
+            } else {
+                cs.setDate(6, java.sql.Date.valueOf(desde));
+            }
+            if (hasta == null) {
+                cs.setNull(7, Types.DATE);
+            } else {
+                cs.setDate(7, java.sql.Date.valueOf(hasta));
+            }
             cs.execute();
 
             List<String> columnas = new ArrayList<>();
