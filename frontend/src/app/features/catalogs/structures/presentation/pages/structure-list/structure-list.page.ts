@@ -73,10 +73,6 @@ import { SearchStructuresUseCase } from '@features/catalogs/structures/applicati
                     <th mat-header-cell *matHeaderCellDef class="w-40">Material</th>
                     <td mat-cell *matCellDef="let line" class="font-medium text-slate-700">{{ line.materialCode }}</td>
                   </ng-container>
-                  <ng-container matColumnDef="materialDescription">
-                    <th mat-header-cell *matHeaderCellDef>Material</th>
-                    <td mat-cell *matCellDef="let line" class="max-w-56">{{ line.materialDescription }}</td>
-                  </ng-container>
                   <ng-container matColumnDef="materialUnit">
                     <th mat-header-cell *matHeaderCellDef class="w-24">Unidad</th>
                     <td mat-cell *matCellDef="let line">{{ line.materialUnit || '—' }}</td>
@@ -118,7 +114,7 @@ import { SearchStructuresUseCase } from '@features/catalogs/structures/applicati
   `,
 })
 export class StructureListPage implements OnInit {
-  protected readonly displayedColumns = ['productCode', 'startDate', 'materialDescription', 'productDescription', 'materialUnit', 'incorporatedQuantity', 'scrapQuantity', 'wasteQuantity'];
+  protected readonly displayedColumns = ['productCode', 'startDate', 'materialCode', 'productDescription', 'materialUnit', 'incorporatedQuantity', 'scrapQuantity', 'wasteQuantity'];
   protected readonly items = signal<StructureLine[]>([]);
   protected readonly totalItems = signal(0);
   protected readonly isLoading = signal(false);

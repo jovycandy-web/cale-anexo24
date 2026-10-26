@@ -59,7 +59,7 @@ describe('StructureListPage paridad SCR-006', () => {
     expect(page.displayedColumns).toEqual([
       'productCode',
       'startDate',
-      'materialDescription',
+      'materialCode',
       'productDescription',
       'materialUnit',
       'incorporatedQuantity',
@@ -86,7 +86,7 @@ describe('StructureListPage paridad SCR-006', () => {
     const texto = (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
 
     expect(texto).not.toContain('Fracción material');
-    expect(texto).toContain('ACIDO LACTICO');
+    expect(texto).toContain('500017');
     expect(texto).toContain('ACHAMOYADOS WORMS REVOLCADO');
   });
 });
