@@ -63,7 +63,6 @@ public class EstructuraStoredProcedureAdapter implements EstructuraRepository {
             new SqlParameter("Hasta", Types.DATE),
             new SqlReturnResultSet(RESULT_SET_NAME, ESTRUCTURA_DETALLE_MAPPER));
 
-    private Boolean soportaPeriodo;
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -84,7 +83,15 @@ public class EstructuraStoredProcedureAdapter implements EstructuraRepository {
     public Pagina<EstructuraDetalle> findPage(String producto, String material,
                                                java.time.LocalDate desde, java.time.LocalDate hasta,
                                                int pagina, int tamano) {
-        boolean conPeriodo = soportaPeriodo();
+        boolean conPeriodo = desde != null || hasta != null;
+        return conPeriodo
+                ? consultar(producto, material, desde, hasta, pagina, tamano, true)
+                : consultar(producto, material, null, null, pagina, tamano, false);
+    }
+
+    private Pagina<EstructuraDetalle> consultar(String producto, String material,
+                                                java.time.LocalDate desde, java.time.LocalDate hasta,
+                                                int pagina, int tamano, boolean conPeriodo) {
         Map<String, Object> resultado = jdbcTemplate.call(connection -> {
             CallableStatement statement = connection.prepareCall(conPeriodo
                     ? "{call " + PROCEDURE_NAME + "(?, ?, ?, ?, ?, ?, ?)}"
@@ -119,26 +126,5 @@ public class EstructuraStoredProcedureAdapter implements EstructuraRepository {
             throws SQLException {
         Timestamp timestamp = resultSet.getTimestamp(column);
         return timestamp == null ? null : timestamp.toLocalDateTime();
-    }
-
-    /**
-     * Detecta si el procedimiento instalado ya acepta el periodo de vigencia.
-     * Se consulta una sola vez mediante metadatos JDBC, sin SQL embebido.
-     */
-    private boolean soportaPeriodo() {
-        if (soportaPeriodo == null) {
-            Boolean detectado = jdbcTemplate.execute((org.springframework.jdbc.core.ConnectionCallback<Boolean>) connection -> {
-                int columnas = 0;
-                try (ResultSet columnasProcedimiento = connection.getMetaData()
-                        .getProcedureColumns(null, "dbo", "APP24_Q_ESTRUCTURAS_LISTAR", "%")) {
-                    while (columnasProcedimiento.next()) {
-                        columnas++;
-                    }
-                }
-                return columnas >= 7;
-            });
-            soportaPeriodo = Boolean.TRUE.equals(detectado);
-        }
-        return soportaPeriodo;
     }
 }
