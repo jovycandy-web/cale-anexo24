@@ -173,7 +173,7 @@ interface EntrySearchResult {
                 <span class="mt-1 text-xs text-slate-400">No hay registros para el periodo y filtros seleccionados.</span>
               </div>
             }
-            <mat-paginator [length]="totalItems()" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" (page)="changePage($event)" showFirstLastButtons aria-label="Paginación de entradas" />
+            <mat-paginator [length]="totalItems()" [pageIndex]="currentPage - 1" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" (page)="changePage($event)" showFirstLastButtons aria-label="Paginación de entradas" />
           </section>
         }
       </main>

@@ -110,7 +110,7 @@ interface CatalogOption {
             } @else {
               <div class="p-4"><app-alert kind="info" title="No encontramos registros" message="Prueba con otra búsqueda o limpia los filtros." [actionLabel]="filter ? 'Limpiar búsqueda' : ''" (action)="clearFilter()" /></div>
             }
-            <mat-paginator [length]="totalItems()" [pageSize]="pageSize" [pageSizeOptions]="[20, 50, 100]" (page)="changePage($event)" showFirstLastButtons [attr.aria-label]="'Paginación de ' + selectedLabel()"></mat-paginator>
+            <mat-paginator [length]="totalItems()" [pageIndex]="currentPage - 1" [pageSize]="pageSize" [pageSizeOptions]="[20, 50, 100]" (page)="changePage($event)" showFirstLastButtons [attr.aria-label]="'Paginación de ' + selectedLabel()"></mat-paginator>
           </div>
         }
       </main>

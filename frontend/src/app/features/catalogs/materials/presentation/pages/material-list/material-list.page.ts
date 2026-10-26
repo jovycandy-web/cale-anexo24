@@ -107,6 +107,7 @@ import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, serializeCsv } 
             }
             <mat-paginator
               [length]="totalItems()"
+              [pageIndex]="currentPage - 1"
               [pageSize]="pageSize"
               [pageSizeOptions]="[20, 50, 100]"
               (page)="changePage($event)"

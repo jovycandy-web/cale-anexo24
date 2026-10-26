@@ -1,5 +1,7 @@
 import { WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { MatPaginator } from '@angular/material/paginator';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { of } from 'rxjs';
 import { NotificationService } from '@core/notifications/notification.service';
@@ -121,12 +123,16 @@ describe('ProductListPage paridad SCR-046', () => {
   });
 
   it('pagina y vuelve a consultar con el tamaño solicitado', async () => {
-    const { page, execute } = await configure();
+    const { page, execute, fixture } = await configure();
     execute.mockClear();
     (page as unknown as { changePage(event: { pageIndex: number; pageSize: number }): void })
       .changePage({ pageIndex: 1, pageSize: 50 });
 
     expect(execute).toHaveBeenCalledWith({ filter: '', page: 2, pageSize: 50 });
+    fixture.detectChanges();
+
+    const paginator = fixture.debugElement.query(By.directive(MatPaginator)).componentInstance as MatPaginator;
+    expect(paginator.pageIndex).toBe(1);
   });
 
   it('exporta CSV con las cinco columnas funcionales y reutiliza el filtro activo', async () => {

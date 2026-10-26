@@ -111,7 +111,7 @@ import {
                 <app-alert kind="info" title="No encontramos estructuras" message="Prueba con otro producto o material, o limpia los filtros." [actionLabel]="product || material ? 'Limpiar filtros' : ''" (action)="clearFilters()" />
               </div>
             }
-            <mat-paginator [length]="totalItems()" [pageSize]="pageSize" [pageSizeOptions]="[20, 50, 100]" (page)="changePage($event)" showFirstLastButtons aria-label="Paginación de estructuras" />
+            <mat-paginator [length]="totalItems()" [pageIndex]="currentPage - 1" [pageSize]="pageSize" [pageSizeOptions]="[20, 50, 100]" (page)="changePage($event)" showFirstLastButtons aria-label="Paginación de estructuras" />
           </section>
         }
       </main>

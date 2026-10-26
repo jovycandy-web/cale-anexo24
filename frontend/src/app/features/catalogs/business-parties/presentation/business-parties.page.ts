@@ -78,7 +78,7 @@ import { BusinessPartyDetailDialog } from '@features/catalogs/business-parties/p
             </table>
           </div>
         } @else { <div class="p-5"><app-alert kind="info" title="Sin resultados" message="No hay registros para los filtros actuales." /></div> }
-        <mat-paginator [length]="total()" [pageSize]="pageSize" [pageSizeOptions]="[20,50,100]" (page)="changePage($event)" showFirstLastButtons [attr.aria-label]="'Paginación de ' + kindLabel()" />
+        <mat-paginator [length]="total()" [pageIndex]="page - 1" [pageSize]="pageSize" [pageSizeOptions]="[20,50,100]" (page)="changePage($event)" showFirstLastButtons [attr.aria-label]="'Paginación de ' + kindLabel()" />
       </section> }
     </main></div>
   `,
