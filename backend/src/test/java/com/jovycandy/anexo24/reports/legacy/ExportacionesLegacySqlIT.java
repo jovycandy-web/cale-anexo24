@@ -45,7 +45,7 @@ class ExportacionesLegacySqlIT {
             "Valor Comercial Maquila", "Valor Agregado Maquila", "TipoDescarga", "descargaDirigida",
             "CNT", "prev", "COVE", "psalidakey", "salidakey", "Usuario Modifico",
             "Fecha de Modificacion", "cantidadT", "UnidadT", "observaciones", "ANEXO", "Valor Aduana",
-            "FechaCreacionSalida", "FechaCreacionPartida", "pu", "FME", "NICO", "PedimentoCTM");
+            "FechaCreacionSalida", "FechaCreacionPartida", "PU", "FME", "NICO", "PedimentoCTM");
 
     @BeforeAll
     static void iniciar() throws Exception {
@@ -127,7 +127,7 @@ class ExportacionesLegacySqlIT {
         assertEquals(10.25, (Double) normal.get("Valor Agregado Maquila"));
         assertEquals(0, new BigDecimal("100").compareTo((BigDecimal) normal.get("Valor Pesos")));
         assertEquals(0, new BigDecimal("5").compareTo((BigDecimal) normal.get("Valor Dolares")));
-        assertEquals(0, new BigDecimal("50").compareTo((BigDecimal) normal.get("pu")));
+        assertEquals(0, new BigDecimal("50").compareTo((BigDecimal) normal.get("PU")));
         assertEquals("CTM-A", normal.get("PedimentoCTM"));
         Map<String, Object> f4 = filas.get(2);
         assertEquals("Proveedor sintético", f4.get("Nombre Cliente"));
@@ -163,7 +163,7 @@ class ExportacionesLegacySqlIT {
         assertEquals("-", fila.get("Fraccion"));
         assertEquals(0, BigDecimal.ZERO.compareTo((BigDecimal) fila.get("Cantidad")));
         assertEquals(0, BigDecimal.ZERO.compareTo((BigDecimal) fila.get("Valor Pesos")));
-        assertNull(fila.get("pu")); // división por NULLIF implícito de cantidad cero
+        assertNull(fila.get("PU")); // división por NULLIF implícito de cantidad cero
         assertNull(fila.get("FechaCreacionPartida"));
         assertNull(fila.get("NICO"));
         Map<String, Object> f4 = consultar(null, null, "DOC-B").get(0);
