@@ -39,11 +39,11 @@ import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, serializeCsv } 
                 matInput
                 name="filter"
                 [(ngModel)]="filter"
+                (ngModelChange)="onFilterChange()"
                 placeholder="Buscar en el catálogo"
                 class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
               />
             </label>
-            <button mat-flat-button color="primary" type="submit" class="h-11 min-w-28 rounded-xl!">Consultar</button>
             <button mat-stroked-button type="button" class="h-11 min-w-24 rounded-xl!" (click)="clearFilter()">Limpiar</button>
           </form>
         </section>
@@ -120,6 +120,7 @@ import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, serializeCsv } 
   `,
 })
 export class MaterialListPage implements OnInit {
+  private static readonly FILTER_DEBOUNCE_MS = 400;
   protected displayedColumns = ['tariffFraction', 'description', 'umc', 'unit', 'partNumber'];
   protected items = signal<Material[]>([]);
   protected totalItems = signal(0);
@@ -132,6 +133,7 @@ export class MaterialListPage implements OnInit {
   protected pageSize = 20;
 
   private requestSequence = 0;
+  private filterDebounce?: ReturnType<typeof setTimeout>;
   private readonly searchMaterials = inject(SearchMaterialsUseCase);
   private readonly notifications = inject(NotificationService);
 
@@ -140,13 +142,26 @@ export class MaterialListPage implements OnInit {
   }
 
   protected search(): void {
+    this.cancelScheduledFilter();
     this.currentPage = 1;
     this.loadMaterials();
+  }
+
+  /** Programa una consulta al terminar de escribir, sin requerir un botón. */
+  protected onFilterChange(): void {
+    this.currentPage = 1;
+    this.cancelScheduledFilter();
+    this.filterDebounce = setTimeout(() => this.loadMaterials(), MaterialListPage.FILTER_DEBOUNCE_MS);
   }
 
   protected clearFilter(): void {
     this.filter = '';
     this.search();
+  }
+
+  private cancelScheduledFilter(): void {
+    if (this.filterDebounce !== undefined) clearTimeout(this.filterDebounce);
+    this.filterDebounce = undefined;
   }
 
   protected changePage(event: PageEvent): void {

@@ -31,9 +31,8 @@ import { SearchProductsUseCase } from '@features/catalogs/products/application/u
           <form class="flex flex-wrap items-end gap-4" (ngSubmit)="search()">
             <label class="min-w-0 flex-1 sm:min-w-70">
               <span class="mb-1 block text-xs font-medium text-slate-700">Fracción, descripción, unidad o número de parte</span>
-              <input matInput name="filter" [(ngModel)]="filter" placeholder="Buscar en el catálogo" class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10" />
+              <input matInput name="filter" [(ngModel)]="filter" (ngModelChange)="onFilterChange()" placeholder="Buscar en el catálogo" class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10" />
             </label>
-            <button mat-flat-button color="primary" type="submit" class="h-11 min-w-28 rounded-xl!">Consultar</button>
             <button mat-stroked-button type="button" class="h-11 min-w-24 rounded-xl!" (click)="clearFilter()">Limpiar</button>
           </form>
         </section>
@@ -94,6 +93,7 @@ import { SearchProductsUseCase } from '@features/catalogs/products/application/u
   `,
 })
 export class ProductListPage implements OnInit {
+  private static readonly FILTER_DEBOUNCE_MS = 400;
   protected readonly displayedColumns = ['tariffFraction', 'description', 'tariffUnit', 'commercialUnit', 'partNumber'];
   protected readonly items = signal<Product[]>([]);
   protected readonly totalItems = signal(0);
@@ -106,6 +106,7 @@ export class ProductListPage implements OnInit {
   protected pageSize = 20;
 
   private requestSequence = 0;
+  private filterDebounce?: ReturnType<typeof setTimeout>;
   private readonly searchProducts = inject(SearchProductsUseCase);
   private readonly notifications = inject(NotificationService);
 
@@ -114,13 +115,26 @@ export class ProductListPage implements OnInit {
   }
 
   protected search(): void {
+    this.cancelScheduledFilter();
     this.currentPage = 1;
     this.loadProducts();
+  }
+
+  /** Programa una consulta al terminar de escribir, sin requerir un botón. */
+  protected onFilterChange(): void {
+    this.currentPage = 1;
+    this.cancelScheduledFilter();
+    this.filterDebounce = setTimeout(() => this.loadProducts(), ProductListPage.FILTER_DEBOUNCE_MS);
   }
 
   protected clearFilter(): void {
     this.filter = '';
     this.search();
+  }
+
+  private cancelScheduledFilter(): void {
+    if (this.filterDebounce !== undefined) clearTimeout(this.filterDebounce);
+    this.filterDebounce = undefined;
   }
 
   protected changePage(event: PageEvent): void {

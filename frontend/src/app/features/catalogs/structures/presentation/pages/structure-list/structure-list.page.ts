@@ -37,13 +37,12 @@ import {
           <form class="grid grid-cols-1 items-end gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]" (ngSubmit)="search()">
             <label>
               <span class="mb-1 block text-xs font-medium text-slate-700">Código de producto</span>
-              <input matInput name="product" [(ngModel)]="product" placeholder="Ej. PT-001" class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10" />
+              <input matInput name="product" [(ngModel)]="product" (ngModelChange)="onTextFilterChange()" placeholder="Ej. PT-001" class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10" />
             </label>
             <label>
               <span class="mb-1 block text-xs font-medium text-slate-700">Código de material</span>
-              <input matInput name="material" [(ngModel)]="material" placeholder="Ej. MAT-001" class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10" />
+              <input matInput name="material" [(ngModel)]="material" (ngModelChange)="onTextFilterChange()" placeholder="Ej. MAT-001" class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10" />
             </label>
-            <button mat-flat-button color="primary" type="submit" class="h-11 min-w-28 rounded-xl!">Consultar</button>
             <button mat-stroked-button type="button" class="h-11 min-w-24 rounded-xl!" (click)="clearFilters()">Limpiar</button>
           </form>
         </section>
@@ -120,6 +119,7 @@ import {
   `,
 })
 export class StructureListPage implements OnInit {
+  private static readonly FILTER_DEBOUNCE_MS = 400;
   @ViewChild(OperationPeriodFilterComponent) private periodFilter?: OperationPeriodFilterComponent;
 
   protected readonly displayedColumns = ['productCode', 'startDate', 'materialCode', 'productDescription', 'materialUnit', 'incorporatedQuantity', 'scrapQuantity', 'wasteQuantity'];
@@ -137,6 +137,7 @@ export class StructureListPage implements OnInit {
   protected pageSize = 20;
 
   private requestSequence = 0;
+  private filterDebounce?: ReturnType<typeof setTimeout>;
   private readonly searchStructures = inject(SearchStructuresUseCase);
   private readonly notifications = inject(NotificationService);
 
@@ -145,15 +146,29 @@ export class StructureListPage implements OnInit {
   }
 
   protected search(): void {
+    this.cancelScheduledFilter();
     this.currentPage = 1;
     this.loadStructures();
   }
 
+  /** Programa una consulta al terminar de escribir, sin requerir un botón. */
+  protected onTextFilterChange(): void {
+    this.currentPage = 1;
+    this.cancelScheduledFilter();
+    this.filterDebounce = setTimeout(() => this.loadStructures(), StructureListPage.FILTER_DEBOUNCE_MS);
+  }
+
   protected onPeriodChange(period: OperationPeriod): void {
+    this.cancelScheduledFilter();
     this.fromDate = period.start;
     this.toDate = period.end;
     this.currentPage = 1;
     this.loadStructures();
+  }
+
+  private cancelScheduledFilter(): void {
+    if (this.filterDebounce !== undefined) clearTimeout(this.filterDebounce);
+    this.filterDebounce = undefined;
   }
 
   protected clearFilters(): void {
