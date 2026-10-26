@@ -16,6 +16,7 @@ dist/
 coverage/
 playwright-report/
 test-results/
+.playwright-mcp/
 frontend/proxy.playwright.generated.json
 
 # IDE
@@ -38,3 +39,4 @@ temp/
 
 # Evidencia cruda de auditoría: puede contener datos reales, no versionar.
 docs/05-pruebas/auditoria-legacy-2026/evidencias/snapshots/
+docs/05-pruebas/auditoria-legacy-2026/evidencias/sprint08/
