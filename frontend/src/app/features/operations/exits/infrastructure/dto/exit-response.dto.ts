@@ -8,6 +8,8 @@ export interface ExitResponseDto {
   cantidad: number | string | null;
   numeroParte: string | null;
   fechaPago: string | null;
+  fechaPresentacion: string | null;
+  fechaEntrada: string | null;
 }
 
 export interface ExitPageResponseDto {

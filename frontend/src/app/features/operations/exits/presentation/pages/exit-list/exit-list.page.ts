@@ -134,6 +134,10 @@ interface ExitSearchResult {
                     <th mat-header-cell *matHeaderCellDef>Pedimento</th>
                     <td mat-cell *matCellDef="let line" class="font-medium text-slate-700">{{ formatText(line.customsDocument) }}</td>
                   </ng-container>
+                  <ng-container matColumnDef="presentationDate">
+                    <th mat-header-cell *matHeaderCellDef>Fecha de presentaci√≥n</th>
+                    <td mat-cell *matCellDef="let line">{{ formatDate(line.presentationDate) }}</td>
+                  </ng-container>
                   <ng-container matColumnDef="customsCode">
                     <th mat-header-cell *matHeaderCellDef>Clave pedimento</th>
                     <td mat-cell *matCellDef="let line">{{ formatText(line.customsCode) }}</td>
@@ -179,7 +183,7 @@ interface ExitSearchResult {
 export class ExitListPage {
   @ViewChild(OperationPeriodFilterComponent) private periodFilter?: OperationPeriodFilterComponent;
 
-  protected readonly displayedColumns = ['customsDocument', 'customsCode', 'paymentDate', 'tariffFraction', 'commercialUnit', 'quantity', 'partNumber'];
+  protected readonly displayedColumns = ['customsDocument', 'presentationDate', 'customsCode', 'tariffFraction', 'commercialUnit', 'quantity', 'partNumber', 'paymentDate'];
   protected readonly pageSizeOptions = [20, 50, 100];
   protected readonly loadingRows = [1, 2, 3, 4, 5];
   protected readonly items = signal<ExitLine[]>([]);
@@ -272,7 +276,7 @@ export class ExitListPage {
     try {
       const rows = await loadAllCsvPages((page, pageSize) => firstValueFrom(this.searchExits.execute({ ...criteria, page, pageSize })));
       if (!rows.length) { this.notifications.info('No hay registros para exportar.'); return; }
-      const csv = serializeCsv(['Pedimento', 'Clave pedimento', 'Fecha de pago', 'FracciÛn', 'UMC', 'Cantidad', 'N∞ parte'], rows.map((row) => [row.customsDocument, row.customsCode, normalizeCsvDate(row.paymentDate), row.tariffFraction, row.commercialUnit, row.quantity, row.partNumber]));
+      const csv = serializeCsv(['Pedimento', 'Fecha de presentaci√≥n', 'Clave pedimento', 'Fecha de pago', 'FracciÔøΩn', 'UMC', 'Cantidad', 'NÔøΩ parte'], rows.map((row) => [row.customsDocument, normalizeCsvDate(row.presentationDate), row.customsCode, normalizeCsvDate(row.paymentDate), row.tariffFraction, row.commercialUnit, row.quantity, row.partNumber]));
       downloadCsv('salidas.csv', csv);
     } catch (cause) {
       this.notifications.error(cause instanceof Error && cause.message === CSV_EXPORT_LIMIT_MESSAGE ? CSV_EXPORT_LIMIT_MESSAGE : 'No fue posible exportar las salidas.');

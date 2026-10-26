@@ -29,7 +29,7 @@ export class ReportApiService {
   }
 
   private url(criteria: ReportSearchCriteria): string {
-    const path = criteria.type === 'rectificaciones-detalle' ? 'rectificaciones/detalle' : criteria.type === 'compulsa-detalle' ? 'compulsa/detalle' : criteria.type;
+    const path = criteria.type === 'rectificaciones-detalle' ? 'rectificaciones/detalle' : criteria.type === 'compulsa-detalle' ? 'compulsa/detalle' : criteria.type === 'materiales-utilizados' ? 'materiales-utilizados-aduanas' : criteria.type;
     return `/api/v1/reportes/${path}`;
   }
 
@@ -52,7 +52,7 @@ export class ReportApiService {
     const optional = criteria.type === 'compulsa' || criteria.type === 'rectificaciones' || criteria.type === 'vencimientos' || criteria.type === 'dirigidos' || criteria.type === 'analisis-descargas' || criteria.type === 'operaciones-bloqueadas' || criteria.type === 'f4' || criteria.type === 'anexo30-revision-entradas' || criteria.type === 'anexo30-revision-fracciones' || criteria.type === 'anexo30-revision-descargas' || criteria.type === 'anexo30-revision-comparativa' || criteria.type === 'anexo30-revision-inventario-inicial' || criteria.type === 'rectificaciones-detalle' || criteria.type === 'compulsa-detalle'
       ? { filtro: criteria.filter }
       : criteria.type === 'materiales-utilizados'
-      ? { material: criteria.material, producto: criteria.product, pedimentoSalida: criteria.customsDocument, clavePedimentoSalida: criteria.customsCode }
+      ? { material: criteria.material, producto: criteria.product, pedimentoImportacion: criteria.customsDocument, pedimentoExportacion: criteria.partNumber }
       : criteria.type === 'bitacora'
         ? { usuarioId: criteria.userId?.toString() ?? '', modulo: criteria.module, resultado: criteria.result, correlationId: criteria.correlationId }
         : criteria.type === 'saldos'

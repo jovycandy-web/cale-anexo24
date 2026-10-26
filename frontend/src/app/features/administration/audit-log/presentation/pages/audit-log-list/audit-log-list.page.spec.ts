@@ -44,8 +44,7 @@ describe('AuditLogListPage', () => {
     }));
     const csv = await (exported as Blob).text();
     expect(csv).toContain(date);
-    expect(csv).toContain('Fecha,Usuario ID,Usuario,Módulo,Acción,Resultado,Detalle,Correlation ID');
-    expect(csv).not.toContain('99');
+    expect(csv).toContain('Id,Fecha,Usuario ID,Usuario,Módulo,Acción,Resultado,Detalle,Correlation ID');
     expect(csv).toContain(',,SEGURIDAD,LOGIN_OK,EXITO,,');
     expect(page.currentPage).toBe(3);
     expect(page.pageSize).toBe(50);

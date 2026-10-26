@@ -63,17 +63,31 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
     { key: 'cantidadComercial', label: 'Cantidad', format: 'quantity' }, { key: 'numeroParte', label: 'N° parte' },
   ],
   salidas: [
-    { key: 'pedimento', label: 'Pedimento' }, { key: 'clavePedimento', label: 'Clave' },
-    { key: 'fechaPago', label: 'Fecha de pago', format: 'date' }, { key: 'fraccion', label: 'Fracción' },
-    { key: 'unidadComercial', label: 'UMC' }, { key: 'cantidad', label: 'Cantidad', format: 'quantity' }, { key: 'numeroParte', label: 'N° parte' },
+    { key: 'pedimento', label: 'Pedimento' }, { key: 'fechaEntrada', label: 'Fecha de entrada', format: 'date' },
+    { key: 'clavePedimento', label: 'Clave del pedimento' },
+    { key: 'fraccion', label: 'Fracción' }, { key: 'unidadComercial', label: 'UMC' },
+    { key: 'cantidad', label: 'Cantidad', format: 'quantity' }, { key: 'numeroParte', label: 'Nº parte' },
+    { key: 'fechaPago', label: 'Fecha de pago', format: 'date' },
   ],
   'materiales-utilizados': [
-    { key: 'fecha', label: 'Fecha', format: 'date' }, { key: 'pedimentoEntrada', label: 'Pedimento entrada' },
-    { key: 'pedimentoSalida', label: 'Pedimento salida' }, { key: 'materialCode', label: 'Material' },
-    { key: 'materialDescription', label: 'Descripción material' }, { key: 'productCode', label: 'Producto' },
-    { key: 'productDescription', label: 'Descripción producto' }, { key: 'cantidadIncorporada', label: 'Incorporada', format: 'quantity' },
-    { key: 'cantidadMerma', label: 'Merma', format: 'quantity' }, { key: 'cantidadDesperdicio', label: 'Desperdicio', format: 'quantity' },
-    { key: 'cantidadTotalDescargada', label: 'Total descargado', format: 'quantity' }, { key: 'unidad', label: 'Unidad' },
+    { key: 'pedimentoImportacion', label: 'Pedimento impo' },
+    { key: 'fechaPagoImportacion', label: 'Fecha de pago impo', format: 'date' },
+    { key: 'cantidadImportacion', label: 'Cantidad impo', format: 'quantity' },
+    { key: 'fraccionImportacion', label: 'Fracción impo' },
+    { key: 'numeroParteImportacion', label: 'Número de Parte impo' },
+    { key: 'umcImportacion', label: 'UMC impo' },
+    { key: 'descripcionImportacion', label: 'Descripción impo' },
+    { key: 'pedimentoExportacion', label: 'Pedimento expo' },
+    { key: 'fechaPagoExportacion', label: 'Fecha de pago expo', format: 'date' },
+    { key: 'cantidadExportacion', label: 'Cantidad expo', format: 'quantity' },
+    { key: 'fraccionExportacion', label: 'Fracción expo' },
+    { key: 'numeroParteExportacion', label: 'Número de Parte expo' },
+    { key: 'umcExportacion', label: 'UMC expo' },
+    { key: 'descripcionExportacion', label: 'Descripción expo' },
+    { key: 'cantidadUtilizada', label: 'Cantidad material utilizado', format: 'quantity' },
+    { key: 'desperdicio', label: 'Desperdicio de material utilizado', format: 'quantity' },
+    { key: 'merma', label: 'Merma de material utilizado', format: 'quantity' },
+    { key: 'umcUtilizada', label: 'UMC material utilizado expo' },
   ],
   bitacora: [
     { key: 'fecha', label: 'Fecha', format: 'date' }, { key: 'usuario', label: 'Usuario' },
@@ -283,12 +297,13 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
               </div>
             } @else if (isOperationalReport()) {
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <label><span class="mb-1 block text-xs font-medium text-slate-700">Pedimento</span><input matInput name="customsDocument" [(ngModel)]="customsDocument" maxlength="50" class="report-input" /></label>
-                <label><span class="mb-1 block text-xs font-medium text-slate-700">Clave de pedimento</span><input matInput name="customsCode" [(ngModel)]="customsCode" maxlength="5" class="report-input" /></label>
                 @if (selectedType() !== 'materiales-utilizados') {
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Clave de pedimento</span><input matInput name="customsCode" [(ngModel)]="customsCode" maxlength="5" class="report-input" /></label>
                   <label><span class="mb-1 block text-xs font-medium text-slate-700">Fracción</span><input matInput name="tariffFraction" [(ngModel)]="tariffFraction" maxlength="15" class="report-input" /></label>
                   <label><span class="mb-1 block text-xs font-medium text-slate-700">N° parte</span><input matInput name="partNumber" [(ngModel)]="partNumber" maxlength="50" class="report-input" /></label>
                 } @else {
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Pedimento de importación</span><input matInput name="customsDocument" [(ngModel)]="customsDocument" maxlength="60" class="report-input" /></label>
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Pedimento de exportación</span><input matInput name="partNumber" [(ngModel)]="partNumber" maxlength="60" class="report-input" /></label>
                   <label><span class="mb-1 block text-xs font-medium text-slate-700">Material</span><input matInput name="material" [(ngModel)]="material" maxlength="50" class="report-input" /></label>
                   <label><span class="mb-1 block text-xs font-medium text-slate-700">Producto</span><input matInput name="product" [(ngModel)]="product" maxlength="50" class="report-input" /></label>
                 }

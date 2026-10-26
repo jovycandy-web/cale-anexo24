@@ -25,7 +25,7 @@ describe('SidebarComponent', () => {
     const fixture = TestBed.createComponent(SidebarComponent);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).not.toContain('Administración');
+    expect(fixture.nativeElement.textContent).not.toContain('Gestión');
     expect(fixture.nativeElement.textContent).not.toContain('Usuarios');
   });
 
@@ -47,24 +47,22 @@ describe('SidebarComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Perfiles');
   });
 
-  it('muestra Reportes únicamente con REPORTES_GENERAR', () => {
+  it('muestra el reporte de aduanas únicamente con REPORTES_GENERAR', () => {
     auth.hasPermission.mockImplementation((permission: string) => permission === 'REPORTES_GENERAR');
     const fixture = TestBed.createComponent(SidebarComponent);
     fixture.detectChanges();
 
     const links = fixture.nativeElement.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>;
-    const link = Array.from(links).find((element) => element.textContent?.includes('Reportes'));
-    expect(link?.getAttribute('ng-reflect-router-link') ?? link?.getAttribute('href')).toContain('/reportes');
+    const link = Array.from(links).find((element) => element.textContent?.includes('Reporte de entradas'));
+    expect(link?.getAttribute('href')).toContain('/reportes?tipo=entradas');
   });
 
-  it('muestra Carga de facturación sólo con FACTURACION_CARGAR', () => {
-    auth.hasPermission.mockImplementation((permission: string) => permission === 'FACTURACION_CARGAR');
+  it('mantiene fuera del menú la carga de facturación aunque exista el permiso', () => {
+    auth.hasPermission.mockReturnValue(true);
     const fixture = TestBed.createComponent(SidebarComponent);
     fixture.detectChanges();
-    const links = fixture.nativeElement.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>;
-    const link = Array.from(links).find((element) => element.textContent?.includes('Carga de facturación'));
-    expect(link?.getAttribute('ng-reflect-router-link') ?? link?.getAttribute('href')).toContain('/facturacion');
-    expect(fixture.nativeElement.textContent).not.toContain('Usuarios');
+    expect(fixture.nativeElement.textContent).not.toContain('Carga de facturación');
+    expect(fixture.nativeElement.textContent).not.toContain('Importaciones de catálogos');
   });
 
   it('colapsa y expande un grupo sin renderizar encabezados vacíos', () => {
@@ -76,7 +74,7 @@ describe('SidebarComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Materiales');
     group.click(); fixture.detectChanges();
     expect(fixture.nativeElement.textContent).not.toContain('Materiales');
-    expect(fixture.nativeElement.textContent).not.toContain('Administración');
+    expect(fixture.nativeElement.textContent).not.toContain('Gestión');
   });
 
   it('usa mini rail con menú para grupos al estar contraído', () => {

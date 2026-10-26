@@ -89,7 +89,7 @@ const ROW: FixedAsset = {
   importId: 202,
   customsDocument: 'DOC-1',
   customsCode: 'A1',
-  importDate: '2026-07-19T23:30:00-06:00',
+  importDate: '2026-07-21T10:15:00-06:00',
   partNumber: 'PART-1',
   description: 'Equipo de prueba',
   tariffFraction: '1234.56',
@@ -98,6 +98,7 @@ const ROW: FixedAsset = {
   serialNumber: 'SER-1',
   brand: 'Marca',
   model: 'Modelo',
+  entryDate: '2026-07-19T23:30:00-06:00',
 };
 
 async function configure(options: { failing?: HttpErrorResponse } = {}) {
@@ -175,7 +176,7 @@ describe('FixedAssetListPage exportaciones', () => {
     expect(exportedBlob).toBeInstanceOf(Blob);
     expect(exportedBlob?.type).toBe('text/csv;charset=utf-8');
     const csv = await readBlob(exportedBlob!);
-    expect(csv).toContain('2026-07-19,DOC-1,A1,PART-1,Equipo de prueba,1234.56,0002.5000,PZA,SER-1,Marca,Modelo');
+    expect(csv).toContain('2026-07-21,2026-07-19,DOC-1,A1,PART-1,Equipo de prueba,1234.56,0002.5000,PZA,SER-1,Marca,Modelo');
     expect(csv).not.toContain('entryLineId');
     expect(csv).not.toContain('importId');
   });
@@ -196,10 +197,13 @@ describe('FixedAssetListPage exportaciones', () => {
     const bytes = new Uint8Array(await exportedBlob!.arrayBuffer());
     expect(Array.from(bytes.subarray(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
     const sheet = readXlsxSheet(bytes);
-    expect(sheet).toContain('Fecha importación');
+    expect(sheet).toContain('Fecha de pago');
+    expect(sheet).toContain('Fecha de entrada');
+    expect(sheet).toContain('2026-07-21');
+    expect(sheet).toContain('2026-07-19');
     expect(sheet).toContain('Descripción');
     expect(sheet).toContain('Equipo de prueba');
-    expect(sheet).toContain('<c r="G2" t="inlineStr"><is><t xml:space="preserve">0002.5000</t></is></c>');
+    expect(sheet).toContain('<c r="H2" t="inlineStr"><is><t xml:space="preserve">0002.5000</t></is></c>');
     expect(sheet).not.toContain('<f');
   });
 
@@ -282,7 +286,7 @@ describe('FixedAssetListPage filtros por columna, detalle y permisos', () => {
 
     expect(page.expandedRowId()).toBe(ROW.entryLineId);
     const fields = page.detailFields(ROW);
-    expect(fields).toHaveLength(13);
+    expect(fields).toHaveLength(14);
     expect(fields.map((field) => field.label)).toContain('Importación');
     expect(fields.find((field) => field.label === 'Cantidad')?.value).toBe('0002.5000');
     expect(execute).not.toHaveBeenCalled();

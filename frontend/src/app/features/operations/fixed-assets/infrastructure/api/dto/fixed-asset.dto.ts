@@ -12,6 +12,7 @@ export interface FixedAssetResponseDto {
   numeroSerie: string | null;
   marca: string | null;
   modelo: string | null;
+  fechaEntrada: string | null;
 }
 
 export interface FixedAssetPageResponseDto {

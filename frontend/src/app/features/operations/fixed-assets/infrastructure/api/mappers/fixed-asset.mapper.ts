@@ -18,6 +18,7 @@ export const FixedAssetMapper = {
       serialNumber: dto.numeroSerie,
       brand: dto.marca,
       model: dto.modelo,
+    entryDate: dto.fechaEntrada,
     };
   },
 

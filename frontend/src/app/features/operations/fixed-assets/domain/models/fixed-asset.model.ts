@@ -13,6 +13,7 @@ export interface FixedAsset {
   serialNumber: string | null;
   brand: string | null;
   model: string | null;
+  entryDate: string | null;
 }
 
 /** Resultado paginado de la consulta de activos fijos. */

@@ -183,7 +183,7 @@ interface EntrySearchResult {
 export class EntryListPage {
   @ViewChild(OperationPeriodFilterComponent) private periodFilter?: OperationPeriodFilterComponent;
 
-  protected readonly displayedColumns = ['customsDocument', 'customsCode', 'entryDate', 'paymentDate', 'tariffFraction', 'commercialUnit', 'quantity', 'partNumber'];
+  protected readonly displayedColumns = ['customsDocument', 'customsCode', 'entryDate', 'tariffFraction', 'commercialUnit', 'quantity', 'partNumber', 'paymentDate'];
   protected readonly pageSizeOptions = [20, 50, 100];
   protected readonly loadingRows = [1, 2, 3, 4, 5];
   protected readonly items = signal<EntryLine[]>([]);
@@ -276,7 +276,7 @@ export class EntryListPage {
     try {
       const rows = await loadAllCsvPages((page, pageSize) => firstValueFrom(this.searchEntries.execute({ ...criteria, page, pageSize })));
       if (!rows.length) { this.notifications.info('No hay registros para exportar.'); return; }
-      const csv = serializeCsv(['Pedimento', 'Clave pedimento', 'Fecha de entrada', 'Fecha de pago', 'Fracción', 'UMC', 'Cantidad', 'N° parte'], rows.map((row) => [row.customsDocument, row.customsCode, normalizeCsvDate(row.entryDate), normalizeCsvDate(row.paymentDate), row.tariffFraction, row.commercialUnit, row.quantity, row.partNumber]));
+      const csv = serializeCsv(['Pedimento', 'Clave pedimento', 'Fecha de entrada', 'Fecha de pago', 'Fracciï¿½n', 'UMC', 'Cantidad', 'Nï¿½ parte'], rows.map((row) => [row.customsDocument, row.customsCode, normalizeCsvDate(row.entryDate), normalizeCsvDate(row.paymentDate), row.tariffFraction, row.commercialUnit, row.quantity, row.partNumber]));
       downloadCsv('entradas.csv', csv);
     } catch (cause) {
       this.notifications.error(cause instanceof Error && cause.message === CSV_EXPORT_LIMIT_MESSAGE ? CSV_EXPORT_LIMIT_MESSAGE : 'No fue posible exportar las entradas.');

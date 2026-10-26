@@ -58,7 +58,8 @@ interface DetailField {
 
 /** Encabezados compartidos por las exportaciones CSV y XLSX. */
 const EXPORT_HEADERS = [
-  'Fecha importación',
+  'Fecha de pago',
+  'Fecha de entrada',
   'Pedimento',
   'Clave pedimento',
   'N° parte',
@@ -248,8 +249,12 @@ const EXPORT_HEADERS = [
                     </td>
                   </ng-container>
                   <ng-container matColumnDef="importDate">
-                    <th mat-header-cell *matHeaderCellDef>Fecha importación</th>
+                    <th mat-header-cell *matHeaderCellDef>Fecha de pago</th>
                     <td mat-cell *matCellDef="let item">{{ formatDate(item.importDate) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="entryDate">
+                    <th mat-header-cell *matHeaderCellDef>Fecha de entrada</th>
+                    <td mat-cell *matCellDef="let item">{{ formatDate(item.entryDate) }}</td>
                   </ng-container>
                   <ng-container matColumnDef="customsDocument">
                     <th mat-header-cell *matHeaderCellDef>Pedimento</th>
@@ -331,6 +336,7 @@ export class FixedAssetListPage {
   protected readonly displayedColumns = [
     'expand',
     'importDate',
+    'entryDate',
     'customsDocument',
     'customsCode',
     'part',
@@ -476,7 +482,8 @@ export class FixedAssetListPage {
       { label: 'Importación', value: String(item.importId) },
       { label: 'Pedimento', value: this.formatText(item.customsDocument) },
       { label: 'Clave de pedimento', value: this.formatText(item.customsCode) },
-      { label: 'Fecha de importación', value: this.formatDate(item.importDate) },
+      { label: 'Fecha de pago', value: this.formatDate(item.importDate) },
+      { label: 'Fecha de entrada', value: this.formatDate(item.entryDate) },
       { label: 'Número de parte', value: this.formatText(item.partNumber) },
       { label: 'Descripción', value: this.formatText(item.description) },
       { label: 'Fracción', value: this.formatText(item.tariffFraction) },
@@ -714,6 +721,7 @@ export class FixedAssetListPage {
 function toExportRow(row: FixedAsset): (string | number | null)[] {
   return [
     normalizeCsvDate(row.importDate),
+    normalizeCsvDate(row.entryDate),
     row.customsDocument,
     row.customsCode,
     row.partNumber,
