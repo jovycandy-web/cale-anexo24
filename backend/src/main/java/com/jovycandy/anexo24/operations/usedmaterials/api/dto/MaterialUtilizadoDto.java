@@ -23,7 +23,16 @@ public record MaterialUtilizadoDto(
         BigDecimal cantidadDesperdicio,
         BigDecimal cantidadTotalDescargada,
         String unidad,
-        LocalDateTime fecha) {
+        LocalDateTime fecha,
+        LocalDateTime fechaPagoImpo,
+        BigDecimal cantidadImpo,
+        String fraccionImpo,
+        String numeroParteImpo,
+        String umcImpo,
+        BigDecimal cantidadExpo,
+        String fraccionExpo,
+        String numeroParteExpo,
+        String umcExpo) {
 
     /**
      * Convierte una fila de dominio a DTO de presentación.
@@ -49,6 +58,15 @@ public record MaterialUtilizadoDto(
                 materialUtilizado.cantidadDesperdicio(),
                 materialUtilizado.cantidadTotalDescargada(),
                 materialUtilizado.unidad(),
-                materialUtilizado.fecha());
+                materialUtilizado.fecha(),
+                materialUtilizado.fechaPagoImpo(),
+                materialUtilizado.cantidadImpo(),
+                materialUtilizado.fraccionImpo(),
+                materialUtilizado.numeroParteImpo(),
+                materialUtilizado.umcImpo(),
+                materialUtilizado.cantidadExpo(),
+                materialUtilizado.fraccionExpo(),
+                materialUtilizado.numeroParteExpo(),
+                materialUtilizado.umcExpo());
     }
 }

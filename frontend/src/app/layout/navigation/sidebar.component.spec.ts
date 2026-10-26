@@ -47,14 +47,15 @@ describe('SidebarComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Perfiles');
   });
 
-  it('muestra el reporte de aduanas únicamente con REPORTES_GENERAR', () => {
+  it('muestra un único acceso a reportes sólo con REPORTES_GENERAR', () => {
     auth.hasPermission.mockImplementation((permission: string) => permission === 'REPORTES_GENERAR');
     const fixture = TestBed.createComponent(SidebarComponent);
     fixture.detectChanges();
 
-    const links = fixture.nativeElement.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>;
-    const link = Array.from(links).find((element) => element.textContent?.includes('Reporte de entradas'));
-    expect(link?.getAttribute('href')).toContain('/reportes?tipo=entradas');
+    const links = Array.from(fixture.nativeElement.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>);
+    const reportes = links.filter((element) => element.getAttribute('href') === '/reportes');
+    expect(reportes).toHaveLength(1);
+    expect(reportes[0].textContent).toContain('Reportes');
   });
 
   it('mantiene fuera del menú la carga de facturación aunque exista el permiso', () => {

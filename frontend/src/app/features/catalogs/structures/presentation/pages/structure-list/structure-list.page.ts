@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,10 +12,15 @@ import { AppAlertComponent } from '@core/ui/app-alert/app-alert.component';
 import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, normalizeCsvDate, serializeCsv } from '@core/export/csv-export';
 import { StructureLine } from '@features/catalogs/structures/domain/models/structure-line.model';
 import { SearchStructuresUseCase } from '@features/catalogs/structures/application/use-cases/search-structures.use-case';
+import { formatLocalDateForApi } from '@features/operations/shared/operation-formatters';
+import {
+  OperationPeriod,
+  OperationPeriodFilterComponent,
+} from '@features/operations/shared/presentation/operation-period-filter/operation-period-filter.component';
 
 /** Consulta de estructuras y materiales asociados a productos. */
 @Component({
-  imports: [AppAlertComponent, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatPaginatorModule, MatTableModule],
+  imports: [AppAlertComponent, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatPaginatorModule, MatTableModule, OperationPeriodFilterComponent],
   selector: 'app-structure-list',
   template: `
     <div class="min-h-full bg-[#f4f7fb] text-slate-800">
@@ -28,6 +33,7 @@ import { SearchStructuresUseCase } from '@features/catalogs/structures/applicati
 
         <section class="mb-6 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_4px_18px_rgb(15_23_42/4%)]" aria-labelledby="structure-filters">
           <h2 id="structure-filters" class="sr-only">Filtros de estructuras</h2>
+          <div class="mb-4"><app-operation-period-filter #periodFilter (periodChange)="onPeriodChange($event)" /></div>
           <form class="grid grid-cols-1 items-end gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]" (ngSubmit)="search()">
             <label>
               <span class="mb-1 block text-xs font-medium text-slate-700">Código de producto</span>
@@ -66,16 +72,12 @@ import { SearchStructuresUseCase } from '@features/catalogs/structures/applicati
                     <td mat-cell *matCellDef="let line" class="font-medium text-slate-700">{{ line.productCode }}</td>
                   </ng-container>
                   <ng-container matColumnDef="productDescription">
-                    <th mat-header-cell *matHeaderCellDef>Descripción producto</th>
+                    <th mat-header-cell *matHeaderCellDef>Descripción</th>
                     <td mat-cell *matCellDef="let line" class="max-w-56">{{ line.productDescription }}</td>
                   </ng-container>
                   <ng-container matColumnDef="materialCode">
                     <th mat-header-cell *matHeaderCellDef class="w-40">Material</th>
                     <td mat-cell *matCellDef="let line" class="font-medium text-slate-700">{{ line.materialCode }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="materialDescription">
-                    <th mat-header-cell *matHeaderCellDef>Descripción material</th>
-                    <td mat-cell *matCellDef="let line" class="max-w-56">{{ line.materialDescription }}</td>
                   </ng-container>
                   <ng-container matColumnDef="materialUnit">
                     <th mat-header-cell *matHeaderCellDef class="w-24">Unidad</th>
@@ -118,7 +120,9 @@ import { SearchStructuresUseCase } from '@features/catalogs/structures/applicati
   `,
 })
 export class StructureListPage implements OnInit {
-  protected readonly displayedColumns = ['productCode', 'productDescription', 'materialCode', 'materialDescription', 'materialUnit', 'materialTariffFraction', 'incorporatedQuantity', 'scrapQuantity', 'wasteQuantity', 'startDate'];
+  @ViewChild(OperationPeriodFilterComponent) private periodFilter?: OperationPeriodFilterComponent;
+
+  protected readonly displayedColumns = ['productCode', 'startDate', 'materialCode', 'productDescription', 'materialUnit', 'incorporatedQuantity', 'scrapQuantity', 'wasteQuantity'];
   protected readonly items = signal<StructureLine[]>([]);
   protected readonly totalItems = signal(0);
   protected readonly isLoading = signal(false);
@@ -127,6 +131,8 @@ export class StructureListPage implements OnInit {
   protected readonly loadingRows = [1, 2, 3, 4, 5];
   protected product = '';
   protected material = '';
+  protected fromDate: Date | null = null;
+  protected toDate: Date | null = null;
   protected currentPage = 1;
   protected pageSize = 20;
 
@@ -143,9 +149,19 @@ export class StructureListPage implements OnInit {
     this.loadStructures();
   }
 
+  protected onPeriodChange(period: OperationPeriod): void {
+    this.fromDate = period.start;
+    this.toDate = period.end;
+    this.currentPage = 1;
+    this.loadStructures();
+  }
+
   protected clearFilters(): void {
     this.product = '';
     this.material = '';
+    this.fromDate = null;
+    this.toDate = null;
+    this.periodFilter?.clear();
     this.search();
   }
 
@@ -170,11 +186,13 @@ export class StructureListPage implements OnInit {
   protected async exportCsv(): Promise<void> {
     const product = this.product;
     const material = this.material;
+    const from = formatLocalDateForApi(this.fromDate) ?? '';
+    const to = formatLocalDateForApi(this.toDate) ?? '';
     this.isExporting.set(true);
     try {
-      const rows = await loadAllCsvPages((page, pageSize) => firstValueFrom(this.searchStructures.execute({ product, material, page, pageSize })));
+      const rows = await loadAllCsvPages((page, pageSize) => firstValueFrom(this.searchStructures.execute({ product, material, from, to, page, pageSize })));
       if (!rows.length) { this.notifications.info('No hay registros para exportar.'); return; }
-      const csv = serializeCsv(['Producto', 'Descripción producto', 'Unidad producto', 'Inicio', 'Fin', 'Material', 'Descripción material', 'Unidad material', 'Fracción material', 'Incorporada', 'Merma', 'Desperdicio'], rows.map((row) => [row.productCode, row.productDescription, row.productUnit, normalizeCsvDate(row.startDate), normalizeCsvDate(row.endDate), row.materialCode, row.materialDescription, row.materialUnit, row.materialTariffFraction, row.incorporatedQuantity, row.wasteQuantity, row.scrapQuantity]));
+      const csv = serializeCsv(['Producto', 'Fecha vigencia', 'Material', 'Descripción', 'Unidad', 'Incorporado', 'Desperdicio', 'Merma'], rows.map((row) => [row.productCode, normalizeCsvDate(row.startDate), row.materialCode, row.productDescription, row.materialUnit, row.incorporatedQuantity, row.scrapQuantity, row.wasteQuantity]));
       downloadCsv('estructuras.csv', csv);
     } catch (cause) {
       this.notifications.error(cause instanceof Error && cause.message === CSV_EXPORT_LIMIT_MESSAGE ? CSV_EXPORT_LIMIT_MESSAGE : 'No fue posible exportar las estructuras.');
@@ -186,7 +204,7 @@ export class StructureListPage implements OnInit {
     this.isLoading.set(true);
     this.error.set(null);
     this.items.set([]);
-    this.searchStructures.execute({ product: this.product, material: this.material, page: this.currentPage, pageSize: this.pageSize }).subscribe({
+    this.searchStructures.execute({ product: this.product, material: this.material, from: formatLocalDateForApi(this.fromDate) ?? '', to: formatLocalDateForApi(this.toDate) ?? '', page: this.currentPage, pageSize: this.pageSize }).subscribe({
       next: (page) => {
         if (requestId !== this.requestSequence) return;
         this.items.set(page.items);

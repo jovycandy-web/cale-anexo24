@@ -4,6 +4,8 @@ import { StructureLine } from '@features/catalogs/structures/domain/models/struc
 export interface StructureSearchCriteria {
   product: string;
   material: string;
+  from: string;
+  to: string;
   page: number;
   pageSize: number;
 }

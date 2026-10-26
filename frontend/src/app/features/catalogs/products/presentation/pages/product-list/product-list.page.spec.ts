@@ -30,11 +30,7 @@ interface ProductHarness {
   items: WritableSignal<Product[]>;
   totalItems: WritableSignal<number>;
   isLoading: WritableSignal<boolean>;
-  selectedProduct: WritableSignal<Product | null>;
-  selectProduct(product: Product): void;
-  toggleDetail(product: Product): void;
-  isSelected(product: Product): boolean;
-  closeDetail(): void;
+  displayedColumns: string[];
   exportCsv(): Promise<void>;
 }
 
@@ -91,45 +87,49 @@ describe('ProductListPage paridad SCR-046', () => {
     anchorClickSpy.mockRestore();
   });
 
-  it('consulta el catálogo con el filtro y la página activos y expone los campos ampliados', async () => {
+  it('consulta el catálogo con el filtro y la página activos', async () => {
     const { page, execute } = await configure();
 
     expect(execute).toHaveBeenCalledWith({ filter: '', page: 1, pageSize: 20 });
     expect(page.totalItems()).toBe(1);
     expect(page.items()).toEqual([PRODUCTO]);
-    expect(page.items()[0].clientCode).toBe('CLI-P0122');
-    expect(page.items()[0].nico).toBe('8504');
-    expect(page.items()[0].type).toBe('TERMINADO');
-    expect(page.items()[0].warehouse).toBe('PRINCIPAL');
-    expect(page.items()[0].auxiliary).toBe('AUX-1');
   });
 
-  it('expande el detalle bajo la fila seleccionada y permite cerrarlo', async () => {
+  it('muestra exactamente las cinco columnas legacy en orden', async () => {
     const { page, fixture } = await configure();
-    page.toggleDetail(PRODUCTO);
-    fixture.detectChanges();
 
-    expect(page.selectedProduct()).toEqual(PRODUCTO);
-    expect(page.isSelected(PRODUCTO)).toBe(true);
-    expect(fixture.nativeElement.textContent).toContain('Detalle de P0122');
-    expect(fixture.nativeElement.textContent).toContain('CLI-P0122');
-    expect(fixture.nativeElement.querySelector('table')?.textContent).toContain('Detalle de P0122');
+    expect(page.displayedColumns).toEqual(['tariffFraction', 'description', 'tariffUnit', 'commercialUnit', 'partNumber']);
+    const encabezados = Array.from(fixture.nativeElement.querySelectorAll('th') as NodeListOf<HTMLElement>)
+      .map((th) => th.textContent?.trim());
+    expect(encabezados).toEqual(['Fracción', 'Descripción', 'Unidad TIGIE', 'UMC', 'Número parte']);
 
-    page.toggleDetail(PRODUCTO);
-    fixture.detectChanges();
-    expect(page.selectedProduct()).toBeNull();
-    expect(page.isSelected(PRODUCTO)).toBe(false);
-
-    page.selectProduct(PRODUCTO);
-    fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Detalle de P0122');
-
-    page.closeDetail();
-    fixture.detectChanges();
-    expect(page.selectedProduct()).toBeNull();
+    const celdas = Array.from(fixture.nativeElement.querySelectorAll('td') as NodeListOf<HTMLElement>)
+      .map((td) => td.textContent?.trim());
+    expect(celdas).toEqual(['17049099', 'JOVI TROPICAL POWDER NARANJA', 'PZA', 'PZA', 'P0122']);
   });
 
-  it('exporta CSV con todas las columnas visibles y reutiliza el filtro activo', async () => {
+  it('no conserva columnas ni panel de atributos adicionales', async () => {
+    const { fixture } = await configure();
+    const texto = (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
+
+    expect(fixture.nativeElement.querySelector('app-detail-panel')).toBeNull();
+    expect(texto).not.toContain('Código cliente');
+    expect(texto).not.toContain('NICO');
+    expect(texto).not.toContain('Auxiliar');
+    expect(texto).not.toContain('Almacén');
+    expect(texto).not.toContain('Ver detalle');
+  });
+
+  it('pagina y vuelve a consultar con el tamaño solicitado', async () => {
+    const { page, execute } = await configure();
+    execute.mockClear();
+    (page as unknown as { changePage(event: { pageIndex: number; pageSize: number }): void })
+      .changePage({ pageIndex: 1, pageSize: 50 });
+
+    expect(execute).toHaveBeenCalledWith({ filter: '', page: 2, pageSize: 50 });
+  });
+
+  it('exporta CSV con las cinco columnas funcionales y reutiliza el filtro activo', async () => {
     const { page, execute } = await configure();
     page.filter = 'NARANJA';
     execute.mockClear();
@@ -139,8 +139,10 @@ describe('ProductListPage paridad SCR-046', () => {
     expect(execute).toHaveBeenCalledWith({ filter: 'NARANJA', page: 1, pageSize: 100 });
     expect(downloadedFilename).toBe('productos.csv');
     const csv = await readBlob(exportedBlob!);
-    expect(csv).toContain('Clave,Código cliente,Descripción,Fracción TIGIE,NICO,Unidad comercial,Unidad tarifaria,Tipo,Almacén,Auxiliar');
-    expect(csv).toContain('P0122,CLI-P0122,JOVI TROPICAL POWDER NARANJA,17049099,8504,PZA,PZA,TERMINADO,PRINCIPAL,AUX-1');
+    expect(csv).toContain('Fracción,Descripción,Unidad TIGIE,UMC,Número parte');
+    expect(csv).toContain('17049099,JOVI TROPICAL POWDER NARANJA,PZA,PZA,P0122');
+    expect(csv).not.toContain('Código cliente');
+    expect(csv).not.toContain('NICO');
     expect(csv).not.toContain('warehouseKey');
   });
 });

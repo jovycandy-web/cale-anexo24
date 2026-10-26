@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { NAVIGATION_GROUPS } from './navigation.config';
+import { NAVIGATION_GROUPS, NAVIGATION_LINKS } from './navigation.config';
 
 /** Alcance cerrado de la versión de presentación (Sprint 09). */
 describe('navigation.config', () => {
   const groupLabels = NAVIGATION_GROUPS.map((group) => group.label);
 
-  it('expone sólo los cuatro grupos del alcance', () => {
-    expect(groupLabels).toEqual(['Catálogos', 'Módulos', 'Reporte de Aduanas', 'Gestión']);
+  it('expone sólo los tres grupos del alcance', () => {
+    expect(groupLabels).toEqual(['Catálogos', 'Módulos', 'Gestión']);
   });
 
   it('conserva los cuatro catálogos del módulo SAT en orden legacy', () => {
@@ -29,15 +29,14 @@ describe('navigation.config', () => {
     ]);
   });
 
-  it('deep-linkea los cuatro reportes de aduanas al módulo de reportes existente', () => {
-    const aduanas = NAVIGATION_GROUPS.find((group) => group.label === 'Reporte de Aduanas');
-    expect(aduanas?.items.map((item) => [item.route, item.queryParams?.['tipo']])).toEqual([
-      ['/reportes', 'entradas'],
-      ['/reportes', 'salidas'],
-      ['/reportes', 'saldos'],
-      ['/reportes', 'materiales-utilizados'],
-    ]);
-    expect(aduanas?.items.every((item) => item.permission === 'REPORTES_GENERAR')).toBe(true);
+  it('expone un único acceso directo a reportes', () => {
+    expect(NAVIGATION_LINKS).toHaveLength(1);
+    expect(NAVIGATION_LINKS[0]).toEqual({
+      label: 'Reportes',
+      icon: 'fact_check',
+      route: '/reportes',
+      permission: 'REPORTES_GENERAR',
+    });
   });
 
   it('agrupa la gestión administrativa del alcance', () => {

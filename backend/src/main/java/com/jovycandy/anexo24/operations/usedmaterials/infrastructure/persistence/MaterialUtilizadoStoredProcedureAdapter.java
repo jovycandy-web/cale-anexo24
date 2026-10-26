@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.CallableStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -29,25 +30,36 @@ public class MaterialUtilizadoStoredProcedureAdapter implements MaterialUtilizad
     static final String RESULT_SET_NAME = "items";
     static final String TOTAL_PARAMETER = "Total";
 
-    private static final RowMapper<MaterialUtilizado> MATERIAL_UTILIZADO_MAPPER = (rs, rowNum) ->
-            new MaterialUtilizado(
-                    rs.getLong("DESCARGA_ID"),
-                    rs.getBigDecimal("ENTRADA_ID"),
-                    rs.getBigDecimal("PARTIDA_ENTRADA_ID"),
-                    rs.getBigDecimal("SALIDA_ID"),
-                    rs.getBigDecimal("PARTIDA_SALIDA_ID"),
-                    rs.getString("PEDIMENTO_ENTRADA"),
-                    rs.getString("PEDIMENTO_SALIDA"),
-                    rs.getString("MATERIAL_CODE"),
-                    rs.getString("MATERIAL_DESCRIPTION"),
-                    rs.getString("PRODUCT_CODE"),
-                    rs.getString("PRODUCT_DESCRIPTION"),
-                    rs.getBigDecimal("CANTIDAD_INCORPORADA"),
-                    rs.getBigDecimal("CANTIDAD_MERMA"),
-                    rs.getBigDecimal("CANTIDAD_DESPERDICIO"),
-                    rs.getBigDecimal("CANTIDAD_TOTAL_DESCARGADA"),
-                    rs.getString("UNIDAD"),
-                    localDateTime(rs, "FECHA"));
+    private static final RowMapper<MaterialUtilizado> MATERIAL_UTILIZADO_MAPPER = (rs, rowNum) -> {
+        ResultSetMetaData meta = rs.getMetaData();
+        return new MaterialUtilizado(
+                rs.getLong("DESCARGA_ID"),
+                rs.getBigDecimal("ENTRADA_ID"),
+                rs.getBigDecimal("PARTIDA_ENTRADA_ID"),
+                rs.getBigDecimal("SALIDA_ID"),
+                rs.getBigDecimal("PARTIDA_SALIDA_ID"),
+                rs.getString("PEDIMENTO_ENTRADA"),
+                rs.getString("PEDIMENTO_SALIDA"),
+                rs.getString("MATERIAL_CODE"),
+                rs.getString("MATERIAL_DESCRIPTION"),
+                rs.getString("PRODUCT_CODE"),
+                rs.getString("PRODUCT_DESCRIPTION"),
+                rs.getBigDecimal("CANTIDAD_INCORPORADA"),
+                rs.getBigDecimal("CANTIDAD_MERMA"),
+                rs.getBigDecimal("CANTIDAD_DESPERDICIO"),
+                rs.getBigDecimal("CANTIDAD_TOTAL_DESCARGADA"),
+                rs.getString("UNIDAD"),
+                localDateTime(rs, "FECHA"),
+                hasColumn(meta, "FECHA_PAGO_IMPO") ? localDateTime(rs, "FECHA_PAGO_IMPO") : null,
+                hasColumn(meta, "CANTIDAD_IMPO") ? rs.getBigDecimal("CANTIDAD_IMPO") : null,
+                hasColumn(meta, "FRACCION_IMPO") ? rs.getString("FRACCION_IMPO") : null,
+                hasColumn(meta, "NUMERO_PARTE_IMPO") ? rs.getString("NUMERO_PARTE_IMPO") : null,
+                hasColumn(meta, "UMC_IMPO") ? rs.getString("UMC_IMPO") : null,
+                hasColumn(meta, "CANTIDAD_EXPO") ? rs.getBigDecimal("CANTIDAD_EXPO") : null,
+                hasColumn(meta, "FRACCION_EXPO") ? rs.getString("FRACCION_EXPO") : null,
+                hasColumn(meta, "NUMERO_PARTE_EXPO") ? rs.getString("NUMERO_PARTE_EXPO") : null,
+                hasColumn(meta, "UMC_EXPO") ? rs.getString("UMC_EXPO") : null);
+    };
 
     private static final List<SqlParameter> DECLARED_PARAMETERS = List.of(
             new SqlParameter("Desde", Types.DATE),
@@ -103,5 +115,15 @@ public class MaterialUtilizadoStoredProcedureAdapter implements MaterialUtilizad
             throws SQLException {
         Timestamp timestamp = resultSet.getTimestamp(column);
         return timestamp == null ? null : timestamp.toLocalDateTime();
+    }
+
+    /** Indica si el result set expone la columna; permite convivir con la versión previa del SP. */
+    private static boolean hasColumn(ResultSetMetaData meta, String column) throws SQLException {
+        for (int index = 1; index <= meta.getColumnCount(); index++) {
+            if (column.equalsIgnoreCase(meta.getColumnLabel(index))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

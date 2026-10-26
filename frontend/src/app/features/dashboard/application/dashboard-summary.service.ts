@@ -45,7 +45,7 @@ export class DashboardSummaryService {
 
   private totalEstructuras(): Observable<number | null> {
     if (!this.auth.hasPermission('ESTRUCTURAS_CONSULTAR')) return of(null);
-    return this.structures.search({ product: '', material: '', page: 1, pageSize: 1 }).pipe(map((page) => page.total), catchError(() => of(null)));
+    return this.structures.search({ product: '', material: '', from: '', to: '', page: 1, pageSize: 1 }).pipe(map((page) => page.total), catchError(() => of(null)));
   }
 
   private estadoSistema(): Observable<DashboardSystemStatus> {

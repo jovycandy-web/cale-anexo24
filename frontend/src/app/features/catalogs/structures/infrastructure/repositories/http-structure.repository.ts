@@ -10,6 +10,6 @@ export class HttpStructureRepository implements StructureRepository {
   private readonly api = inject(StructureApi);
 
   search(criteria: StructureSearchCriteria): Observable<StructurePage> {
-    return this.api.search(criteria.product, criteria.material, criteria.page, criteria.pageSize).pipe(map(StructureMapper.toPage));
+    return this.api.search(criteria.product, criteria.material, criteria.from, criteria.to, criteria.page, criteria.pageSize).pipe(map(StructureMapper.toPage));
   }
 }

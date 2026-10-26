@@ -88,7 +88,7 @@ export function formatExpiration(value: string | null): string {
               <mat-label>Correo</mat-label><input matInput formControlName="email" autocomplete="off" />
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Estado</mat-label>
+              <mat-label>Estado de habilitación</mat-label>
               <mat-select formControlName="status">
                 <mat-option [value]="null">Todos</mat-option>
                 <mat-option value="ACTIVO">Activo</mat-option>
@@ -135,7 +135,7 @@ export function formatExpiration(value: string | null): string {
                 <ng-container matColumnDef="email"><th mat-header-cell *matHeaderCellDef>Correo</th><td mat-cell *matCellDef="let user">{{ user.email }}</td></ng-container>
                 <ng-container matColumnDef="profile"><th mat-header-cell *matHeaderCellDef>Perfil</th><td mat-cell *matCellDef="let user">{{ user.profileName }}</td></ng-container>
                 <ng-container matColumnDef="expiration"><th mat-header-cell *matHeaderCellDef>Vigencia</th><td mat-cell *matCellDef="let user">{{ formatExpiration(user.expiration) }}</td></ng-container>
-                <ng-container matColumnDef="status"><th mat-header-cell *matHeaderCellDef>Estado</th><td mat-cell *matCellDef="let user"><span class="rounded-full px-2.5 py-1 text-xs font-semibold" [class]="user.status === 'ACTIVO' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'">{{ user.status === 'ACTIVO' ? 'Activo' : 'Inactivo' }}</span></td></ng-container>
+                <ng-container matColumnDef="status"><th mat-header-cell *matHeaderCellDef>Estado de habilitación</th><td mat-cell *matCellDef="let user"><span class="rounded-full px-2.5 py-1 text-xs font-semibold" [class]="user.status === 'ACTIVO' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'">{{ user.status === 'ACTIVO' ? 'Activo' : 'Inactivo' }}</span></td></ng-container>
                 <ng-container matColumnDef="actions"><th mat-header-cell *matHeaderCellDef><span class="sr-only">Acciones</span></th><td mat-cell *matCellDef="let user" class="text-right"><button mat-icon-button type="button" [matMenuTriggerFor]="userActions" [matMenuTriggerData]="{ user: user }" [attr.aria-label]="'Acciones para ' + user.name"><mat-icon aria-hidden="true">more_vert</mat-icon></button></td></ng-container>
                 <tr mat-header-row *matHeaderRowDef="columns"></tr><tr mat-row *matRowDef="let row; columns: columns"></tr>
               </table>
@@ -217,7 +217,7 @@ export class UserListPage implements OnInit {
     try {
       const users = await loadAllCsvPages((page, pageSize) => firstValueFrom(this.searchUsers.execute({ ...filters, page, pageSize })));
       if (!users.length) { this.notifications.info('No hay usuarios para exportar.'); return; }
-      const csv = serializeCsv(['Clave', 'Nombre', 'Correo', 'Perfil', 'Vigencia', 'Estado'], users.map((user) => [user.key, user.name, user.email, user.profileName, normalizeCsvDate(user.expiration), user.status]));
+      const csv = serializeCsv(['Clave', 'Nombre', 'Correo', 'Perfil', 'Vigencia', 'Estado de habilitación'], users.map((user) => [user.key, user.name, user.email, user.profileName, normalizeCsvDate(user.expiration), user.status]));
       downloadCsv('usuarios.csv', csv);
     } catch (cause) {
       this.notifications.error(cause instanceof Error && cause.message === CSV_EXPORT_LIMIT_MESSAGE ? CSV_EXPORT_LIMIT_MESSAGE : 'No fue posible exportar los usuarios.');

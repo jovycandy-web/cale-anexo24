@@ -8,10 +8,12 @@ import { StructurePageResponseDto } from '@features/catalogs/structures/infrastr
 export class StructureApi {
   private readonly http = inject(HttpClient);
 
-  search(product: string, material: string, page: number, pageSize: number): Observable<StructurePageResponseDto> {
+  search(product: string, material: string, desde: string, hasta: string, page: number, pageSize: number): Observable<StructurePageResponseDto> {
     let params = new HttpParams().set('pagina', page).set('tamano', pageSize);
     if (product.trim()) params = params.set('producto', product.trim());
     if (material.trim()) params = params.set('material', material.trim());
+    if (desde) params = params.set('desde', desde);
+    if (hasta) params = params.set('hasta', hasta);
     return this.http.get<StructurePageResponseDto>('/api/v1/catalogos/estructuras', { params });
   }
 }

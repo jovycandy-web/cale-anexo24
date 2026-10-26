@@ -875,7 +875,9 @@ class ReportesControllerTest {
                 .thenReturn(List.of(new MaterialUtilizadoDto(1L, BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE,
                         BigDecimal.ONE, "PED-1", "PED-2", "MAT-1", "Material", "PROD-1", "Producto",
                         BigDecimal.TEN, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.TEN, "KG",
-                        LocalDateTime.of(2026, 1, 1, 0, 0))));
+                        LocalDateTime.of(2026, 1, 1, 0, 0), LocalDateTime.of(2025, 12, 1, 0, 0),
+                        BigDecimal.TEN, "01010101", "MAT-1", "KG",
+                        BigDecimal.ONE, "02020202", "PROD-1", "PZA")));
         when(listarSaldosUseCase.exportar(any(), any(), any()))
                 .thenReturn(List.of(org.mockito.Mockito.mock(Saldo.class)));
 

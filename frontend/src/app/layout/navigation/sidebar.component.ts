@@ -4,7 +4,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '@core/auth/auth.service';
-import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from '@layout/navigation/navigation.config';
+import { NAVIGATION_GROUPS, NAVIGATION_LINKS, NavigationGroup, NavigationItem } from '@layout/navigation/navigation.config';
 
 /** Navegación agrupada con scroll interno, mini rail y cuenta accesible. */
 @Component({
@@ -17,6 +17,9 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from '@layout/navi
       </header>
       <nav class="sidebar-nav" aria-label="Secciones de la aplicación">
         <a routerLink="/dashboard" routerLinkActive="nav-active" [routerLinkActiveOptions]="{exact:true}" class="nav-item root-item" matTooltip="Inicio" [matTooltipDisabled]="!collapsed||isMobile" (click)="navigate()"><mat-icon>home</mat-icon><span class="sidebar-copy">Inicio</span></a>
+        @for (link of links(); track link.label) {
+          <a [routerLink]="link.route" [queryParams]="link.queryParams" routerLinkActive="nav-active" class="nav-item root-item" [matTooltip]="link.label" [matTooltipDisabled]="!collapsed||isMobile" (click)="navigate()"><mat-icon>{{link.icon}}</mat-icon><span class="sidebar-copy">{{link.label}}</span></a>
+        }
         @for (group of groups(); track group.label) {
           @if (collapsed && !isMobile) {
             <button type="button" class="nav-item group-button rail-group" [matMenuTriggerFor]="railMenu" [matTooltip]="group.label" [attr.aria-label]="group.label"><mat-icon>{{group.icon}}</mat-icon></button>
@@ -37,6 +40,7 @@ export class SidebarComponent {
   @Output() readonly collapsedChange=new EventEmitter<boolean>(); @Output() readonly mobileClosed=new EventEmitter<void>(); @Output() readonly logoutRequested=new EventEmitter<void>();
   protected readonly auth=inject(AuthService); private readonly router=inject(Router); private readonly expanded=signal(new Set<string>(NAVIGATION_GROUPS.map(g=>g.label)));
   protected readonly groups=computed(() => NAVIGATION_GROUPS.map(group=>({...group,items:group.items.filter(item=>this.allowed(item))})).filter(group=>group.items.length));
+  protected readonly links=computed(() => NAVIGATION_LINKS.filter(item=>this.allowed(item)));
   protected isExpanded(label:string):boolean{return this.expanded().has(label);} protected toggleGroup(label:string):void{this.expanded.update(current=>{const next=new Set(current);if(next.has(label)) next.delete(label); else next.add(label);return next;});}
   protected groupActive(group:NavigationGroup):boolean{const path=this.router.url.split('?')[0];return group.items.some(item=>path===item.route||path.startsWith(item.route+'/'));}
   protected navigate():void{if(this.isMobile)this.mobileClosed.emit();}

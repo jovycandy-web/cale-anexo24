@@ -1,4 +1,4 @@
-import { Component, DestroyRef, ViewChild, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,6 +10,7 @@ import { EMPTY, Observable, Subject, catchError, debounce, filter, firstValueFro
 import { userFacingApiError } from '@core/http/api-error.util';
 import { NotificationService } from '@core/notifications/notification.service';
 import { AppAlertComponent } from '@core/ui/app-alert/app-alert.component';
+import { AppDetailPanelComponent } from '@core/ui/app-detail-panel/app-detail-panel.component';
 import { CSV_EXPORT_LIMIT_MESSAGE, downloadCsv, loadAllCsvPages, normalizeCsvDate, serializeCsv } from '@core/export/csv-export';
 import { SavedCriteria } from '@features/saved-queries/domain/saved-query.model';
 import { SavedQueriesControlComponent } from '@features/saved-queries/presentation/saved-queries-control.component';
@@ -39,6 +40,7 @@ interface UsedMaterialSearchResult {
 @Component({
   imports: [
     AppAlertComponent,
+    AppDetailPanelComponent,
     FormsModule,
     MatButtonModule,
     MatIconModule,
@@ -136,7 +138,22 @@ interface UsedMaterialSearchResult {
           <section class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_4px_18px_rgb(15_23_42/4%)]" aria-label="Resultados de materiales utilizados">
             @if (items().length > 0) {
               <div class="overflow-x-auto">
-                <table mat-table [dataSource]="items()" class="w-full min-w-290" aria-label="Materiales utilizados">
+                <table mat-table [dataSource]="items()" multiTemplateDataRows class="w-full min-w-290" aria-label="Materiales utilizados">
+                  <ng-container matColumnDef="expand">
+                    <th mat-header-cell *matHeaderCellDef class="w-12"><span class="sr-only">Detalle</span></th>
+                    <td mat-cell *matCellDef="let item">
+                      <button
+                        type="button"
+                        class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus:ring-4 focus:ring-blue-500/10"
+                        [attr.aria-expanded]="expandedRowId() === item.dischargeId"
+                        [attr.aria-controls]="expandedRowId() === item.dischargeId ? 'used-material-detail' : null"
+                        [attr.aria-label]="'Ver detalle de la descarga ' + item.dischargeId"
+                        (click)="toggleDetail(item)"
+                      >
+                        <mat-icon class="text-[18px]!" aria-hidden="true">{{ expandedRowId() === item.dischargeId ? 'expand_less' : 'expand_more' }}</mat-icon>
+                      </button>
+                    </td>
+                  </ng-container>
                   <ng-container matColumnDef="date">
                     <th mat-header-cell *matHeaderCellDef>Fecha</th>
                     <td mat-cell *matCellDef="let item">{{ formatDate(item.date) }}</td>
@@ -167,26 +184,122 @@ interface UsedMaterialSearchResult {
                     <th mat-header-cell *matHeaderCellDef>Incorporada</th>
                     <td mat-cell *matCellDef="let item" class="text-right tabular-nums">{{ formatQuantity(item.incorporatedQuantity) }}</td>
                   </ng-container>
-                  <ng-container matColumnDef="wasteQuantity">
-                    <th mat-header-cell *matHeaderCellDef>Merma</th>
-                    <td mat-cell *matCellDef="let item" class="text-right tabular-nums">{{ formatQuantity(item.wasteQuantity) }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="scrapQuantity">
-                    <th mat-header-cell *matHeaderCellDef>Desperdicio</th>
-                    <td mat-cell *matCellDef="let item" class="text-right tabular-nums">{{ formatQuantity(item.scrapQuantity) }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="totalDischargedQuantity">
-                    <th mat-header-cell *matHeaderCellDef>Total descargado</th>
-                    <td mat-cell *matCellDef="let item" class="text-right font-medium tabular-nums text-slate-700">{{ formatQuantity(item.totalDischargedQuantity) }}</td>
-                  </ng-container>
                   <ng-container matColumnDef="unit">
                     <th mat-header-cell *matHeaderCellDef>Unidad</th>
                     <td mat-cell *matCellDef="let item">{{ formatText(item.unit) }}</td>
                   </ng-container>
+                  <ng-container matColumnDef="detail">
+                    <td mat-cell *matCellDef="let item" [attr.colspan]="displayedColumns.length" class="p-0!">
+                    @if (expandedItem(); as detail) {
+                      <app-detail-panel
+                        [title]="'Detalle de la descarga ' + detail.dischargeId"
+                        [subtitle]="formatText(detail.materialCode) + ' 路 ' + formatText(detail.productCode)"
+                        closeLabel="Cerrar detalle de la descarga"
+                        (closed)="collapseDetail()"
+                      >
+                        <div id="used-material-detail" class="grid grid-cols-1 gap-5 xl:grid-cols-3">
+                          <section aria-labelledby="used-material-detail-import">
+                            <h3 id="used-material-detail-import" class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Importaci贸n</h3>
+                            <dl class="m-0 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pedimento</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.entryCustomsDocument) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fecha de pago</dt>
+                                <dd class="m-0 text-sm text-slate-700">{{ formatDate(detail.importPaymentDate) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Cantidad importada</dt>
+                                <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.importQuantity) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fracci贸n</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.importTariffFraction) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">N煤mero de parte</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.importPartNumber) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">UMC</dt>
+                                <dd class="m-0 text-sm text-slate-700">{{ formatText(detail.importUnit) }}</dd>
+                              </div>
+                              <div class="min-w-0 sm:col-span-2">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Descripci贸n del material</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.materialDescription) }}</dd>
+                              </div>
+                            </dl>
+                          </section>
+                          <section aria-labelledby="used-material-detail-export">
+                            <h3 id="used-material-detail-export" class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Exportaci贸n</h3>
+                            <dl class="m-0 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pedimento</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.exitCustomsDocument) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fecha de pago</dt>
+                                <dd class="m-0 text-sm text-slate-700">{{ formatDate(detail.date) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Cantidad exportada</dt>
+                                <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.exportQuantity) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Fracci贸n</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.exportTariffFraction) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">N煤mero de parte</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.exportPartNumber) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">UMC</dt>
+                                <dd class="m-0 text-sm text-slate-700">{{ formatText(detail.exportUnit) }}</dd>
+                              </div>
+                              <div class="min-w-0 sm:col-span-2">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Descripci贸n del producto</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ formatText(detail.productDescription) }}</dd>
+                              </div>
+                            </dl>
+                          </section>
+                          <section aria-labelledby="used-material-detail-consumption">
+                            <h3 id="used-material-detail-consumption" class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Consumo del material</h3>
+                            <dl class="m-0 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Cantidad utilizada</dt>
+                                <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.incorporatedQuantity) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Unidad del material</dt>
+                                <dd class="m-0 text-sm text-slate-700">{{ formatText(detail.unit) }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Descarga</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ detail.dischargeId }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Salida / partida</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ detail.exitId }} / {{ detail.exitLineId }}</dd>
+                              </div>
+                              <div class="min-w-0">
+                                <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Entrada / partida</dt>
+                                <dd class="m-0 break-words text-sm text-slate-700">{{ detail.entryId }} / {{ detail.entryLineId }}</dd>
+                              </div>
+                            </dl>
+                          </section>
+                        </div>
+                      </app-detail-panel>
+                    }
+                    </td>
+                  </ng-container>
                   <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-                  <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: displayedColumns" [class.bg-blue-50/40]="expandedRowId() === row.dischargeId"></tr>
+                  <tr mat-row *matRowDef="let row; columns: ['detail']" [class.hidden]="expandedRowId() !== row.dischargeId"></tr>
                 </table>
               </div>
+
             } @else {
               <div class="flex min-h-52 flex-col items-center justify-center px-6 py-10 text-center" aria-label="Sin resultados">
                 <mat-icon class="mb-3 h-10 w-10 text-[40px]! text-slate-300" aria-hidden="true">search_off</mat-icon>
@@ -205,15 +318,13 @@ export class UsedMaterialListPage {
   @ViewChild(OperationPeriodFilterComponent) private periodFilter?: OperationPeriodFilterComponent;
 
   protected readonly displayedColumns = [
+    'expand',
     'date',
     'entryCustomsDocument',
     'exitCustomsDocument',
     'material',
     'product',
     'incorporatedQuantity',
-    'wasteQuantity',
-    'scrapQuantity',
-    'totalDischargedQuantity',
     'unit',
   ];
   protected readonly pageSizeOptions = [20, 50, 100];
@@ -225,6 +336,9 @@ export class UsedMaterialListPage {
   protected readonly hasSearched = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly optionalFiltersExpanded = signal(false);
+  protected readonly expandedRowId = signal<string | number | null>(null);
+  protected readonly expandedItem = computed(() =>
+    this.items().find((item) => item.dischargeId === this.expandedRowId()) ?? null);
 
   protected fromDate: Date | null = null;
   protected toDate: Date | null = null;
@@ -290,6 +404,15 @@ export class UsedMaterialListPage {
       .filter((value) => value.trim()).length;
   }
 
+  protected toggleDetail(item: UsedMaterial): void {
+    this.expandedRowId.update((current) =>
+      String(current) === String(item.dischargeId) ? null : item.dischargeId);
+  }
+
+  protected collapseDetail(): void {
+    this.expandedRowId.set(null);
+  }
+
   protected formatTotal(): string {
     return new Intl.NumberFormat('es-MX').format(this.totalItems());
   }
@@ -309,7 +432,7 @@ export class UsedMaterialListPage {
     try {
       const rows = await loadAllCsvPages((page, pageSize) => firstValueFrom(this.searchUsedMaterials.execute({ ...criteria, page, pageSize })));
       if (!rows.length) { this.notifications.info('No hay registros para exportar.'); return; }
-      const csv = serializeCsv(['Fecha', 'Pedimento entrada', 'Pedimento salida', 'Material', 'Descripci髇 material', 'Producto', 'Descripci髇 producto', 'Incorporada', 'Merma', 'Desperdicio', 'Total descargado', 'Unidad'], rows.map((row) => [normalizeCsvDate(row.date), row.entryCustomsDocument, row.exitCustomsDocument, row.materialCode, row.materialDescription, row.productCode, row.productDescription, row.incorporatedQuantity, row.wasteQuantity, row.scrapQuantity, row.totalDischargedQuantity, row.unit]));
+      const csv = serializeCsv(['Pedimento impo', 'Fecha de pago impo', 'Cantidad impo', 'Fracci贸n impo', 'N煤mero de Parte impo', 'UMC impo', 'Descripci贸n impo', 'Pedimento expo', 'Fecha de pago expo', 'Cantidad expo', 'Fracci贸n expo', 'N煤mero de Parte expo', 'UMC expo', 'Descripci贸n expo', 'Cantidad material utilizado expo', 'UMC material utilizado expo'], rows.map((row) => [row.entryCustomsDocument, normalizeCsvDate(row.importPaymentDate), row.importQuantity, row.importTariffFraction, row.importPartNumber, row.importUnit, row.materialDescription, row.exitCustomsDocument, normalizeCsvDate(row.date), row.exportQuantity, row.exportTariffFraction, row.exportPartNumber, row.exportUnit, row.productDescription, row.incorporatedQuantity, row.unit]));
       downloadCsv('materiales-utilizados.csv', csv);
     } catch (cause) {
       this.notifications.error(cause instanceof Error && cause.message === CSV_EXPORT_LIMIT_MESSAGE ? CSV_EXPORT_LIMIT_MESSAGE : 'No fue posible exportar los materiales utilizados.');
@@ -352,6 +475,7 @@ export class UsedMaterialListPage {
     this.hasSearched.set(false);
     this.isLoading.set(false);
     this.optionalFiltersExpanded.set(false);
+    this.expandedRowId.set(null);
   }
 
   protected changePage(event: PageEvent): void {
@@ -416,6 +540,7 @@ export class UsedMaterialListPage {
     this.error.set(null);
     this.hasSearched.set(false);
     this.isLoading.set(false);
+    this.expandedRowId.set(null);
   }
 }
 

@@ -16,6 +16,15 @@ export interface UsedMaterialResponseDto {
   cantidadTotalDescargada: number | string | null;
   unidad: string | null;
   fecha: string | null;
+  fechaPagoImpo: string | null;
+  cantidadImpo: number | string | null;
+  fraccionImpo: string | null;
+  numeroParteImpo: string | null;
+  umcImpo: string | null;
+  cantidadExpo: number | string | null;
+  fraccionExpo: string | null;
+  numeroParteExpo: string | null;
+  umcExpo: string | null;
 }
 
 export interface UsedMaterialPageResponseDto {

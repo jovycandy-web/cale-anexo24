@@ -46,6 +46,10 @@ interface UsedMaterialHarness {
   totalItems: WritableSignal<number>;
   isLoading: WritableSignal<boolean>;
   hasSearched: WritableSignal<boolean>;
+  expandedRowId: WritableSignal<string | number | null>;
+  displayedColumns: string[];
+  toggleDetail(item: UsedMaterial): void;
+  collapseDetail(): void;
   applySavedCriteria(criteria: SavedCriteria): void;
   canExport(): boolean;
   exportCsv(): Promise<void>;
@@ -70,6 +74,15 @@ function configure() {
     totalDischargedQuantity: '001.3550',
     unit: 'KG',
     date: '2026-06-15T23:45:00-06:00',
+    importPaymentDate: '2025-09-23T06:00:00-06:00',
+    importQuantity: '6000000.0000',
+    importTariffFraction: '17019999',
+    importPartNumber: '500017',
+    importUnit: 'KG',
+    exportQuantity: '576.0000',
+    exportTariffFraction: '17049099',
+    exportPartNumber: '301275',
+    exportUnit: 'CAJA',
   };
   const execute = vi.fn((criteria: UsedMaterialSearchCriteria) => of({ items: [row], total: 201, page: criteria.page, pageSize: criteria.pageSize }));
   const notifications = { success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() };
@@ -87,7 +100,7 @@ function configure() {
   const fixture = TestBed.createComponent(UsedMaterialListPage);
   fixture.detectChanges();
   const page = fixture.componentInstance as unknown as UsedMaterialHarness;
-  return { page, execute, notifications };
+  return { page, execute, notifications, fixture, row };
 }
 
 describe('UsedMaterialListPage CSV export', () => {
@@ -136,7 +149,8 @@ describe('UsedMaterialListPage CSV export', () => {
     expect(exportedBlob).toBeInstanceOf(Blob);
     expect(exportedBlob?.type).toBe('text/csv;charset=utf-8');
     const csv = await readBlob(exportedBlob!);
-    expect(csv).toContain('2026-06-15,ENTRY-1,EXIT-1,MAT-1,Material 1,PROD-1,Product 1,001.2300,0.125,,001.3550,KG');
+    expect(csv.split(/\r?\n/)[0]).toBe('Pedimento impo,Fecha de pago impo,Cantidad impo,Fracción impo,Número de Parte impo,UMC impo,Descripción impo,Pedimento expo,Fecha de pago expo,Cantidad expo,Fracción expo,Número de Parte expo,UMC expo,Descripción expo,Cantidad material utilizado expo,UMC material utilizado expo');
+    expect(csv).toContain('ENTRY-1,2025-09-23,6000000.0000,17019999,500017,KG,Material 1,EXIT-1,2026-06-15,576.0000,17049099,301275,CAJA,Product 1,001.2300,KG');
     expect(csv).not.toContain('dischargeId');
     expect(csv).not.toContain('entryLineId');
     expect(csv).not.toContain('exitLineId');
@@ -187,4 +201,68 @@ describe('UsedMaterialListPage CSV export', () => {
     expect(notifications.error).toHaveBeenCalledWith('Esta consulta guardada ya no es compatible con esta pantalla.');
   });
 
+});
+
+describe('UsedMaterialListPage detalle expandible', () => {
+  it('mantiene la tabla principal compacta con accion de detalle', () => {
+    const { page } = configure();
+    expect(page.displayedColumns).toEqual([
+      'expand',
+      'date',
+      'entryCustomsDocument',
+      'exitCustomsDocument',
+      'material',
+      'product',
+      'incorporatedQuantity',
+      'unit',
+    ]);
+  });
+
+  it('abre y cierra el detalle accesible con importacion, exportacion y consumo', () => {
+    const { page, fixture, row } = configure();
+    page.hasSearched.set(true);
+    page.items.set([row]);
+    page.totalItems.set(1);
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector(
+      'button[aria-label^="Ver detalle de la descarga"]') as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    toggle.click();
+    fixture.detectChanges();
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(toggle.getAttribute('aria-controls')).toBe('used-material-detail');
+    expect(fixture.nativeElement.querySelector('table #used-material-detail')).not.toBeNull();
+    const panel = fixture.nativeElement.querySelector('#used-material-detail') as HTMLElement;
+    expect(panel.closest('tr')).not.toBeNull();
+    expect(panel.closest('table')).not.toBeNull();
+    const detalle = fixture.nativeElement.querySelector('#used-material-detail')?.textContent ?? '';
+    expect(detalle).toContain('Importación');
+    expect(detalle).toContain('Exportación');
+    expect(detalle).toContain('Consumo del material');
+    expect(detalle).toContain('17019999');
+    expect(detalle).toContain('301275');
+    expect(detalle).toContain('CAJA');
+    expect(detalle).toContain('Cantidad utilizada');
+
+    page.collapseDetail();
+    fixture.detectChanges();
+    expect(page.expandedRowId()).toBeNull();
+    expect(fixture.nativeElement.querySelector('#used-material-detail')).toBeNull();
+  });
+
+  it('alterna la fila seleccionada y no muestra detalle sin resultados', () => {
+    const { page, fixture, row } = configure();
+    page.toggleDetail(row);
+    expect(page.expandedRowId()).toBe(1);
+    page.toggleDetail(row);
+    expect(page.expandedRowId()).toBeNull();
+
+    page.hasSearched.set(true);
+    page.items.set([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('No se encontraron materiales utilizados');
+    expect(fixture.nativeElement.querySelector('#used-material-detail')).toBeNull();
+  });
 });

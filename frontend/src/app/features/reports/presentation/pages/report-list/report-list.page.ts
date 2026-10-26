@@ -32,10 +32,18 @@ interface ReportColumn {
   format?: 'date' | 'quantity' | 'partida';
 }
 
+/** Reportes de uso frecuente, en el orden en que se muestran siempre. */
+const PRIMARY_REPORT_TYPES: readonly ReportType[] = ['entradas', 'salidas', 'materiales-utilizados', 'saldos'];
+
+/** Nombres de archivo descriptivos para reportes cuyo tipo resulta ambiguo. */
+const EXPORT_FILENAMES: Partial<Record<ReportType, string>> = {
+  'materiales-utilizados': 'materiales-utilizados-aduanas',
+};
+
 const REPORTS: ReportOption[] = [
   { type: 'entradas', label: 'Entradas', icon: 'move_to_inbox', available: true },
   { type: 'salidas', label: 'Salidas', icon: 'outbox', available: true },
-  { type: 'materiales-utilizados', label: 'Materiales utilizados', icon: 'layers', available: true },
+  { type: 'materiales-utilizados', label: 'Materiales utilizados (aduanas)', icon: 'layers', available: true },
   { type: 'bitacora', label: 'Bitácora', icon: 'manage_search', available: true },
   { type: 'compulsa', label: 'Compulsa', icon: 'compare_arrows', available: true },
   { type: 'compulsa-detalle', label: 'Compulsa - detalle', icon: 'difference', available: true },
@@ -58,9 +66,9 @@ const REPORTS: ReportOption[] = [
 const COLUMNS: Record<ReportType, ReportColumn[]> = {
   entradas: [
     { key: 'pedimento', label: 'Pedimento' }, { key: 'clavePedimento', label: 'Clave' },
-    { key: 'fechaEntrada', label: 'Fecha de entrada', format: 'date' }, { key: 'fechaPago', label: 'Fecha de pago', format: 'date' },
-    { key: 'fraccion', label: 'Fracción' }, { key: 'unidadComercial', label: 'UMC' },
-    { key: 'cantidadComercial', label: 'Cantidad', format: 'quantity' }, { key: 'numeroParte', label: 'N° parte' },
+    { key: 'fechaEntrada', label: 'Fecha de entrada', format: 'date' }, { key: 'fraccion', label: 'Fracción' },
+    { key: 'unidadComercial', label: 'UMC' }, { key: 'cantidadComercial', label: 'Cantidad', format: 'quantity' },
+    { key: 'numeroParte', label: 'N° parte' }, { key: 'fechaPago', label: 'Fecha de pago', format: 'date' },
   ],
   salidas: [
     { key: 'pedimento', label: 'Pedimento' }, { key: 'fechaEntrada', label: 'Fecha de entrada', format: 'date' },
@@ -163,17 +171,10 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
     { key: 'saldo', label: 'Saldo', format: 'quantity' },
   ],
   saldos: [
-    { key: 'documento', label: 'Documento' },
-    { key: 'fechaPago', label: 'Fecha de Pago', format: 'date' },
-    { key: 'clavePedimento', label: 'Clave pedimento' },
-    { key: 'clave', label: 'Clave' },
+    { key: 'documento', label: 'Pedimento de importación' },
     { key: 'fraccion', label: 'Fracción' },
-    { key: 'cantImportado', label: 'Cant. importado', format: 'quantity' },
-    { key: 'unidad', label: 'Unidad' },
-    { key: 'saldo', label: 'Saldo', format: 'quantity' },
-    { key: 'fechaVencimiento', label: 'Fecha de vencimiento', format: 'date' },
-    { key: 'categoria', label: 'Categoría' },
-    { key: 'paisOrigen', label: 'País origen' },
+    { key: 'saldo', label: 'Cantidad', format: 'quantity' },
+    { key: 'clave', label: 'Número de Parte' },
   ],
   'anexo30-revision-fracciones': [
     { key: 'tipo', label: 'Tipo' }, { key: 'clavePedimento', label: 'Clave pedimento' }, { key: 'ejercicio', label: 'Ejercicio' }, { key: 'periodo', label: 'Periodo' }, { key: 'fraccion', label: 'Fracción' }, { key: 'valor', label: 'Valor', format: 'quantity' }, { key: 'af', label: 'AF' }, { key: 'archivo', label: 'Archivo' },
@@ -238,14 +239,20 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
         <section class="mb-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_4px_18px_rgb(15_23_42/4%)]" aria-label="Configuración del reporte">
           <label class="mb-3 block"><span class="mb-1 block text-xs font-medium text-slate-700">Buscar reporte</span><input matInput name="reportSearch" [(ngModel)]="reportSearch" class="report-input" aria-label="Buscar reporte" /></label>
           @if (filteredReports().length) {
-          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5" role="list" aria-label="Tipo de reporte">
-            @for (report of filteredReports(); track report.type) {
+          <div id="reportes-disponibles" class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5" role="list" aria-label="Tipo de reporte">
+            @for (report of visibleReports(); track report.type) {
               <button type="button" class="flex min-h-20 items-center gap-3 rounded-xl border px-3 text-left transition disabled:cursor-not-allowed disabled:opacity-55" [class.border-blue-500]="selectedType() === report.type" [class.bg-blue-50]="selectedType() === report.type" [class.border-slate-200]="selectedType() !== report.type" [class.bg-white]="selectedType() !== report.type" [disabled]="!report.available" [attr.aria-current]="selectedType() === report.type ? 'true' : null" (click)="selectReport(report)">
                 <mat-icon [class.text-blue-600]="selectedType() === report.type" [class.text-slate-400]="selectedType() !== report.type" aria-hidden="true">{{ report.icon }}</mat-icon>
                 <span class="text-sm font-medium text-slate-700">{{ report.label }} @if (!report.available) { <small class="block text-xs font-normal text-slate-400">No disponible</small> }</span>
               </button>
             }
           </div>
+          @if (!reportSearch.trim() && secondaryReports().length) {
+            <button type="button" class="mt-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-50 focus:ring-4 focus:ring-blue-500/10" [attr.aria-expanded]="showAllReports()" aria-controls="reportes-disponibles" (click)="toggleAllReports()">
+              <mat-icon class="text-[18px]!" aria-hidden="true">{{ showAllReports() ? 'expand_less' : 'expand_more' }}</mat-icon>
+              <span>{{ showAllReports() ? 'Menos reportes' : 'Más reportes' }} ({{ secondaryReports().length }})</span>
+            </button>
+          }
           } @else { <p class="m-0 rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">No se encontraron reportes.</p> }
 
           <div class="mt-4 border-t border-slate-100 pt-4">
@@ -377,6 +384,7 @@ export class ReportListPage implements OnInit {
   protected readonly isLoading = signal(false);
   protected readonly isExporting = signal(false);
   protected readonly hasGenerated = signal(false);
+  protected readonly showAllReports = signal(false);
   protected readonly error = signal<string | null>(null);
   protected fromDate: Date | null = null;
   protected toDate: Date | null = null;
@@ -405,9 +413,12 @@ export class ReportListPage implements OnInit {
     this.route?.queryParamMap.subscribe((params) => {
       const type = params.get('tipo');
       const report = REPORTS.find((option) => option.type === type && option.available);
-      if (report && report.type !== this.selectedType()) {
-        this.selectedType.set(report.type);
-        this.resetResults();
+      if (report) {
+        if (!PRIMARY_REPORT_TYPES.includes(report.type)) this.showAllReports.set(true);
+        if (report.type !== this.selectedType()) {
+          this.selectedType.set(report.type);
+          this.resetResults();
+        }
       }
     });
   }
@@ -415,6 +426,29 @@ export class ReportListPage implements OnInit {
   protected filteredReports(): ReportOption[] {
     const query = this.reportSearch.trim().toLocaleLowerCase();
     return query ? REPORTS.filter((report) => report.label.toLocaleLowerCase().includes(query)) : REPORTS;
+  }
+
+  /** Reportes visibles: los frecuentes siempre primero y, si se pidió, el resto. */
+  protected visibleReports(): ReportOption[] {
+    const reports = this.filteredReports();
+    if (this.reportSearch.trim() || this.showAllReports()) return this.conPrimariosPrimero(reports);
+    return this.conPrimariosPrimero(reports).filter((report) => PRIMARY_REPORT_TYPES.includes(report.type));
+  }
+
+  protected secondaryReports(): ReportOption[] {
+    return this.filteredReports().filter((report) => !PRIMARY_REPORT_TYPES.includes(report.type));
+  }
+
+  private conPrimariosPrimero(reports: ReportOption[]): ReportOption[] {
+    const primarios = PRIMARY_REPORT_TYPES
+      .map((type) => reports.find((report) => report.type === type))
+      .filter((report): report is ReportOption => Boolean(report));
+    const resto = reports.filter((report) => !PRIMARY_REPORT_TYPES.includes(report.type));
+    return [...primarios, ...resto];
+  }
+
+  protected toggleAllReports(): void {
+    this.showAllReports.update((expanded) => !expanded);
   }
 
   protected selectReport(report: ReportOption): void {
@@ -494,7 +528,7 @@ export class ReportListPage implements OnInit {
     return { type: this.selectedType(), from: formatLocalDateForApi(this.fromDate) ?? '', to: formatLocalDateForApi(this.toDate) ?? '', page: this.currentPage, pageSize: this.pageSize, customsDocument: this.customsDocument, customsCode: this.customsCode, tariffFraction: this.tariffFraction, partNumber: this.partNumber, material: this.material, product: this.product, userId: this.userId, module: this.module, result: this.result, correlationId: this.correlationId, filter: this.filter };
   }
   private resetResults(): void { this.items.set([]); this.totalItems.set(0); this.hasGenerated.set(false); this.error.set(null); this.isLoading.set(false); }
-  private download(file: Blob): void { const url = URL.createObjectURL(file); const link = document.createElement('a'); link.href = url; link.download = `${this.selectedType()}.xlsx`; link.click(); URL.revokeObjectURL(url); }
+  private download(file: Blob): void { const url = URL.createObjectURL(file); const link = document.createElement('a'); link.href = url; link.download = `${EXPORT_FILENAMES[this.selectedType()] ?? this.selectedType()}.xlsx`; link.click(); URL.revokeObjectURL(url); }
 }
 
 function parseStoredDate(value: string | number | null | undefined): Date | null | undefined {

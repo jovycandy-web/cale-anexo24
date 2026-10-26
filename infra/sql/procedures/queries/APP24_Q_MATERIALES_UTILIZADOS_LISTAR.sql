@@ -1,3 +1,14 @@
+-- ============================================
+-- Consulta operativa de materiales utilizados (una fila por descarga).
+--
+-- Contrato de 26 columnas: las 17 originales conservan nombre y posicion;
+--   las 9 columnas de importacion/exportacion se anexaron al final
+--   (FECHA_PAGO_IMPO, CANTIDAD_IMPO, FRACCION_IMPO, NUMERO_PARTE_IMPO,
+--   UMC_IMPO, CANTIDAD_EXPO, FRACCION_EXPO, NUMERO_PARTE_EXPO, UMC_EXPO).
+-- Parametros, filtros, orden, cardinalidad y paginacion no cambiaron.
+-- El periodo se ancla en la fecha de pago de exportacion (SALIDAS.Fecha).
+-- Compatibilidad: CALE_IMMEX compatibility_level = 100.
+-- ============================================
 USE CALE_IMMEX;
 GO
 
@@ -105,6 +116,15 @@ BEGIN
                 AS CANTIDAD_TOTAL_DESCARGADA,
             LTRIM(RTRIM(d.Unidad)) AS UNIDAD,
             s.Fecha AS FECHA,
+            i.Fecha AS FECHA_PAGO_IMPO,
+            pe.Cantidad AS CANTIDAD_IMPO,
+            LTRIM(RTRIM(pe.Fraccion)) AS FRACCION_IMPO,
+            LTRIM(RTRIM(pe.Clave)) AS NUMERO_PARTE_IMPO,
+            LTRIM(RTRIM(pe.Unidad)) AS UMC_IMPO,
+            ps.Cantidad AS CANTIDAD_EXPO,
+            LTRIM(RTRIM(ps.Fraccion)) AS FRACCION_EXPO,
+            LTRIM(RTRIM(ps.Clave)) AS NUMERO_PARTE_EXPO,
+            LTRIM(RTRIM(ps.Unidad)) AS UMC_EXPO,
             ROW_NUMBER() OVER (
                 ORDER BY s.Fecha DESC, s.SalidaKey DESC, ps.Psalidakey DESC, d.Descargakey DESC
             ) AS APP24_ROW_NUMBER
@@ -161,7 +181,16 @@ BEGIN
         CANTIDAD_DESPERDICIO,
         CANTIDAD_TOTAL_DESCARGADA,
         UNIDAD,
-        FECHA
+        FECHA,
+        FECHA_PAGO_IMPO,
+        CANTIDAD_IMPO,
+        FRACCION_IMPO,
+        NUMERO_PARTE_IMPO,
+        UMC_IMPO,
+        CANTIDAD_EXPO,
+        FRACCION_EXPO,
+        NUMERO_PARTE_EXPO,
+        UMC_EXPO
     FROM Lineas
     WHERE APP24_ROW_NUMBER BETWEEN @FilaInicial AND @FilaFinal
     ORDER BY APP24_ROW_NUMBER;

@@ -130,7 +130,9 @@ class UsedMaterialControllerTest {
                 "190-1562-5003971", "190-1562-5001284", "500017", "AZUCAR ESTANDAR",
                 "300861", "CHERRY SLICES", new BigDecimal("10.5000"),
                 new BigDecimal("0.5000"), null, new BigDecimal("11.0000"), "KG",
-                LocalDateTime.of(2025, 12, 1, 0, 0));
+                LocalDateTime.of(2025, 12, 1, 0, 0), LocalDateTime.of(2025, 9, 23, 0, 0),
+                new BigDecimal("6000000.0000"), "17019999", "500017", "KG",
+                new BigDecimal("576.0000"), "17049099", "301275", "CAJA");
         when(useCase.ejecutar(DESDE, HASTA, "500017", "300861", "190-1562-5001284", "F4", 1, 20))
                 .thenReturn(new Pagina<>(List.of(fila), 1, 1, 20));
 
@@ -148,6 +150,15 @@ class UsedMaterialControllerTest {
                 .andExpect(jsonPath("$.items[0].entradaId").value(1001))
                 .andExpect(jsonPath("$.items[0].cantidadDesperdicio").doesNotExist())
                 .andExpect(jsonPath("$.items[0].fecha").value("2025-12-01T00:00:00"))
+                .andExpect(jsonPath("$.items[0].fechaPagoImpo").value("2025-09-23T00:00:00"))
+                .andExpect(jsonPath("$.items[0].cantidadImpo").value(6000000.0000))
+                .andExpect(jsonPath("$.items[0].fraccionImpo").value("17019999"))
+                .andExpect(jsonPath("$.items[0].numeroParteImpo").value("500017"))
+                .andExpect(jsonPath("$.items[0].umcImpo").value("KG"))
+                .andExpect(jsonPath("$.items[0].cantidadExpo").value(576.0000))
+                .andExpect(jsonPath("$.items[0].fraccionExpo").value("17049099"))
+                .andExpect(jsonPath("$.items[0].numeroParteExpo").value("301275"))
+                .andExpect(jsonPath("$.items[0].umcExpo").value("CAJA"))
                 .andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.pagina").value(1))
                 .andExpect(jsonPath("$.tamano").value(20));

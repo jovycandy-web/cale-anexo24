@@ -62,7 +62,7 @@ class EstructuraStoredProcedureAdapterTest {
         when(connection.prepareCall("{call dbo.APP24_Q_ESTRUCTURAS_LISTAR(?, ?, ?, ?, ?)}"))
                 .thenReturn(callableStatement);
 
-        Pagina<EstructuraDetalle> resultado = adapter.findPage("200060", "MAT-1", 2, 20);
+        Pagina<EstructuraDetalle> resultado = adapter.findPage("200060", "MAT-1", null, null, 2, 20);
 
         assertThat(resultado.items()).containsExactly(detalle);
         assertThat(resultado.total()).isEqualTo(1L);
@@ -124,7 +124,7 @@ class EstructuraStoredProcedureAdapterTest {
                     return Map.of("items", List.of(mapped), "Total", 1L);
                 });
 
-        Pagina<EstructuraDetalle> resultado = adapter.findPage(null, null, 1, 20);
+        Pagina<EstructuraDetalle> resultado = adapter.findPage(null, null, null, null, 1, 20);
 
         assertThat(resultado.items()).singleElement().satisfies(detalle -> {
             assertThat(detalle.estructuraId()).isEqualTo(12L);
@@ -150,7 +150,7 @@ class EstructuraStoredProcedureAdapterTest {
         when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
                 .thenReturn(Map.of("items", List.of(), "Total", 0L));
 
-        Pagina<EstructuraDetalle> resultado = adapter.findPage(null, null, 1, 20);
+        Pagina<EstructuraDetalle> resultado = adapter.findPage(null, null, null, null, 1, 20);
 
         assertThat(resultado.items()).isEmpty();
         assertThat(resultado.total()).isZero();
@@ -163,7 +163,7 @@ class EstructuraStoredProcedureAdapterTest {
         when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
                 .thenThrow(error);
 
-        assertThatThrownBy(() -> adapter.findPage(null, null, 1, 20))
+        assertThatThrownBy(() -> adapter.findPage(null, null, null, null, 1, 20))
                 .isSameAs(error);
     }
 

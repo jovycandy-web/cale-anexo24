@@ -15,5 +15,7 @@ public interface EstructuraRepository {
      * @param tamano tamaño de página
      * @return página con líneas BOM y total de coincidencias
      */
-    Pagina<EstructuraDetalle> findPage(String producto, String material, int pagina, int tamano);
+    Pagina<EstructuraDetalle> findPage(String producto, String material,
+                                       java.time.LocalDate desde, java.time.LocalDate hasta,
+                                       int pagina, int tamano);
 }

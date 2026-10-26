@@ -1,0 +1,78 @@
+/*
+ * Fixture exclusivo para Testcontainers. Datos sintéticos: no representan
+ * información empresarial ni se despliegan en LIVE. Reproduce las columnas de
+ * dbo.productos, dbo.estructuras, dbo.productomaterial y dbo.material que
+ * consume APP24_Q_ESTRUCTURAS_LISTAR.
+ */
+
+IF OBJECT_ID('dbo.productos', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.productos (
+        PRODUCTOKEY NUMERIC(18,0) NOT NULL CONSTRAINT PK_PRODUCTOS PRIMARY KEY,
+        CVE_PRODUCTO VARCHAR(50) NULL,
+        NOMBRE VARCHAR(250) NULL,
+        UNIDAD VARCHAR(10) NULL
+    );
+END;
+
+IF OBJECT_ID('dbo.estructuras', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.estructuras (
+        ESTRUCTURAKEY NUMERIC(18,0) NOT NULL CONSTRAINT PK_ESTRUCTURAS PRIMARY KEY,
+        PRODUCTOLINK NUMERIC(18,0) NULL,
+        INICIO DATETIME NULL
+    );
+END;
+
+IF OBJECT_ID('dbo.productomaterial', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.productomaterial (
+        PRODMATKEY NUMERIC(18,0) NOT NULL CONSTRAINT PK_PRODMAT PRIMARY KEY,
+        ESTRUCTURALINK NUMERIC(18,0) NULL,
+        CVE_MATERIAL VARCHAR(50) NULL,
+        CANT_UTILIZADA NUMERIC(18,6) NULL,
+        CANT_MERMADA NUMERIC(18,6) NULL,
+        CANT_DESPERDICIADA NUMERIC(18,6) NULL
+    );
+END;
+
+IF OBJECT_ID('dbo.material', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.material (
+        CLAVE VARCHAR(50) NOT NULL CONSTRAINT PK_MATERIAL PRIMARY KEY,
+        DESCRIPCION VARCHAR(250) NULL,
+        UNIDAD VARCHAR(10) NULL,
+        FRACCION VARCHAR(15) NULL
+    );
+END;
+GO
+
+DELETE FROM dbo.productomaterial;
+DELETE FROM dbo.estructuras;
+DELETE FROM dbo.productos;
+DELETE FROM dbo.material;
+GO
+
+INSERT INTO dbo.productos (PRODUCTOKEY, CVE_PRODUCTO, NOMBRE, UNIDAD) VALUES
+    (1, '990001', 'PRODUCTO UNO', 'PZA'),
+    (2, '990002', 'PRODUCTO DOS', 'PZA');
+GO
+
+INSERT INTO dbo.estructuras (ESTRUCTURAKEY, PRODUCTOLINK, INICIO) VALUES
+    (10, 1, '2025-01-30'),
+    (11, 1, '2025-02-10'),
+    (12, 2, '2025-01-30');
+GO
+
+INSERT INTO dbo.material (CLAVE, DESCRIPCION, UNIDAD, FRACCION) VALUES
+    ('880001', 'MATERIAL UNO', 'KG', '17019999'),
+    ('880002', 'MATERIAL DOS', 'KG', '17019999');
+GO
+
+INSERT INTO dbo.productomaterial (PRODMATKEY, ESTRUCTURALINK, CVE_MATERIAL,
+                                  CANT_UTILIZADA, CANT_MERMADA, CANT_DESPERDICIADA) VALUES
+    (100, 10, '880001', 4.500000, 0.020000, 0.030000),
+    (101, 10, '880002', 0.500000, 0.000000, 0.000000),
+    (102, 11, '880001', 5.000000, 0.010000, 0.020000),
+    (103, 12, '880001', 2.000000, 0.000000, 0.000000);
+GO

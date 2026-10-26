@@ -14,6 +14,11 @@ export interface NavigationGroup {
   items: NavigationItem[];
 }
 
+/** Accesos directos, sin submenú: una sola entrada que abre el módulo completo. */
+export const NAVIGATION_LINKS: NavigationItem[] = [
+  { label: 'Reportes', icon: 'fact_check', route: '/reportes', permission: 'REPORTES_GENERAR' },
+];
+
 /** Metadata única de navegación; sólo contiene rutas funcionales existentes. */
 export const NAVIGATION_GROUPS: NavigationGroup[] = [
   { label: 'Catálogos', icon: 'inventory_2', items: [
@@ -27,12 +32,6 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
     { label: 'Materiales utilizados', icon: 'layers', route: '/operaciones/materiales-utilizados', permission: 'OPERACIONES_CONSULTAR' },
     { label: 'Salidas', icon: 'outbox', route: '/operaciones/salidas', permission: 'OPERACIONES_CONSULTAR' },
     { label: 'Activo fijo', icon: 'precision_manufacturing', route: '/operaciones/activos-fijos', permission: 'OPERACIONES_CONSULTAR' },
-  ]},
-  { label: 'Reporte de Aduanas', icon: 'fact_check', items: [
-    { label: 'Reporte de entradas', icon: 'download', route: '/reportes', queryParams: { tipo: 'entradas' }, permission: 'REPORTES_GENERAR' },
-    { label: 'Reporte de salidas', icon: 'upload', route: '/reportes', queryParams: { tipo: 'salidas' }, permission: 'REPORTES_GENERAR' },
-    { label: 'Reporte de saldos', icon: 'balance', route: '/reportes', queryParams: { tipo: 'saldos' }, permission: 'REPORTES_GENERAR' },
-    { label: 'Reporte de materiales utilizados', icon: 'layers', route: '/reportes', queryParams: { tipo: 'materiales-utilizados' }, permission: 'REPORTES_GENERAR' },
   ]},
   { label: 'Gestión', icon: 'admin_panel_settings', items: [
     { label: 'Usuarios', icon: 'group', route: '/usuarios', permission: 'USUARIOS_ADMINISTRAR' },

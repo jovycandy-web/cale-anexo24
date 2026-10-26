@@ -54,7 +54,7 @@ class StructureControllerTest {
 
     @Test
     void autorizadoResponde200() throws Exception {
-        when(useCase.ejecutar(null, null, 1, 20)).thenReturn(new Pagina<>(List.of(), 0, 1, 20));
+        when(useCase.ejecutar(null, null, null, null, 1, 20)).thenReturn(new Pagina<>(List.of(), 0, 1, 20));
 
         mockMvc.perform(get("/api/v1/catalogos/estructuras")
                         .with(user("usuario")
@@ -69,7 +69,7 @@ class StructureControllerTest {
 
     @Test
     void parametrosInvalidosResponden400() throws Exception {
-        when(useCase.ejecutar(null, null, 0, 20))
+        when(useCase.ejecutar(null, null, null, null, 0, 20))
                 .thenThrow(new SolicitudInvalidaException("pagina inválida"));
 
         mockMvc.perform(get("/api/v1/catalogos/estructuras?pagina=0")
@@ -82,7 +82,7 @@ class StructureControllerTest {
 
     @Test
     void errorDeBaseDeDatosResponde503() throws Exception {
-        when(useCase.ejecutar(any(), any(), anyInt(), anyInt()))
+        when(useCase.ejecutar(any(), any(), any(), any(), anyInt(), anyInt()))
                 .thenThrow(new DataAccessResourceFailureException("BD no disponible"));
 
         mockMvc.perform(get("/api/v1/catalogos/estructuras?producto=200060&material=MAT-1")

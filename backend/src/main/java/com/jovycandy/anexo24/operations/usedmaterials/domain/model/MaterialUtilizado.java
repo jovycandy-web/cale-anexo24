@@ -21,5 +21,14 @@ public record MaterialUtilizado(
         BigDecimal cantidadDesperdicio,
         BigDecimal cantidadTotalDescargada,
         String unidad,
-        LocalDateTime fecha) {
+        LocalDateTime fecha,
+        LocalDateTime fechaPagoImpo,
+        BigDecimal cantidadImpo,
+        String fraccionImpo,
+        String numeroParteImpo,
+        String umcImpo,
+        BigDecimal cantidadExpo,
+        String fraccionExpo,
+        String numeroParteExpo,
+        String umcExpo) {
 }

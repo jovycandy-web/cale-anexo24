@@ -216,7 +216,10 @@ describe('ReportListPage (formato de partidas)', () => {
 
   it('presenta comparativa como reporte textual sin controles de fecha', () => {
     const internals = fixture.componentInstance as unknown as PageInternals;
-    internals.selectedType.set('anexo30-revision-comparativa'); fixture.detectChanges();
+    internals.selectedType.set('anexo30-revision-comparativa');
+    const mas = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.includes('Más reportes'))!;
+    mas.click(); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-operation-period-filter')).toBeNull();
     expect(fixture.nativeElement.querySelector('input[name=filter]')).not.toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Revisi\u00f3n Anexo 30 - Comparativa');
@@ -292,6 +295,9 @@ describe('ReportListPage (formato de partidas)', () => {
   };
 
   function botones(): HTMLButtonElement[] {
+    const mas = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.includes('Más reportes'));
+    if (mas) { mas.click(); fixture.detectChanges(); }
     return Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLButtonElement[];
   }
 
@@ -546,6 +552,18 @@ describe('ReportListPage (formato de partidas)', () => {
     expect(columnas.map(([key]) => key)).not.toContain('fechaPresentacion');
   });
 
+  it('expone los cuatro filtros del reporte aduanero con etiquetas expl�citas', () => {
+    const internals = fixture.componentInstance as unknown as PageInternals;
+    internals.selectedType.set('materiales-utilizados');
+    fixture.detectChanges();
+    const texto = (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
+    expect(texto).toContain('Pedimento de importaci\u00f3n');
+    expect(texto).toContain('Pedimento de exportaci\u00f3n');
+    expect(texto).toContain('Material');
+    expect(texto).toContain('Producto');
+    expect(texto).not.toContain('Clave de pedimento');
+    expect(texto).not.toContain('N� parte');
+  });
   it('restaura filtros guardados sin generar reporte y no muta ante preset incompatible', () => {
     const internals = fixture.componentInstance as unknown as PageInternals;
     internals.currentPage = 4;
@@ -563,4 +581,57 @@ describe('ReportListPage (formato de partidas)', () => {
     expect({ type: internals.selectedType(), customsDocument: internals.customsDocument, currentPage: internals.currentPage }).toEqual(snapshot);
   });
 
+});
+
+describe('ReportListPage acceso a reportes', () => {
+  function crear(): ComponentFixture<ReportListPage> {
+    TestBed.configureTestingModule({
+      imports: [ReportListPage],
+      providers: [
+        provideNoopAnimations(),
+        { provide: AuthService, useValue: { hasPermission: () => true, hasAnyPermission: () => true } },
+        { provide: SearchReportUseCase, useValue: { execute: vi.fn(() => of({ items: [], total: 0, page: 1, pageSize: 20 })) } },
+        { provide: ExportReportUseCase, useValue: { execute: vi.fn() } },
+        { provide: NotificationService, useValue: { success: vi.fn(), error: vi.fn(), info: vi.fn() } },
+      ],
+    });
+    const fixture = TestBed.createComponent(ReportListPage);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  function etiquetas(fixture: ComponentFixture<ReportListPage>): string[] {
+    const contenedor = fixture.nativeElement.querySelector('#reportes-disponibles') as HTMLElement;
+    return Array.from(contenedor.querySelectorAll('button'))
+      .map((button) => (button.querySelector('span')?.textContent ?? '').trim());
+  }
+
+  it('muestra sólo los cuatro reportes de uso frecuente', () => {
+    const fixture = crear();
+    expect(etiquetas(fixture)).toEqual([
+      'Entradas',
+      'Salidas',
+      'Materiales utilizados (aduanas)',
+      'Saldos',
+    ]);
+    expect(fixture.nativeElement.textContent).not.toContain('Compulsa');
+  });
+
+  it('revela y oculta el resto de reportes con el botón Más reportes', () => {
+    const fixture = crear();
+    const boton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find((element) => element.textContent?.includes('Más reportes'))!;
+    expect(boton.getAttribute('aria-expanded')).toBe('false');
+
+    boton.click();
+    fixture.detectChanges();
+    expect(etiquetas(fixture).length).toBeGreaterThan(4);
+    expect(fixture.nativeElement.textContent).toContain('Compulsa');
+
+    const menos = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find((element) => element.textContent?.includes('Menos reportes'))!;
+    menos.click();
+    fixture.detectChanges();
+    expect(etiquetas(fixture)).toHaveLength(4);
+  });
 });

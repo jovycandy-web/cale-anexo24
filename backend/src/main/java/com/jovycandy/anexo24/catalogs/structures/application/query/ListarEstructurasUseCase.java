@@ -35,10 +35,18 @@ public class ListarEstructurasUseCase {
      * @return página de líneas BOM
      */
     public Pagina<EstructuraDetalle> ejecutar(String producto, String material,
+                                               java.time.LocalDate desde, java.time.LocalDate hasta,
                                                int pagina, int tamano) {
         validarPaginacion(pagina, tamano);
+        validarPeriodo(desde, hasta);
         return estructuraRepository.findPage(
-                normalizarTexto(producto), normalizarTexto(material), pagina, tamano);
+                normalizarTexto(producto), normalizarTexto(material), desde, hasta, pagina, tamano);
+    }
+
+    private void validarPeriodo(java.time.LocalDate desde, java.time.LocalDate hasta) {
+        if (desde != null && hasta != null && desde.isAfter(hasta)) {
+            throw new SolicitudInvalidaException("La fecha desde no puede ser mayor que la fecha hasta.");
+        }
     }
 
     private void validarPaginacion(int pagina, int tamano) {

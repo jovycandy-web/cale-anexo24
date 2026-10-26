@@ -1,4 +1,4 @@
-import { Component, DestroyRef, ViewChild, computed, effect, inject, signal } from '@angular/core';
+﻿import { Component, DestroyRef, ViewChild, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -51,25 +51,16 @@ interface FixedAssetSearchResult {
   page: FixedAssetPage;
 }
 
-interface DetailField {
-  label: string;
-  value: string;
-}
-
-/** Encabezados compartidos por las exportaciones CSV y XLSX. */
+/** Encabezados compartidos por las exportaciones CSV y XLSX (orden legacy SCR-010). */
 const EXPORT_HEADERS = [
-  'Fecha de pago',
-  'Fecha de entrada',
   'Pedimento',
-  'Clave pedimento',
-  'N° parte',
   'Descripción',
-  'Fracción',
-  'Cantidad',
-  'Unidad',
-  'Serie',
+  'Fecha de entrada',
+  'Clave pedimento',
+  'Fecha de pago',
   'Marca',
   'Modelo',
+  'Serie',
 ];
 
 /** Consulta paginada de partidas de importación marcadas como activos fijos. */
@@ -233,59 +224,25 @@ const EXPORT_HEADERS = [
             @if (items().length > 0) {
               <div class="overflow-x-auto">
                 <table mat-table [dataSource]="items()" class="w-full min-w-275" aria-label="Activos fijos">
-                  <ng-container matColumnDef="expand">
-                    <th mat-header-cell *matHeaderCellDef class="w-12"><span class="sr-only">Detalle</span></th>
-                    <td mat-cell *matCellDef="let item">
-                      <button
-                        type="button"
-                        class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus:ring-4 focus:ring-blue-500/10"
-                        [attr.aria-expanded]="expandedRowId() === item.entryLineId"
-                        [attr.aria-controls]="expandedRowId() === item.entryLineId ? 'fixed-asset-detail' : null"
-                        [attr.aria-label]="'Ver detalle de la partida ' + formatText(item.partNumber)"
-                        (click)="toggleDetail(item)"
-                      >
-                        <mat-icon class="text-[18px]!" aria-hidden="true">{{ expandedRowId() === item.entryLineId ? 'expand_less' : 'expand_more' }}</mat-icon>
-                      </button>
-                    </td>
+                  <ng-container matColumnDef="customsDocument">
+                    <th mat-header-cell *matHeaderCellDef>Pedimento</th>
+                    <td mat-cell *matCellDef="let item" class="font-medium text-slate-700">{{ formatText(item.customsDocument) }}</td>
                   </ng-container>
-                  <ng-container matColumnDef="importDate">
-                    <th mat-header-cell *matHeaderCellDef>Fecha de pago</th>
-                    <td mat-cell *matCellDef="let item">{{ formatDate(item.importDate) }}</td>
+                  <ng-container matColumnDef="description">
+                    <th mat-header-cell *matHeaderCellDef>Descripción</th>
+                    <td mat-cell *matCellDef="let item">{{ formatText(item.description) }}</td>
                   </ng-container>
                   <ng-container matColumnDef="entryDate">
                     <th mat-header-cell *matHeaderCellDef>Fecha de entrada</th>
                     <td mat-cell *matCellDef="let item">{{ formatDate(item.entryDate) }}</td>
                   </ng-container>
-                  <ng-container matColumnDef="customsDocument">
-                    <th mat-header-cell *matHeaderCellDef>Pedimento</th>
-                    <td mat-cell *matCellDef="let item" class="font-medium text-slate-700">{{ formatText(item.customsDocument) }}</td>
-                  </ng-container>
                   <ng-container matColumnDef="customsCode">
                     <th mat-header-cell *matHeaderCellDef>Clave</th>
                     <td mat-cell *matCellDef="let item">{{ formatText(item.customsCode) }}</td>
                   </ng-container>
-                  <ng-container matColumnDef="part">
-                    <th mat-header-cell *matHeaderCellDef>N° parte / Descripción</th>
-                    <td mat-cell *matCellDef="let item">
-                      <div class="font-medium text-slate-700">{{ formatText(item.partNumber) }}</div>
-                      <div class="mt-0.5 text-xs text-slate-400">{{ formatText(item.description) }}</div>
-                    </td>
-                  </ng-container>
-                  <ng-container matColumnDef="tariffFraction">
-                    <th mat-header-cell *matHeaderCellDef>Fracción</th>
-                    <td mat-cell *matCellDef="let item">{{ formatText(item.tariffFraction) }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="quantity">
-                    <th mat-header-cell *matHeaderCellDef>Cantidad</th>
-                    <td mat-cell *matCellDef="let item" class="text-right tabular-nums">{{ formatQuantity(item.quantity) }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="unit">
-                    <th mat-header-cell *matHeaderCellDef>Unidad</th>
-                    <td mat-cell *matCellDef="let item">{{ formatText(item.unit) }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="serialNumber">
-                    <th mat-header-cell *matHeaderCellDef>Serie</th>
-                    <td mat-cell *matCellDef="let item">{{ formatText(item.serialNumber) }}</td>
+                  <ng-container matColumnDef="importDate">
+                    <th mat-header-cell *matHeaderCellDef>Fecha de pago</th>
+                    <td mat-cell *matCellDef="let item">{{ formatDate(item.importDate) }}</td>
                   </ng-container>
                   <ng-container matColumnDef="brand">
                     <th mat-header-cell *matHeaderCellDef>Marca</th>
@@ -295,27 +252,14 @@ const EXPORT_HEADERS = [
                     <th mat-header-cell *matHeaderCellDef>Modelo</th>
                     <td mat-cell *matCellDef="let item">{{ formatText(item.model) }}</td>
                   </ng-container>
+                  <ng-container matColumnDef="serialNumber">
+                    <th mat-header-cell *matHeaderCellDef>Serie</th>
+                    <td mat-cell *matCellDef="let item">{{ formatText(item.serialNumber) }}</td>
+                  </ng-container>
                   <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
                   <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
                 </table>
               </div>
-
-              @if (expandedItem(); as detalle) {
-                <section id="fixed-asset-detail" tabindex="-1" role="region" aria-live="polite" aria-label="Detalle del activo fijo" class="border-t border-slate-200 bg-slate-50/70 px-5 py-4 outline-none focus:ring-4 focus:ring-blue-500/10">
-                  <div class="mb-3 flex items-center justify-between gap-3">
-                    <h2 class="m-0 text-sm font-semibold text-slate-800">Detalle de la partida {{ formatText(detalle.partNumber) }}</h2>
-                    <button mat-button type="button" class="h-8 rounded-lg! px-2! text-slate-500!" (click)="collapseDetail()">Cerrar detalle</button>
-                  </div>
-                  <dl class="m-0 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    @for (field of detailFields(detalle); track field.label) {
-                      <div class="min-w-0">
-                        <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ field.label }}</dt>
-                        <dd class="m-0 break-words text-sm text-slate-700">{{ field.value }}</dd>
-                      </div>
-                    }
-                  </dl>
-                </section>
-              }
             } @else {
               <div class="flex min-h-52 flex-col items-center justify-center px-6 py-10 text-center" aria-label="Sin resultados">
                 <mat-icon class="mb-3 h-10 w-10 text-[40px]! text-slate-300" aria-hidden="true">search_off</mat-icon>
@@ -334,18 +278,14 @@ export class FixedAssetListPage {
   @ViewChild(OperationPeriodFilterComponent) private periodFilter?: OperationPeriodFilterComponent;
 
   protected readonly displayedColumns = [
-    'expand',
-    'importDate',
-    'entryDate',
     'customsDocument',
+    'description',
+    'entryDate',
     'customsCode',
-    'part',
-    'tariffFraction',
-    'quantity',
-    'unit',
-    'serialNumber',
+    'importDate',
     'brand',
     'model',
+    'serialNumber',
   ];
   protected readonly pageSizeOptions = [20, 50, 100];
   protected readonly loadingRows = [1, 2, 3, 4, 5];
@@ -357,9 +297,6 @@ export class FixedAssetListPage {
   protected readonly error = signal<string | null>(null);
   protected readonly forbidden = signal(false);
   protected readonly optionalFiltersExpanded = signal(false);
-  protected readonly expandedRowId = signal<string | number | null>(null);
-  protected readonly expandedItem = computed(() =>
-    this.items().find((item) => item.entryLineId === this.expandedRowId()) ?? null);
 
   protected fromDate: Date | null = null;
   protected toDate: Date | null = null;
@@ -383,12 +320,6 @@ export class FixedAssetListPage {
   private readonly notifications = inject(NotificationService);
 
   constructor() {
-    // Al abrir el detalle se lleva el foco al panel para lectores de pantalla.
-    effect(() => {
-      if (this.expandedRowId() === null) return;
-      queueMicrotask(() => document.getElementById('fixed-asset-detail')?.focus());
-    });
-
     this.searchTriggers
       .pipe(
         debounce((immediate) => timer(immediate ? 0 : 500)),
@@ -465,34 +396,6 @@ export class FixedAssetListPage {
       [field]: normalizeColumnFilterOperator(state.operator),
     }));
     this.onOptionalFilterChange();
-  }
-
-  protected toggleDetail(item: FixedAsset): void {
-    this.expandedRowId.update((current) => (current === item.entryLineId ? null : item.entryLineId));
-  }
-
-  protected collapseDetail(): void {
-    this.expandedRowId.set(null);
-  }
-
-  /** Expone todos los campos del contrato en el detalle accesible. */
-  protected detailFields(item: FixedAsset): DetailField[] {
-    return [
-      { label: 'Partida de entrada', value: String(item.entryLineId) },
-      { label: 'Importación', value: String(item.importId) },
-      { label: 'Pedimento', value: this.formatText(item.customsDocument) },
-      { label: 'Clave de pedimento', value: this.formatText(item.customsCode) },
-      { label: 'Fecha de pago', value: this.formatDate(item.importDate) },
-      { label: 'Fecha de entrada', value: this.formatDate(item.entryDate) },
-      { label: 'Número de parte', value: this.formatText(item.partNumber) },
-      { label: 'Descripción', value: this.formatText(item.description) },
-      { label: 'Fracción', value: this.formatText(item.tariffFraction) },
-      { label: 'Cantidad', value: this.formatQuantity(item.quantity) },
-      { label: 'Unidad', value: this.formatText(item.unit) },
-      { label: 'Número de serie', value: this.formatText(item.serialNumber) },
-      { label: 'Marca', value: this.formatText(item.brand) },
-      { label: 'Modelo', value: this.formatText(item.model) },
-    ];
   }
 
   protected formatTotal(): string {
@@ -595,7 +498,6 @@ export class FixedAssetListPage {
     this.totalItems.set(0);
     this.error.set(null);
     this.forbidden.set(false);
-    this.expandedRowId.set(null);
     this.isLoading.set(false);
     this.optionalFiltersExpanded.set(false);
     this.hasSearched.set(true);
@@ -606,7 +508,6 @@ export class FixedAssetListPage {
     if (!this.hasValidDateFilter()) return;
     this.currentPage = event.pageIndex + 1;
     this.pageSize = event.pageSize;
-    this.expandedRowId.set(null);
     this.scheduleSearch(true);
   }
 
@@ -685,7 +586,6 @@ export class FixedAssetListPage {
     this.isLoading.set(true);
     this.error.set(null);
     this.forbidden.set(false);
-    this.expandedRowId.set(null);
     this.items.set([]);
     this.totalItems.set(0);
 
@@ -712,7 +612,6 @@ export class FixedAssetListPage {
     this.totalItems.set(0);
     this.error.set(null);
     this.forbidden.set(false);
-    this.expandedRowId.set(null);
     this.hasSearched.set(false);
     this.isLoading.set(false);
   }
@@ -720,18 +619,14 @@ export class FixedAssetListPage {
 
 function toExportRow(row: FixedAsset): (string | number | null)[] {
   return [
-    normalizeCsvDate(row.importDate),
-    normalizeCsvDate(row.entryDate),
     row.customsDocument,
-    row.customsCode,
-    row.partNumber,
     row.description,
-    row.tariffFraction,
-    row.quantity,
-    row.unit,
-    row.serialNumber,
+    normalizeCsvDate(row.entryDate),
+    row.customsCode,
+    normalizeCsvDate(row.importDate),
     row.brand,
     row.model,
+    row.serialNumber,
   ];
 }
 
