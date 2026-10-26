@@ -35,7 +35,7 @@ BEGIN
       AND (@Producto IS NULL OR p.CVE_PRODUCTO = @Producto)
       AND (@Material IS NULL OR pm.CVE_MATERIAL = @Material)
       AND (@Desde IS NULL OR e.INICIO >= CAST(@Desde AS DATETIME))
-      AND (@Hasta IS NULL OR e.INICIO < DATEADD(DAY, 1, CAST(@Hasta AS DATETIME)));
+      AND (@Hasta IS NULL OR CONVERT(DATE, e.INICIO) <= @Hasta);
 
     SELECT
         e.ESTRUCTURAKEY AS ESTRUCTURAKEY,
@@ -73,7 +73,7 @@ BEGIN
       AND (@Producto IS NULL OR p.CVE_PRODUCTO = @Producto)
       AND (@Material IS NULL OR pm.CVE_MATERIAL = @Material)
       AND (@Desde IS NULL OR e.INICIO >= CAST(@Desde AS DATETIME))
-      AND (@Hasta IS NULL OR e.INICIO < DATEADD(DAY, 1, CAST(@Hasta AS DATETIME)))
+      AND (@Hasta IS NULL OR CONVERT(DATE, e.INICIO) <= @Hasta)
     ORDER BY
         p.PRODUCTOKEY,
         e.INICIO,
