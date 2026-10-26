@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
@@ -38,6 +40,14 @@ class MaterialUtilizadoStoredProcedureAdapterTest {
 
     private static final LocalDate DESDE = LocalDate.of(2025, 10, 31);
     private static final LocalDate HASTA = LocalDate.of(2026, 8, 18);
+    private static final List<String> COLUMNAS_ORIGINALES = List.of(
+            "DESCARGA_ID", "ENTRADA_ID", "PARTIDA_ENTRADA_ID", "SALIDA_ID", "PARTIDA_SALIDA_ID",
+            "PEDIMENTO_ENTRADA", "PEDIMENTO_SALIDA", "MATERIAL_CODE", "MATERIAL_DESCRIPTION",
+            "PRODUCT_CODE", "PRODUCT_DESCRIPTION", "CANTIDAD_INCORPORADA", "CANTIDAD_MERMA",
+            "CANTIDAD_DESPERDICIO", "CANTIDAD_TOTAL_DESCARGADA", "UNIDAD", "FECHA");
+    private static final List<String> COLUMNAS_NUEVAS = List.of(
+            "FECHA_PAGO_IMPO", "CANTIDAD_IMPO", "FRACCION_IMPO", "NUMERO_PARTE_IMPO", "UMC_IMPO",
+            "CANTIDAD_EXPO", "FRACCION_EXPO", "NUMERO_PARTE_EXPO", "UMC_EXPO");
 
     @Mock
     private JdbcTemplate jdbcTemplate;
@@ -98,6 +108,8 @@ class MaterialUtilizadoStoredProcedureAdapterTest {
     @Test
     void rowMapperMapeaLosVeintiseisAliasesSinDoubleYAdmiteNulos() throws Exception {
         ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
+        ResultSetMetaData meta = metaCon(veintiseisColumnas());
+        when(resultSet.getMetaData()).thenReturn(meta);
         when(resultSet.getLong("DESCARGA_ID")).thenReturn(390L);
         when(resultSet.getBigDecimal("ENTRADA_ID")).thenReturn(new BigDecimal("1001"));
         when(resultSet.getBigDecimal("PARTIDA_ENTRADA_ID")).thenReturn(new BigDecimal("2001"));
@@ -143,6 +155,8 @@ class MaterialUtilizadoStoredProcedureAdapterTest {
     @Test
     void rowMapperMapeaLasNueveColumnasDeImportacionYExportacion() throws Exception {
         ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
+        ResultSetMetaData meta = metaCon(veintiseisColumnas());
+        when(resultSet.getMetaData()).thenReturn(meta);
         when(resultSet.getLong("DESCARGA_ID")).thenReturn(1L);
         org.mockito.Mockito.lenient().when(resultSet.getTimestamp("FECHA_PAGO_IMPO"))
                 .thenReturn(Timestamp.valueOf("2025-09-23 00:00:00"));
@@ -182,6 +196,8 @@ class MaterialUtilizadoStoredProcedureAdapterTest {
     @Test
     void convierteFechaLocalDateTime() throws Exception {
         ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
+        ResultSetMetaData meta = metaCon(COLUMNAS_ORIGINALES);
+        when(resultSet.getMetaData()).thenReturn(meta);
         when(resultSet.getLong("DESCARGA_ID")).thenReturn(1L);
         when(resultSet.getTimestamp("FECHA")).thenReturn(Timestamp.valueOf("2025-12-01 00:00:00"));
         when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
@@ -212,6 +228,52 @@ class MaterialUtilizadoStoredProcedureAdapterTest {
         assertThat(resultado.total()).isZero();
         assertThat(resultado.pagina()).isEqualTo(1);
         assertThat(resultado.tamano()).isEqualTo(20);
+    }
+
+    @Test
+    void toleraElContratoAnteriorDeDiecisieteColumnas() throws Exception {
+        ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
+        ResultSetMetaData meta = metaCon(COLUMNAS_ORIGINALES);
+        when(resultSet.getMetaData()).thenReturn(meta);
+        when(resultSet.getLong("DESCARGA_ID")).thenReturn(7L);
+        when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
+                .thenAnswer(invocation -> {
+                    @SuppressWarnings("unchecked")
+                    List<SqlParameter> declared = invocation.getArgument(1, List.class);
+                    MaterialUtilizado mapped = mapperFrom(declared).mapRow(resultSet, 1);
+                    return Map.of("items", List.of(mapped), "Total", 1L);
+                });
+
+        Pagina<MaterialUtilizado> resultado = adapter.findPage(DESDE, HASTA,
+                null, null, null, null, 1, 20);
+
+        assertThat(resultado.items()).singleElement().satisfies(fila -> {
+            assertThat(fila.descargaId()).isEqualTo(7L);
+            assertThat(fila.fechaPagoImpo()).isNull();
+            assertThat(fila.cantidadImpo()).isNull();
+            assertThat(fila.fraccionImpo()).isNull();
+            assertThat(fila.numeroParteImpo()).isNull();
+            assertThat(fila.umcImpo()).isNull();
+            assertThat(fila.cantidadExpo()).isNull();
+            assertThat(fila.fraccionExpo()).isNull();
+            assertThat(fila.numeroParteExpo()).isNull();
+            assertThat(fila.umcExpo()).isNull();
+        });
+    }
+
+    private static List<String> veintiseisColumnas() {
+        List<String> columnas = new java.util.ArrayList<>(COLUMNAS_ORIGINALES);
+        columnas.addAll(COLUMNAS_NUEVAS);
+        return columnas;
+    }
+
+    private static ResultSetMetaData metaCon(List<String> columnas) throws SQLException {
+        ResultSetMetaData meta = org.mockito.Mockito.mock(ResultSetMetaData.class);
+        when(meta.getColumnCount()).thenReturn(columnas.size());
+        for (int index = 0; index < columnas.size(); index++) {
+            when(meta.getColumnLabel(index + 1)).thenReturn(columnas.get(index));
+        }
+        return meta;
     }
 
     private static RowMapper<MaterialUtilizado> mapperFrom(List<SqlParameter> parameters) {
