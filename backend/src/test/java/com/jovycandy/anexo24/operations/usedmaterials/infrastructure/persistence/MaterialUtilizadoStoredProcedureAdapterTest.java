@@ -96,7 +96,7 @@ class MaterialUtilizadoStoredProcedureAdapterTest {
     }
 
     @Test
-    void rowMapperMapeaLosDiecisieteAliasesSinDoubleYAdmiteNulos() throws Exception {
+    void rowMapperMapeaLosVeintiseisAliasesSinDoubleYAdmiteNulos() throws Exception {
         ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
         when(resultSet.getLong("DESCARGA_ID")).thenReturn(390L);
         when(resultSet.getBigDecimal("ENTRADA_ID")).thenReturn(new BigDecimal("1001"));
@@ -137,6 +137,45 @@ class MaterialUtilizadoStoredProcedureAdapterTest {
             assertThat(fila.cantidadDesperdicio()).isNull();
             assertThat(fila.cantidadTotalDescargada()).isEqualByComparingTo("11.0000");
             assertThat(fila.fecha()).isNull();
+        });
+    }
+
+    @Test
+    void rowMapperMapeaLasNueveColumnasDeImportacionYExportacion() throws Exception {
+        ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
+        when(resultSet.getLong("DESCARGA_ID")).thenReturn(1L);
+        org.mockito.Mockito.lenient().when(resultSet.getTimestamp("FECHA_PAGO_IMPO"))
+                .thenReturn(Timestamp.valueOf("2025-09-23 00:00:00"));
+        org.mockito.Mockito.lenient().when(resultSet.getBigDecimal("CANTIDAD_IMPO"))
+                .thenReturn(new BigDecimal("6000000.0000"));
+        org.mockito.Mockito.lenient().when(resultSet.getString("FRACCION_IMPO")).thenReturn("17019999");
+        org.mockito.Mockito.lenient().when(resultSet.getString("NUMERO_PARTE_IMPO")).thenReturn("500017");
+        org.mockito.Mockito.lenient().when(resultSet.getString("UMC_IMPO")).thenReturn("KG");
+        org.mockito.Mockito.lenient().when(resultSet.getBigDecimal("CANTIDAD_EXPO")).thenReturn(null);
+        org.mockito.Mockito.lenient().when(resultSet.getString("FRACCION_EXPO")).thenReturn("17049099");
+        org.mockito.Mockito.lenient().when(resultSet.getString("NUMERO_PARTE_EXPO")).thenReturn("301275");
+        org.mockito.Mockito.lenient().when(resultSet.getString("UMC_EXPO")).thenReturn("CAJA");
+        when(jdbcTemplate.call(any(CallableStatementCreator.class), anyList()))
+                .thenAnswer(invocation -> {
+                    @SuppressWarnings("unchecked")
+                    List<SqlParameter> declared = invocation.getArgument(1, List.class);
+                    MaterialUtilizado mapped = mapperFrom(declared).mapRow(resultSet, 1);
+                    return Map.of("items", List.of(mapped), "Total", 1L);
+                });
+
+        Pagina<MaterialUtilizado> resultado = adapter.findPage(DESDE, HASTA,
+                null, null, null, null, 1, 20);
+
+        assertThat(resultado.items()).singleElement().satisfies(fila -> {
+            assertThat(fila.fechaPagoImpo()).isEqualTo(LocalDateTime.of(2025, 9, 23, 0, 0));
+            assertThat(fila.cantidadImpo()).isEqualByComparingTo("6000000.0000");
+            assertThat(fila.fraccionImpo()).isEqualTo("17019999");
+            assertThat(fila.numeroParteImpo()).isEqualTo("500017");
+            assertThat(fila.umcImpo()).isEqualTo("KG");
+            assertThat(fila.cantidadExpo()).isNull();
+            assertThat(fila.fraccionExpo()).isEqualTo("17049099");
+            assertThat(fila.numeroParteExpo()).isEqualTo("301275");
+            assertThat(fila.umcExpo()).isEqualTo("CAJA");
         });
     }
 
@@ -192,6 +231,9 @@ class MaterialUtilizadoStoredProcedureAdapterTest {
                 new BigDecimal("3024"), new BigDecimal("4124"), "190-1562-5003971",
                 "190-1562-5001284", "500017", "AZUCAR ESTANDAR", "300861",
                 "CHERRY SLICES", new BigDecimal("10.5000"), new BigDecimal("0.5000"),
-                null, new BigDecimal("11.0000"), "KG", LocalDateTime.of(2025, 12, 1, 0, 0));
+                null, new BigDecimal("11.0000"), "KG", LocalDateTime.of(2025, 12, 1, 0, 0),
+                LocalDateTime.of(2025, 9, 23, 0, 0), new BigDecimal("6000000.0000"),
+                "17019999", "500017", "KG", new BigDecimal("576.0000"), "17049099",
+                "301275", "CAJA");
     }
 }

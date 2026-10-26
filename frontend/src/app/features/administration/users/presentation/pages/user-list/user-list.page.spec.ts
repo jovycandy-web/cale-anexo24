@@ -180,7 +180,7 @@ describe('UserListPage', () => {
     expect(instance.users()).toBe(visibleUsers);
     expect(createObjectURL).toHaveBeenCalledOnce();
     const csv = await (exported as Blob).text();
-    expect(csv).toContain('Clave,Nombre,Correo,Perfil,Vigencia,Estado');
+    expect(csv).toContain('Clave,Nombre,Correo,Perfil,Vigencia,Estado de habilitación');
     expect(csv).toContain('OPERADOR,Operador,operador@example.test,Operación,,ACTIVO');
     expect(csv).not.toContain(',7,');
     expect(csv).not.toContain(',3,');

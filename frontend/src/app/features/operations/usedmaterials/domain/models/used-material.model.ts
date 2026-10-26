@@ -17,6 +17,15 @@ export interface UsedMaterial {
   totalDischargedQuantity: number | string | null;
   unit: string | null;
   date: string | null;
+  importPaymentDate: string | null;
+  importQuantity: number | string | null;
+  importTariffFraction: string | null;
+  importPartNumber: string | null;
+  importUnit: string | null;
+  exportQuantity: number | string | null;
+  exportTariffFraction: string | null;
+  exportPartNumber: string | null;
+  exportUnit: string | null;
 }
 
 /** Resultado paginado de la consulta de materiales utilizados. */

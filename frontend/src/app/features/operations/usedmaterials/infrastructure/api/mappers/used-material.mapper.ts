@@ -22,6 +22,15 @@ export const UsedMaterialMapper = {
       totalDischargedQuantity: dto.cantidadTotalDescargada,
       unit: dto.unidad,
       date: dto.fecha,
+      importPaymentDate: dto.fechaPagoImpo,
+      importQuantity: dto.cantidadImpo,
+      importTariffFraction: dto.fraccionImpo,
+      importPartNumber: dto.numeroParteImpo,
+      importUnit: dto.umcImpo,
+      exportQuantity: dto.cantidadExpo,
+      exportTariffFraction: dto.fraccionExpo,
+      exportPartNumber: dto.numeroParteExpo,
+      exportUnit: dto.umcExpo,
     };
   },
 

@@ -32,10 +32,15 @@ interface ReportColumn {
   format?: 'date' | 'quantity' | 'partida';
 }
 
+/** Nombres de archivo descriptivos para reportes cuyo tipo resulta ambiguo. */
+const EXPORT_FILENAMES: Partial<Record<ReportType, string>> = {
+  'materiales-utilizados': 'materiales-utilizados-aduanas',
+};
+
 const REPORTS: ReportOption[] = [
   { type: 'entradas', label: 'Entradas', icon: 'move_to_inbox', available: true },
   { type: 'salidas', label: 'Salidas', icon: 'outbox', available: true },
-  { type: 'materiales-utilizados', label: 'Materiales utilizados', icon: 'layers', available: true },
+  { type: 'materiales-utilizados', label: 'Materiales utilizados (aduanas)', icon: 'layers', available: true },
   { type: 'bitacora', label: 'Bitácora', icon: 'manage_search', available: true },
   { type: 'compulsa', label: 'Compulsa', icon: 'compare_arrows', available: true },
   { type: 'compulsa-detalle', label: 'Compulsa - detalle', icon: 'difference', available: true },
@@ -163,14 +168,14 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
     { key: 'saldo', label: 'Saldo', format: 'quantity' },
   ],
   saldos: [
-    { key: 'documento', label: 'Documento' },
+    { key: 'documento', label: 'Pedimento de importación' },
     { key: 'fechaPago', label: 'Fecha de Pago', format: 'date' },
     { key: 'clavePedimento', label: 'Clave pedimento' },
-    { key: 'clave', label: 'Clave' },
+    { key: 'clave', label: 'Número de Parte' },
     { key: 'fraccion', label: 'Fracción' },
     { key: 'cantImportado', label: 'Cant. importado', format: 'quantity' },
     { key: 'unidad', label: 'Unidad' },
-    { key: 'saldo', label: 'Saldo', format: 'quantity' },
+    { key: 'saldo', label: 'Saldo remanente', format: 'quantity' },
     { key: 'fechaVencimiento', label: 'Fecha de vencimiento', format: 'date' },
     { key: 'categoria', label: 'Categoría' },
     { key: 'paisOrigen', label: 'País origen' },
@@ -494,7 +499,7 @@ export class ReportListPage implements OnInit {
     return { type: this.selectedType(), from: formatLocalDateForApi(this.fromDate) ?? '', to: formatLocalDateForApi(this.toDate) ?? '', page: this.currentPage, pageSize: this.pageSize, customsDocument: this.customsDocument, customsCode: this.customsCode, tariffFraction: this.tariffFraction, partNumber: this.partNumber, material: this.material, product: this.product, userId: this.userId, module: this.module, result: this.result, correlationId: this.correlationId, filter: this.filter };
   }
   private resetResults(): void { this.items.set([]); this.totalItems.set(0); this.hasGenerated.set(false); this.error.set(null); this.isLoading.set(false); }
-  private download(file: Blob): void { const url = URL.createObjectURL(file); const link = document.createElement('a'); link.href = url; link.download = `${this.selectedType()}.xlsx`; link.click(); URL.revokeObjectURL(url); }
+  private download(file: Blob): void { const url = URL.createObjectURL(file); const link = document.createElement('a'); link.href = url; link.download = `${EXPORT_FILENAMES[this.selectedType()] ?? this.selectedType()}.xlsx`; link.click(); URL.revokeObjectURL(url); }
 }
 
 function parseStoredDate(value: string | number | null | undefined): Date | null | undefined {

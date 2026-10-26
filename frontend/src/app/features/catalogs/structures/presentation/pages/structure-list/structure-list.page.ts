@@ -174,7 +174,7 @@ export class StructureListPage implements OnInit {
     try {
       const rows = await loadAllCsvPages((page, pageSize) => firstValueFrom(this.searchStructures.execute({ product, material, page, pageSize })));
       if (!rows.length) { this.notifications.info('No hay registros para exportar.'); return; }
-      const csv = serializeCsv(['Producto', 'Descripción producto', 'Unidad producto', 'Inicio', 'Fin', 'Material', 'Descripción material', 'Unidad material', 'Fracción material', 'Incorporada', 'Merma', 'Desperdicio'], rows.map((row) => [row.productCode, row.productDescription, row.productUnit, normalizeCsvDate(row.startDate), normalizeCsvDate(row.endDate), row.materialCode, row.materialDescription, row.materialUnit, row.materialTariffFraction, row.incorporatedQuantity, row.wasteQuantity, row.scrapQuantity]));
+      const csv = serializeCsv(['Producto', 'Descripción producto', 'Unidad producto', 'Inicio', 'Fin', 'Material', 'Descripción material', 'Unidad material', 'Fracción material', 'Incorporada', 'Desperdicio', 'Merma'], rows.map((row) => [row.productCode, row.productDescription, row.productUnit, normalizeCsvDate(row.startDate), normalizeCsvDate(row.endDate), row.materialCode, row.materialDescription, row.materialUnit, row.materialTariffFraction, row.incorporatedQuantity, row.scrapQuantity, row.wasteQuantity]));
       downloadCsv('estructuras.csv', csv);
     } catch (cause) {
       this.notifications.error(cause instanceof Error && cause.message === CSV_EXPORT_LIMIT_MESSAGE ? CSV_EXPORT_LIMIT_MESSAGE : 'No fue posible exportar las estructuras.');

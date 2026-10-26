@@ -47,7 +47,16 @@ public class MaterialUtilizadoStoredProcedureAdapter implements MaterialUtilizad
                     rs.getBigDecimal("CANTIDAD_DESPERDICIO"),
                     rs.getBigDecimal("CANTIDAD_TOTAL_DESCARGADA"),
                     rs.getString("UNIDAD"),
-                    localDateTime(rs, "FECHA"));
+                    localDateTime(rs, "FECHA"),
+                    localDateTime(rs, "FECHA_PAGO_IMPO"),
+                    rs.getBigDecimal("CANTIDAD_IMPO"),
+                    rs.getString("FRACCION_IMPO"),
+                    rs.getString("NUMERO_PARTE_IMPO"),
+                    rs.getString("UMC_IMPO"),
+                    rs.getBigDecimal("CANTIDAD_EXPO"),
+                    rs.getString("FRACCION_EXPO"),
+                    rs.getString("NUMERO_PARTE_EXPO"),
+                    rs.getString("UMC_EXPO"));
 
     private static final List<SqlParameter> DECLARED_PARAMETERS = List.of(
             new SqlParameter("Desde", Types.DATE),
