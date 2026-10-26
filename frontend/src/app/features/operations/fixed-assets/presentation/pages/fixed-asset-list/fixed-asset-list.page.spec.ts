@@ -71,14 +71,11 @@ interface FixedAssetHarness {
   hasSearched: WritableSignal<boolean>;
   forbidden: WritableSignal<boolean>;
   error: WritableSignal<string | null>;
-  expandedRowId: WritableSignal<string | number | null>;
   applySavedCriteria(criteria: SavedCriteria): void;
   savedCriteria(): SavedCriteria;
   canExport(): boolean;
   exportCsv(): Promise<void>;
   exportXlsx(): Promise<void>;
-  toggleDetail(item: FixedAsset): void;
-  detailFields(item: FixedAsset): { label: string; value: string }[];
   columnState(field: 'pedimento' | 'clavePedimento' | 'numeroParte' | 'descripcion' | 'serie' | 'marca' | 'modelo'): ColumnFilterState;
   onColumnStateChange(field: 'pedimento' | 'clavePedimento' | 'numeroParte' | 'descripcion' | 'serie' | 'marca' | 'modelo', state: ColumnFilterState): void;
   changePage(event: { pageIndex: number; pageSize: number; length: number }): void;
@@ -176,7 +173,7 @@ describe('FixedAssetListPage exportaciones', () => {
     expect(exportedBlob).toBeInstanceOf(Blob);
     expect(exportedBlob?.type).toBe('text/csv;charset=utf-8');
     const csv = await readBlob(exportedBlob!);
-    expect(csv).toContain('2026-07-21,2026-07-19,DOC-1,A1,PART-1,Equipo de prueba,1234.56,0002.5000,PZA,SER-1,Marca,Modelo');
+    expect(csv).toContain('DOC-1,Equipo de prueba,2026-07-19,A1,2026-07-21,Marca,Modelo,SER-1');
     expect(csv).not.toContain('entryLineId');
     expect(csv).not.toContain('importId');
   });
@@ -203,7 +200,7 @@ describe('FixedAssetListPage exportaciones', () => {
     expect(sheet).toContain('2026-07-19');
     expect(sheet).toContain('Descripción');
     expect(sheet).toContain('Equipo de prueba');
-    expect(sheet).toContain('<c r="H2" t="inlineStr"><is><t xml:space="preserve">0002.5000</t></is></c>');
+    expect(sheet).toContain('<c r="B2" t="inlineStr"><is><t xml:space="preserve">Equipo de prueba</t></is></c>');
     expect(sheet).not.toContain('<f');
   });
 
@@ -275,28 +272,21 @@ describe('FixedAssetListPage filtros por columna, detalle y permisos', () => {
     anchorClickSpy.mockRestore();
   });
 
-  it('expone el detalle con los trece campos sin solicitar datos adicionales', async () => {
-    const { page, execute } = await configure();
+  it('muestra los ocho encabezados legacy sin panel de detalle', async () => {
+    const { page, fixture } = await configure();
     page.isLoading.set(false);
     page.hasSearched.set(true);
-    page.totalItems.set(101);
-    execute.mockClear();
-
-    page.toggleDetail(ROW);
-
-    expect(page.expandedRowId()).toBe(ROW.entryLineId);
-    const fields = page.detailFields(ROW);
-    expect(fields).toHaveLength(14);
-    expect(fields.map((field) => field.label)).toContain('Importación');
-    expect(fields.find((field) => field.label === 'Cantidad')?.value).toBe('0002.5000');
-    expect(execute).not.toHaveBeenCalled();
-
-    page.toggleDetail(ROW);
-    expect(page.expandedRowId()).toBeNull();
-    expect(execute).not.toHaveBeenCalled();
+    page.items.set([ROW]);
+    page.totalItems.set(1);
+    fixture.detectChanges();
+    const encabezados = Array.from(fixture.nativeElement.querySelectorAll('th') as NodeListOf<HTMLElement>)
+      .map((th) => th.textContent?.trim());
+    expect(encabezados).toEqual(['Pedimento', 'Descripción', 'Fecha de entrada', 'Clave', 'Fecha de pago', 'Marca', 'Modelo', 'Serie']);
+    expect(fixture.nativeElement.querySelector('#fixed-asset-detail')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-detail-panel')).toBeNull();
   });
 
-  it('conserva el operador por columna al paginar y cierra el detalle', async () => {
+  it('conserva el operador por columna al paginar', async () => {
     const { page, execute } = await configure();
     page.isLoading.set(false);
     page.hasSearched.set(true);
@@ -304,13 +294,11 @@ describe('FixedAssetListPage filtros por columna, detalle y permisos', () => {
     page.onColumnStateChange('descripcion', { value: ' EQUIPO ', operator: 'CT' });
     page.onColumnStateChange('pedimento', { value: 'DOC-9', operator: 'SW' });
     expect(page.columnState('descripcion')).toEqual({ value: ' EQUIPO ', operator: 'CT' });
-    page.toggleDetail(ROW);
     execute.mockClear();
 
     page.changePage({ pageIndex: 1, pageSize: 20, length: 101 });
 
     expect(page.currentPage).toBe(2);
-    expect(page.expandedRowId()).toBeNull();
     page.isLoading.set(false);
     page.totalItems.set(101);
     await page.exportCsv();

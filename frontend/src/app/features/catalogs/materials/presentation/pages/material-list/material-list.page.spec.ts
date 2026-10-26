@@ -30,11 +30,7 @@ interface MaterialHarness {
   items: WritableSignal<Material[]>;
   totalItems: WritableSignal<number>;
   isLoading: WritableSignal<boolean>;
-  selectedMaterial: WritableSignal<Material | null>;
-  selectMaterial(material: Material): void;
-  toggleDetail(material: Material): void;
-  isSelected(material: Material): boolean;
-  closeDetail(): void;
+  displayedColumns: string[];
   exportCsv(): Promise<void>;
 }
 
@@ -92,45 +88,40 @@ describe('MaterialListPage paridad SCR-084', () => {
     anchorClickSpy.mockRestore();
   });
 
-  it('consulta el catálogo con el filtro y la página activos y expone los campos ampliados', async () => {
+  it('consulta el catálogo con el filtro y la página activos', async () => {
     const { page, execute } = await configure();
 
     expect(execute).toHaveBeenCalledWith({ filter: '', page: 1, pageSize: 20 });
     expect(page.totalItems()).toBe(1);
     expect(page.items()).toEqual([MATERIAL]);
-    expect(page.items()[0].supplierCode).toBe('CLAV-PR001');
-    expect(page.items()[0].nico).toBe('N');
-    expect(page.items()[0].nationalType).toBe('MP');
-    expect(page.items()[0].family).toBe('ENDULZANTES');
-    expect(page.items()[0].warehouse).toBe('ALM02');
   });
 
-  it('expande el detalle bajo la fila seleccionada y permite cerrarlo', async () => {
+  it('muestra exactamente las cinco columnas legacy en orden', async () => {
     const { page, fixture } = await configure();
-    page.toggleDetail(MATERIAL);
-    fixture.detectChanges();
 
-    expect(page.selectedMaterial()).toEqual(MATERIAL);
-    expect(page.isSelected(MATERIAL)).toBe(true);
-    expect(fixture.nativeElement.textContent).toContain('Detalle de 500005');
-    expect(fixture.nativeElement.textContent).toContain('CLAV-PR001');
-    expect(fixture.nativeElement.querySelector('table')?.textContent).toContain('Detalle de 500005');
+    expect(page.displayedColumns).toEqual(['tariffFraction', 'description', 'umc', 'unit', 'partNumber']);
+    const encabezados = Array.from(fixture.nativeElement.querySelectorAll('th') as NodeListOf<HTMLElement>)
+      .map((th) => th.textContent?.trim());
+    expect(encabezados).toEqual(['Fracción', 'Descripción', 'Unidad TIGIE', 'UMC', 'Número parte']);
 
-    page.toggleDetail(MATERIAL);
-    fixture.detectChanges();
-    expect(page.selectedMaterial()).toBeNull();
-    expect(page.isSelected(MATERIAL)).toBe(false);
-
-    page.selectMaterial(MATERIAL);
-    fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Detalle de 500005');
-
-    page.closeDetail();
-    fixture.detectChanges();
-    expect(page.selectedMaterial()).toBeNull();
+    const celdas = Array.from(fixture.nativeElement.querySelectorAll('td') as NodeListOf<HTMLElement>)
+      .map((td) => td.textContent?.trim());
+    expect(celdas).toEqual(['17019999', 'AZUCAR REFINADA', 'KG', 'KG', '500005']);
   });
 
-  it('exporta CSV con todas las columnas visibles y reutiliza el filtro activo', async () => {
+  it('no conserva columnas ni panel de atributos adicionales', async () => {
+    const { fixture } = await configure();
+    const texto = (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
+
+    expect(fixture.nativeElement.querySelector('app-detail-panel')).toBeNull();
+    expect(texto).not.toContain('Clave proveedor');
+    expect(texto).not.toContain('NICO');
+    expect(texto).not.toContain('TIPOM');
+    expect(texto).not.toContain('Familia');
+    expect(texto).not.toContain('Ver detalle');
+  });
+
+  it('exporta CSV con las cinco columnas funcionales y reutiliza el filtro activo', async () => {
     const { page, execute } = await configure();
     page.filter = 'ENDULZANTES';
     execute.mockClear();
@@ -140,8 +131,9 @@ describe('MaterialListPage paridad SCR-084', () => {
     expect(execute).toHaveBeenCalledWith({ filter: 'ENDULZANTES', page: 1, pageSize: 100 });
     expect(downloadedFilename).toBe('materiales.csv');
     const csv = await readBlob(exportedBlob!);
-    expect(csv).toContain('Clave MP,Clave proveedor,Descripción comercial,Fracción,NICO,UMC,Unidad TIGIE,TIPOM,Tipo de material,Familia,Almacén');
-    expect(csv).toContain('500005,CLAV-PR001,AZUCAR REFINADA,17019999,N,KG,KG,MP,MATERIAL PRIMA,ENDULZANTES,ALM02');
+    expect(csv).toContain('Fracción,Descripción,Unidad TIGIE,UMC,Número parte');
+    expect(csv).toContain('17019999,AZUCAR REFINADA,KG,KG,500005');
+    expect(csv).not.toContain('Clave proveedor');
     expect(csv).not.toContain('warehouseKey');
   });
 });

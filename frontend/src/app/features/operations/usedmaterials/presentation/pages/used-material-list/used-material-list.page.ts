@@ -184,18 +184,6 @@ interface UsedMaterialSearchResult {
                     <th mat-header-cell *matHeaderCellDef>Incorporada</th>
                     <td mat-cell *matCellDef="let item" class="text-right tabular-nums">{{ formatQuantity(item.incorporatedQuantity) }}</td>
                   </ng-container>
-                  <ng-container matColumnDef="wasteQuantity">
-                    <th mat-header-cell *matHeaderCellDef>Merma</th>
-                    <td mat-cell *matCellDef="let item" class="text-right tabular-nums">{{ formatQuantity(item.wasteQuantity) }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="scrapQuantity">
-                    <th mat-header-cell *matHeaderCellDef>Desperdicio</th>
-                    <td mat-cell *matCellDef="let item" class="text-right tabular-nums">{{ formatQuantity(item.scrapQuantity) }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="totalDischargedQuantity">
-                    <th mat-header-cell *matHeaderCellDef>Total descargado</th>
-                    <td mat-cell *matCellDef="let item" class="text-right font-medium tabular-nums text-slate-700">{{ formatQuantity(item.totalDischargedQuantity) }}</td>
-                  </ng-container>
                   <ng-container matColumnDef="unit">
                     <th mat-header-cell *matHeaderCellDef>Unidad</th>
                     <td mat-cell *matCellDef="let item">{{ formatText(item.unit) }}</td>
@@ -287,18 +275,6 @@ interface UsedMaterialSearchResult {
                           <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.incorporatedQuantity) }}</dd>
                         </div>
                         <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Merma</dt>
-                          <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.wasteQuantity) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Desperdicio</dt>
-                          <dd class="m-0 text-sm text-slate-700 tabular-nums">{{ formatQuantity(detail.scrapQuantity) }}</dd>
-                        </div>
-                        <div class="min-w-0">
-                          <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Total descargado</dt>
-                          <dd class="m-0 text-sm font-medium text-slate-700 tabular-nums">{{ formatQuantity(detail.totalDischargedQuantity) }}</dd>
-                        </div>
-                        <div class="min-w-0">
                           <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Unidad del material</dt>
                           <dd class="m-0 text-sm text-slate-700">{{ formatText(detail.unit) }}</dd>
                         </div>
@@ -344,9 +320,6 @@ export class UsedMaterialListPage {
     'material',
     'product',
     'incorporatedQuantity',
-    'wasteQuantity',
-    'scrapQuantity',
-    'totalDischargedQuantity',
     'unit',
   ];
   protected readonly pageSizeOptions = [20, 50, 100];
@@ -454,7 +427,7 @@ export class UsedMaterialListPage {
     try {
       const rows = await loadAllCsvPages((page, pageSize) => firstValueFrom(this.searchUsedMaterials.execute({ ...criteria, page, pageSize })));
       if (!rows.length) { this.notifications.info('No hay registros para exportar.'); return; }
-      const csv = serializeCsv(['Pedimento impo', 'Fecha de pago impo', 'Cantidad impo', 'Fracción impo', 'Número de parte impo', 'UMC impo', 'Descripción impo', 'Pedimento expo', 'Fecha de pago expo', 'Cantidad expo', 'Fracción expo', 'Número de parte expo', 'UMC expo', 'Descripción expo', 'Cantidad material utilizado expo', 'UMC material utilizado expo', 'Merma', 'Desperdicio', 'Total descargado', 'Descarga'], rows.map((row) => [row.entryCustomsDocument, normalizeCsvDate(row.importPaymentDate), row.importQuantity, row.importTariffFraction, row.importPartNumber, row.importUnit, row.materialDescription, row.exitCustomsDocument, normalizeCsvDate(row.date), row.exportQuantity, row.exportTariffFraction, row.exportPartNumber, row.exportUnit, row.productDescription, row.incorporatedQuantity, row.unit, row.wasteQuantity, row.scrapQuantity, row.totalDischargedQuantity, row.dischargeId]));
+      const csv = serializeCsv(['Pedimento impo', 'Fecha de pago impo', 'Cantidad impo', 'Fracción impo', 'Número de Parte impo', 'UMC impo', 'Descripción impo', 'Pedimento expo', 'Fecha de pago expo', 'Cantidad expo', 'Fracción expo', 'Número de Parte expo', 'UMC expo', 'Descripción expo', 'Cantidad material utilizado expo', 'UMC material utilizado expo'], rows.map((row) => [row.entryCustomsDocument, normalizeCsvDate(row.importPaymentDate), row.importQuantity, row.importTariffFraction, row.importPartNumber, row.importUnit, row.materialDescription, row.exitCustomsDocument, normalizeCsvDate(row.date), row.exportQuantity, row.exportTariffFraction, row.exportPartNumber, row.exportUnit, row.productDescription, row.incorporatedQuantity, row.unit]));
       downloadCsv('materiales-utilizados.csv', csv);
     } catch (cause) {
       this.notifications.error(cause instanceof Error && cause.message === CSV_EXPORT_LIMIT_MESSAGE ? CSV_EXPORT_LIMIT_MESSAGE : 'No fue posible exportar los materiales utilizados.');

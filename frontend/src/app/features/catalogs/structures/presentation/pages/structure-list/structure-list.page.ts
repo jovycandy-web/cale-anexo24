@@ -66,7 +66,7 @@ import { SearchStructuresUseCase } from '@features/catalogs/structures/applicati
                     <td mat-cell *matCellDef="let line" class="font-medium text-slate-700">{{ line.productCode }}</td>
                   </ng-container>
                   <ng-container matColumnDef="productDescription">
-                    <th mat-header-cell *matHeaderCellDef>Descripción producto</th>
+                    <th mat-header-cell *matHeaderCellDef>Descripción</th>
                     <td mat-cell *matCellDef="let line" class="max-w-56">{{ line.productDescription }}</td>
                   </ng-container>
                   <ng-container matColumnDef="materialCode">
@@ -74,7 +74,7 @@ import { SearchStructuresUseCase } from '@features/catalogs/structures/applicati
                     <td mat-cell *matCellDef="let line" class="font-medium text-slate-700">{{ line.materialCode }}</td>
                   </ng-container>
                   <ng-container matColumnDef="materialDescription">
-                    <th mat-header-cell *matHeaderCellDef>Descripción material</th>
+                    <th mat-header-cell *matHeaderCellDef>Material</th>
                     <td mat-cell *matCellDef="let line" class="max-w-56">{{ line.materialDescription }}</td>
                   </ng-container>
                   <ng-container matColumnDef="materialUnit">
@@ -118,7 +118,7 @@ import { SearchStructuresUseCase } from '@features/catalogs/structures/applicati
   `,
 })
 export class StructureListPage implements OnInit {
-  protected readonly displayedColumns = ['productCode', 'productDescription', 'materialCode', 'materialDescription', 'materialUnit', 'materialTariffFraction', 'incorporatedQuantity', 'scrapQuantity', 'wasteQuantity', 'startDate'];
+  protected readonly displayedColumns = ['productCode', 'startDate', 'materialDescription', 'productDescription', 'materialUnit', 'incorporatedQuantity', 'scrapQuantity', 'wasteQuantity'];
   protected readonly items = signal<StructureLine[]>([]);
   protected readonly totalItems = signal(0);
   protected readonly isLoading = signal(false);

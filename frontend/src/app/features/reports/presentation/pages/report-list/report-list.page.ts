@@ -63,9 +63,9 @@ const REPORTS: ReportOption[] = [
 const COLUMNS: Record<ReportType, ReportColumn[]> = {
   entradas: [
     { key: 'pedimento', label: 'Pedimento' }, { key: 'clavePedimento', label: 'Clave' },
-    { key: 'fechaEntrada', label: 'Fecha de entrada', format: 'date' }, { key: 'fechaPago', label: 'Fecha de pago', format: 'date' },
-    { key: 'fraccion', label: 'Fracción' }, { key: 'unidadComercial', label: 'UMC' },
-    { key: 'cantidadComercial', label: 'Cantidad', format: 'quantity' }, { key: 'numeroParte', label: 'N° parte' },
+    { key: 'fechaEntrada', label: 'Fecha de entrada', format: 'date' }, { key: 'fraccion', label: 'Fracción' },
+    { key: 'unidadComercial', label: 'UMC' }, { key: 'cantidadComercial', label: 'Cantidad', format: 'quantity' },
+    { key: 'numeroParte', label: 'N° parte' }, { key: 'fechaPago', label: 'Fecha de pago', format: 'date' },
   ],
   salidas: [
     { key: 'pedimento', label: 'Pedimento' }, { key: 'fechaEntrada', label: 'Fecha de entrada', format: 'date' },
@@ -169,16 +169,9 @@ const COLUMNS: Record<ReportType, ReportColumn[]> = {
   ],
   saldos: [
     { key: 'documento', label: 'Pedimento de importación' },
-    { key: 'fechaPago', label: 'Fecha de Pago', format: 'date' },
-    { key: 'clavePedimento', label: 'Clave pedimento' },
-    { key: 'clave', label: 'Número de Parte' },
     { key: 'fraccion', label: 'Fracción' },
-    { key: 'cantImportado', label: 'Cant. importado', format: 'quantity' },
-    { key: 'unidad', label: 'Unidad' },
-    { key: 'saldo', label: 'Saldo remanente', format: 'quantity' },
-    { key: 'fechaVencimiento', label: 'Fecha de vencimiento', format: 'date' },
-    { key: 'categoria', label: 'Categoría' },
-    { key: 'paisOrigen', label: 'País origen' },
+    { key: 'saldo', label: 'Cantidad', format: 'quantity' },
+    { key: 'clave', label: 'Número de Parte' },
   ],
   'anexo30-revision-fracciones': [
     { key: 'tipo', label: 'Tipo' }, { key: 'clavePedimento', label: 'Clave pedimento' }, { key: 'ejercicio', label: 'Ejercicio' }, { key: 'periodo', label: 'Periodo' }, { key: 'fraccion', label: 'Fracción' }, { key: 'valor', label: 'Valor', format: 'quantity' }, { key: 'af', label: 'AF' }, { key: 'archivo', label: 'Archivo' },

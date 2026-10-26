@@ -149,8 +149,8 @@ describe('UsedMaterialListPage CSV export', () => {
     expect(exportedBlob).toBeInstanceOf(Blob);
     expect(exportedBlob?.type).toBe('text/csv;charset=utf-8');
     const csv = await readBlob(exportedBlob!);
-    expect(csv.split(/\r?\n/)[0]).toBe('Pedimento impo,Fecha de pago impo,Cantidad impo,Fracción impo,Número de parte impo,UMC impo,Descripción impo,Pedimento expo,Fecha de pago expo,Cantidad expo,Fracción expo,Número de parte expo,UMC expo,Descripción expo,Cantidad material utilizado expo,UMC material utilizado expo,Merma,Desperdicio,Total descargado,Descarga');
-    expect(csv).toContain('ENTRY-1,2025-09-23,6000000.0000,17019999,500017,KG,Material 1,EXIT-1,2026-06-15,576.0000,17049099,301275,CAJA,Product 1,001.2300,KG,0.125,,001.3550,1');
+    expect(csv.split(/\r?\n/)[0]).toBe('Pedimento impo,Fecha de pago impo,Cantidad impo,Fracción impo,Número de Parte impo,UMC impo,Descripción impo,Pedimento expo,Fecha de pago expo,Cantidad expo,Fracción expo,Número de Parte expo,UMC expo,Descripción expo,Cantidad material utilizado expo,UMC material utilizado expo');
+    expect(csv).toContain('ENTRY-1,2025-09-23,6000000.0000,17019999,500017,KG,Material 1,EXIT-1,2026-06-15,576.0000,17049099,301275,CAJA,Product 1,001.2300,KG');
     expect(csv).not.toContain('dischargeId');
     expect(csv).not.toContain('entryLineId');
     expect(csv).not.toContain('exitLineId');
@@ -214,9 +214,6 @@ describe('UsedMaterialListPage detalle expandible', () => {
       'material',
       'product',
       'incorporatedQuantity',
-      'wasteQuantity',
-      'scrapQuantity',
-      'totalDischargedQuantity',
       'unit',
     ]);
   });

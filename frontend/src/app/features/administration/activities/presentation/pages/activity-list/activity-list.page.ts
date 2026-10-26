@@ -47,14 +47,6 @@ import { ActivityApiService } from '@features/administration/activities/infrastr
                   <th mat-header-cell *matHeaderCellDef>Nombre</th>
                   <td mat-cell *matCellDef="let activity">{{ activity.nombre }}</td>
                 </ng-container>
-                <ng-container matColumnDef="recurso">
-                  <th mat-header-cell *matHeaderCellDef class="w-56">Recurso</th>
-                  <td mat-cell *matCellDef="let activity">{{ activity.recurso || '—' }}</td>
-                </ng-container>
-                <ng-container matColumnDef="accion">
-                  <th mat-header-cell *matHeaderCellDef class="w-32">Acción</th>
-                  <td mat-cell *matCellDef="let activity">{{ activity.accion || '—' }}</td>
-                </ng-container>
                 <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
                 <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
               </table>
@@ -77,7 +69,7 @@ import { ActivityApiService } from '@features/administration/activities/infrastr
   `,
 })
 export class ActivityListPage implements OnInit {
-  protected readonly displayedColumns = ['clave', 'nombre', 'recurso', 'accion'];
+  protected readonly displayedColumns = ['clave', 'nombre'];
   protected readonly loadingRows = [1, 2, 3, 4, 5];
   protected readonly activities = signal<Activity[]>([]);
   protected readonly filter = signal('');
