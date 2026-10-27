@@ -147,7 +147,7 @@ jobs:
   deploy-production:
     if: needs.publish-images.result == 'success'
     needs: publish-images
-    runs-on: [self-hosted, linux, x64, web-prod]
+    runs-on: [self-hosted, Linux, X64, web-prod]
     environment:
       name: production
       url: https://jovycandy.com.mx/anexo24/login
