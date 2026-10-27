@@ -134,7 +134,7 @@ jobs:
         with:
           context: ./backend
           push: true
-          tags: ghcr.io/jovycandy/cale-anexo24-backend:${{ github.sha }}
+          tags: ghcr.io/jovycandy-web/cale-anexo24-backend:${{ github.sha }}
 
       - name: Publicar imagen frontend
         id: frontend
@@ -142,7 +142,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: ghcr.io/jovycandy/cale-anexo24-frontend:${{ github.sha }}
+          tags: ghcr.io/jovycandy-web/cale-anexo24-frontend:${{ github.sha }}
 
   deploy-production:
     if: needs.publish-images.result == 'success' && vars.ANEXO24_DEPLOY_ENABLED == 'true'
@@ -158,8 +158,8 @@ jobs:
       contents: read
       packages: read
     env:
-      BACKEND_IMAGE: ghcr.io/jovycandy/cale-anexo24-backend@${{ needs.publish-images.outputs.backend-digest }}
-      FRONTEND_IMAGE: ghcr.io/jovycandy/cale-anexo24-frontend@${{ needs.publish-images.outputs.frontend-digest }}
+      BACKEND_IMAGE: ghcr.io/jovycandy-web/cale-anexo24-backend@${{ needs.publish-images.outputs.backend-digest }}
+      FRONTEND_IMAGE: ghcr.io/jovycandy-web/cale-anexo24-frontend@${{ needs.publish-images.outputs.frontend-digest }}
       DB_URL: ${{ secrets.DB_URL }}
       DB_USERNAME: ${{ secrets.DB_USERNAME }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
