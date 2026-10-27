@@ -145,7 +145,7 @@ jobs:
           tags: ghcr.io/jovycandy-web/cale-anexo24-frontend:${{ github.sha }}
 
   deploy-production:
-    if: needs.publish-images.result == 'success' && vars.ANEXO24_DEPLOY_ENABLED == 'true'
+    if: needs.publish-images.result == 'success'
     needs: publish-images
     runs-on: [self-hosted, linux, x64, web-prod]
     environment:
@@ -173,10 +173,16 @@ jobs:
       DEPLOY_DIRECTORY: /opt/apps/anexo24
 
     steps:
+      - name: Evaluar interruptor de despliegue
+        id: deployment-switch
+        run: echo "enabled=${{ vars.ANEXO24_DEPLOY_ENABLED == 'true' }}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout
+        if: steps.deployment-switch.outputs.enabled == 'true'
         uses: actions/checkout@v4
 
       - name: Autenticar en GitHub Container Registry
+        if: steps.deployment-switch.outputs.enabled == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -184,6 +190,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Descargar y actualizar servicios
+        if: steps.deployment-switch.outputs.enabled == 'true'
         run: |
           install -d -m 0755 $DEPLOY_DIRECTORY
           install -m 0644 compose.prod.yml $DEPLOY_DIRECTORY/compose.prod.yml
@@ -192,6 +199,7 @@ jobs:
           docker compose -f compose.prod.yml up -d --no-build
 
       - name: Verificar servicios internos
+        if: steps.deployment-switch.outputs.enabled == 'true'
         run: |
           cd $DEPLOY_DIRECTORY
           for intento in $(seq 1 24); do
