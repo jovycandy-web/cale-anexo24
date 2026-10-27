@@ -2,6 +2,7 @@ package com.jovycandy.anexo24.security;
 
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jovycandy.anexo24.shared.api.CorrelationIdFilter;
 import com.jovycandy.anexo24.shared.api.GlobalExceptionHandler;
 import jakarta.servlet.ServletException;
@@ -14,12 +15,18 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /** Entry point que devuelve errores de autenticación con el contrato de la API. */
 @Component
 public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
+    private final ObjectMapper objectMapper;
+
+    public ApiAuthenticationEntryPoint(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     /**
      * Responde una solicitud no autenticada sin exponer detalles internos.
@@ -39,11 +46,11 @@ public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setCharacterEncoding("UTF-8");
         response.setHeader(CorrelationIdFilter.HEADER_NAME, correlationId);
 
-        String timestamp = Instant.now().toString();
-        response.getWriter().write("{\"code\":\"AUTENTICACION_REQUERIDA\","
-                + "\"message\":\"Se requiere una autenticación válida.\","
-                + "\"correlationId\":\"" + correlationId + "\","
-                + "\"timestamp\":\"" + timestamp + "\"}");
+        objectMapper.writeValue(response.getWriter(), Map.of(
+                "code", "AUTENTICACION_REQUERIDA",
+                "message", "Se requiere una autenticación válida.",
+                "correlationId", correlationId,
+                "timestamp", Instant.now().toString()));
     }
 
     private String correlationIdOf(HttpServletRequest request) {
