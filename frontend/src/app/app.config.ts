@@ -1,5 +1,5 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
@@ -35,12 +35,16 @@ import { ReportRepository } from '@features/reports/domain/repositories/report.r
 import { HttpReportRepository } from '@features/reports/infrastructure/repositories/http-report.repository';
 import { BillingRepository } from '@features/billing/domain/repositories/billing.repository';
 import { HttpBillingRepository } from '@features/billing/infrastructure/repositories/http-billing.repository';
+import { catchError, firstValueFrom, of } from 'rxjs';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
     provideHttpClient(withInterceptors([apiPrefixInterceptor, authInterceptor])),
+    provideAppInitializer(() => firstValueFrom(
+      inject(HttpClient).get('/api/v1/auth/csrf').pipe(catchError(() => of(null))),
+    )),
     provideAnimationsAsync(),
     { provide: MaterialRepository, useClass: HttpMaterialRepository },
     { provide: ProductRepository, useClass: HttpProductRepository },

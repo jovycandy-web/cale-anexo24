@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,6 +33,17 @@ public class LoginController {
      */
     public LoginController(LoginService loginService) {
         this.loginService = loginService;
+    }
+
+    /**
+     * Emite el token anti-CSRF que Angular guarda y reenvía en solicitudes mutables.
+     *
+     * @param csrfToken token generado por Spring Security
+     * @return token anti-CSRF con los nombres de cookie y encabezado asociados
+     */
+    @GetMapping("/csrf")
+    public CsrfToken csrf(CsrfToken csrfToken) {
+        return csrfToken;
     }
 
     /**

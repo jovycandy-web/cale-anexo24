@@ -1,5 +1,7 @@
 package com.jovycandy.anexo24.security;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -50,9 +52,12 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(Customizer.withDefaults())
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf
+                .spa()
+                .requireCsrfProtectionMatcher(this::requiresCsrfProtection))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
@@ -61,6 +66,19 @@ public class SecurityConfig {
                 .authenticationEntryPoint(authenticationEntryPoint))
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    private boolean requiresCsrfProtection(HttpServletRequest request) {
+        if (HttpMethod.GET.matches(request.getMethod()) || HttpMethod.HEAD.matches(request.getMethod())
+                || HttpMethod.OPTIONS.matches(request.getMethod()) || HttpMethod.TRACE.matches(request.getMethod())) {
+            return false;
+        }
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return false;
+        for (Cookie cookie : cookies) {
+            if ("XSRF-TOKEN".equals(cookie.getName())) return true;
+        }
+        return false;
     }
 
     /**
