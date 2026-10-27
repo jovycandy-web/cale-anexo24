@@ -3,6 +3,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
+import { apiPrefixInterceptor } from './core/interceptors/api-prefix.interceptor';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { MaterialRepository } from '@features/catalogs/materials/domain/repositories/material.repository';
 import { HttpMaterialRepository } from '@features/catalogs/materials/infrastructure/repositories/http-material.repository';
@@ -39,7 +40,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([apiPrefixInterceptor, authInterceptor])),
     provideAnimationsAsync(),
     { provide: MaterialRepository, useClass: HttpMaterialRepository },
     { provide: ProductRepository, useClass: HttpProductRepository },

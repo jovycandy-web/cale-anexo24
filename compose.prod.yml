@@ -1,8 +1,8 @@
+name: anexo24
+
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-anexo24-backend:local}
     environment:
       SPRING_PROFILES_ACTIVE: prod
       DB_URL: ${DB_URL:?DB_URL is required}
@@ -14,25 +14,45 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:?JWT_EXPIRATION_MINUTES is required}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:?APP_CORS_ALLOWED_ORIGINS is required}
-      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:-}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=55.0 -XX:InitialRAMPercentage=20.0}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${DB_POOL_MAX_SIZE:-12}
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${DB_POOL_MIN_IDLE:-2}
+      APP_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${APP_DB_POOL_MAX_SIZE:-4}
+      APP_DATASOURCE_HIKARI_MINIMUM_IDLE: ${APP_DB_POOL_MIN_IDLE:-1}
     networks:
       - anexo24
     restart: unless-stopped
+    mem_limit: 1500m
+    mem_reservation: 512m
+    cpus: 3.0
+    pids_limit: 256
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${FRONTEND_IMAGE:-anexo24-frontend:local}
     depends_on:
       backend:
         condition: service_healthy
     environment:
       NGINX_ENTRYPOINT_QUIET_LOGS: "1"
     ports:
-      - "${FRONTEND_PORT:-8088}:8080"
+      - "127.0.0.1:${FRONTEND_PORT:?FRONTEND_PORT is required}:8080"
     networks:
       - anexo24
     restart: unless-stopped
+    mem_limit: 128m
+    mem_reservation: 32m
+    cpus: 0.5
+    pids_limit: 64
+    logging:
+      driver: local
+      options:
+        max-size: 5m
+        max-file: "3"
 
 networks:
   anexo24:

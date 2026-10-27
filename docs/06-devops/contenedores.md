@@ -44,7 +44,8 @@ flowchart LR
 - `frontend/.dockerignore`: excluye `node_modules`, `dist`, reportes, `.env*`,
   Git y logs.
 - `frontend/nginx.conf`: fallback SPA, proxy API, headers y cache de assets.
-- `compose.prod.yml`: servicios `backend` y `frontend`, sin base de datos.
+- `compose.prod.yml`: manifiesto de ejecución por imágenes, sin base de datos.
+- `compose.local.yml`: override de build local; no se copia al VPS.
 
 ## Variables
 
@@ -63,9 +64,8 @@ JWT_EXPIRATION_MINUTES
 APP_CORS_ALLOWED_ORIGINS
 ```
 
-`FRONTEND_PORT` es opcional y por defecto usa `8088`. `JAVA_TOOL_OPTIONS` es
-opcional para opciones JVM. La configuración del navegador usa same-origin
-(`/api`), por lo que no necesita una URL absoluta del backend.
+FRONTEND_PORT es obligatorio y debe ser un puerto libre. JAVA_TOOL_OPTIONS es opcional para opciones JVM. En el VPS no usar 8088: está reservado por phpMyAdmin. La configuración del navegador usa same-origin
+(`/anexo24/api`), por lo que no necesita una URL absoluta del backend.
 
 No usar `env_file: backend/.env` en Compose. Los valores deben provenir del
 mecanismo de secretos o del entorno del proceso que ejecuta Compose. Nunca
@@ -76,7 +76,7 @@ crear ni versionar un `.env.prod` real.
 Desde la raíz del repositorio:
 
 ```bash
-docker compose -f compose.prod.yml build
+docker compose -f compose.prod.yml -f compose.local.yml build
 ```
 
 El build del backend ejecuta `./gradlew clean bootJar -x test`; los tests se
@@ -88,6 +88,8 @@ se encuentra en `dist/frontend/browser`. El runtime copia únicamente ese
 contenido browser al web root.
 
 ## Estado de validación
+
+La evidencia histórica siguiente corresponde al empaquetado previo a la ruta pública /anexo24 y debe repetirse antes del primer despliegue real.
 
 - `STATIC`: PASS. Compose, Dockerfiles, Nginx, puertos y contrato de variables
   fueron revisados; `docker compose config --quiet` pasó con placeholders no
@@ -108,22 +110,21 @@ Definir las variables obligatorias en el entorno del host sin imprimirlas ni
 persistirlas en el repositorio. Después:
 
 ```bash
-docker compose -f compose.prod.yml up -d
-docker compose -f compose.prod.yml ps
+docker compose -f compose.prod.yml -f compose.local.yml up -d
+docker compose -f compose.prod.yml -f compose.local.yml ps
 ```
 
-El frontend se publica en `http://127.0.0.1:8088` por defecto. El backend no
-se publica al host; sólo es accesible por la red interna `anexo24`.
+El frontend se publica en http://127.0.0.1:PUERTO_ANEXO24. El backend no se publica al host; sólo es accesible por la red interna anexo24.
 
 ## Verificación
 
 ```bash
-curl -fsS http://127.0.0.1:8088/
-curl -fsS http://127.0.0.1:8088/dashboard
-curl -fsS http://127.0.0.1:8088/materiales
-curl -fsS http://127.0.0.1:8088/reportes
-curl -fsS http://127.0.0.1:8088/usuarios
-curl -i http://127.0.0.1:8088/api/v1/bitacora
+curl -fsS http://127.0.0.1:PUERTO_ANEXO24/anexo24/
+curl -fsS http://127.0.0.1:PUERTO_ANEXO24/anexo24/dashboard
+curl -fsS http://127.0.0.1:PUERTO_ANEXO24/anexo24/materiales
+curl -fsS http://127.0.0.1:PUERTO_ANEXO24/anexo24/reportes
+curl -fsS http://127.0.0.1:PUERTO_ANEXO24/anexo24/usuarios
+curl -i http://127.0.0.1:PUERTO_ANEXO24/anexo24/api/v1/bitacora
 ```
 
 Las rutas SPA deben devolver `index.html` y no un 404 de Nginx. La solicitud API
@@ -133,19 +134,19 @@ Spring Boot sin publicar el puerto del backend.
 El healthcheck interno puede revisarse sin exponer `8080`:
 
 ```bash
-docker compose -f compose.prod.yml exec backend \
+docker compose -f compose.prod.yml -f compose.local.yml exec backend \
   curl --fail --silent http://127.0.0.1:8080/actuator/health
 ```
 
 Si existe una credencial autorizada proporcionada por el ambiente, el login y
 una consulta read-only pueden probarse una sola vez a través de
-`http://127.0.0.1:8088/api`. No imprimir ni persistir el token. La ausencia de
+`http://127.0.0.1:PUERTO_ANEXO24/anexo24/api`. No imprimir ni persistir el token. La ausencia de
 una credencial autorizada no bloquea el packaging.
 
 ## Detención
 
 ```bash
-docker compose -f compose.prod.yml down
+docker compose -f compose.prod.yml -f compose.local.yml down
 ```
 
 No usar `-v`: esta configuración no necesita borrar volúmenes para detener los
