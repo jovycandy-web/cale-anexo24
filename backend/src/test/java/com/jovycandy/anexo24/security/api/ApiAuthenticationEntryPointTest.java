@@ -15,7 +15,7 @@ import org.springframework.security.authentication.InsufficientAuthenticationExc
 class ApiAuthenticationEntryPointTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final ApiAuthenticationEntryPoint entryPoint = new ApiAuthenticationEntryPoint(objectMapper);
+    private final ApiAuthenticationEntryPoint entryPoint = new ApiAuthenticationEntryPoint();
 
     @Test
     void respondeError401ComoJsonCuandoCorrelationIdContieneCaracteresEspeciales() throws Exception {
