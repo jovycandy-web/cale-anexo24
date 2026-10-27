@@ -1,0 +1,316 @@
+# Pruebas de staging de pedimentos V1
+
+## 1. Decisión de alcance
+
+La entrega implementa una superficie segura de:
+
+```text
+archivo → hash → parser V2 → validación → staging durable → errores → preview → confirmación autoritativa
+```
+
+La confirmación autoritativa está implementada (`POST /api/v1/operaciones/pedimentos/cargas/{id}/confirmacion`)
+con transacción atómica, idempotencia, locks compatibles con el motor legacy y
+permiso propio `PEDIMENTOS_CONFIRMAR`. No se ejecutan procedimientos legacy
+mutables ni se reutiliza el staging global `CARGAPEDIMENTOSIE`.
+
+Limitación: la confirmación V1 no ejecuta descargos, PEPS, saldos ni el descargo
+dirigido generativo; sólo persiste la operación autoritativa.
+
+Estados de decisión:
+
+- `PEDIMENT_LEGACY_CONTRACT = PARTIAL`;
+- `PEDIMENT_LAYOUT_CONTRACT = PARTIAL`;
+- `PEDIMENT_STAGING_V1 = PASS` después de compilar, probar y aplicar la
+  migración de aplicación;
+- `PEDIMENT_STAGING_V2 = PASS` (campos fiscales `IGIE/IVA/DTA/PREV/TIPOTASAIGIE`);
+- `PEDIMENT_CONFIRMATION = IMPLEMENTED` (SQL 15/15 en CI, backend y UI probados).
+
+## 2. Contrato legacy observado
+
+La auditoría read-only en `CALE_IMMEX` obtuvo:
+
+| Objeto | Resultado |
+|---|---|
+| `dbo.CargaPedimentosIE` | 2 filas observadas, 62 columnas, PK `CargaKey`, sin FKs ni índices secundarios observados |
+| `dbo.ERRORCARGA` | 0 filas, 3 columnas, PK `errorkey`, sin usuario/lote/archivo observado |
+| `CARGAPEDIMENTOS` | `MIXED`: SELECT/INSERT/UPDATE/DELETE y cursor |
+| `CARGA_ENCABEZADOS` | `MIXED`: SELECT/INSERT/UPDATE |
+| `INSERTAPEDIMENTO` | `MIXED`: SELECT/INSERT/UPDATE/DELETE/EXEC y cursor |
+| `VALIDAPEDIMENTO` | `MIXED`: SELECT/DELETE/EXEC y cursor |
+| `VALIDA_I_DETALLENP` | `MIXED`: SELECT/INSERT/UPDATE/DELETE y cursor |
+
+No se ejecutó ninguno de esos procedimientos. La documentación de
+`CARGAPEDIMENTOS` confirma efectos sobre `IMPORTACIONES`, `PARTIDAS`, `SALIDAS`,
+`PSALIDAS`, `DIRIGIDO`, `GENERADORES`, materiales y productos; por eso no se
+reutilizó como paso de preview.
+
+No se encontró un layout oficial descargable o versionado. El contrato de
+entrada se deriva de `CargaPedimentosIE`:
+
+```text
+PEDIMENT_LAYOUT_SOURCE = LEGACY_STAGE_DERIVED
+PEDIMENT_LAYOUT_CONTRACT = PARTIAL
+```
+
+El mapping completo, incluyendo tipos LIVE, campos técnicos, obligatoriedad V1 y
+campos todavía parciales, está en
+[`docs/03-diseno/mapeo-carga-pedimentos.md`](../03-diseno/mapeo-carga-pedimentos.md).
+
+## 3. Staging nuevo
+
+La migración aplicada es:
+
+```text
+infra/sql/migrations/09-pedimentos-staging-v1.sql
+```
+
+Resultado LIVE en `ANEXO24_DEV`:
+
+```text
+MIGRATION = PASS
+app24.CargaPedimento = presente una vez, 0 filas
+app24.CargaPedimentoFila = presente una vez, 0 filas
+app24.ErrorCargaPedimento = presente una vez, 0 filas
+procedimientos = 4
+```
+
+El staging está aislado por `carga_id` y no depende de las tablas globales legacy.
+El hash SHA-256 es único para impedir duplicados silenciosos. Las filas se
+persisten como JSON validado; los errores no almacenan el valor original y usan
+`valorEnmascarado = no almacenado`.
+
+Procedimientos versionados:
+
+- `APP24_C_PEDIMENTO_CARGA_CREAR`;
+- `APP24_Q_PEDIMENTO_CARGA_POR_HASH`;
+- `APP24_Q_PEDIMENTO_CARGA_OBTENER`;
+- `APP24_Q_PEDIMENTO_CARGA_ERRORES`.
+
+El adapter Java invoca exclusivamente esos cuatro procedimientos. No contiene
+SQL de negocio inline. El command usa transacción SQL, `XACT_ABORT` y rollback en
+caso de error; no tiene endpoint de confirmación.
+
+Estados persistibles V1:
+
+- `PREVISUALIZADA`;
+- `CON_ERRORES`.
+
+El command registra, dentro de la misma transacción, las acciones controladas
+`CARGA_PEDIMENTO_VALIDADA` y `CARGA_PEDIMENTO_CON_ERRORES` mediante el SP de
+bitácora existente. No se agregó `CONFIRMADA`.
+
+## 4. API y seguridad
+
+Endpoints implementados bajo `/api/v1/operaciones/pedimentos`:
+
+| Método | Endpoint | Uso |
+|---|---|---|
+| `POST` | `/cargas` | recibir, validar y guardar staging |
+| `GET` | `/cargas/{id}` | consultar metadata y preview paginado |
+| `GET` | `/cargas/{id}/errores` | consultar errores paginados |
+
+No existe `/confirmar`.
+
+Permiso exacto:
+
+```text
+PEDIMENTOS_CARGAR
+```
+
+La migración crea el permiso de forma idempotente y lo asigna a
+`ADMINISTRADOR` sólo si la asignación no existe. Resultado LIVE:
+
+```text
+permission rows = 1
+ADMINISTRADOR mappings = 1
+duplicates = 0
+```
+
+Pruebas de autorización:
+
+- sin autenticación → `401`;
+- autenticado sin `PEDIMENTOS_CARGAR` → `403`;
+- autoridad `PEDIMENTOS_CARGAR` → controller autorizado.
+
+No había una credencial autorizada disponible para una ejecución HTTP autenticada
+contra el entorno, por lo que el smoke autenticado queda:
+
+```text
+AUTHENTICATED_RUNTIME_SMOKE = NOT_EXECUTED
+```
+
+Esto no convierte el staging en fallo: la seguridad está cubierta por tests
+MockMvc, y no se fabricó ningún JWT.
+
+## 5. Parser y validación
+
+El parser Apache POI admite `.xls` y `.xlsx` cuando la firma binaria coincide con
+la extensión. Los límites son:
+
+- 10 MiB por archivo;
+- 2.000 filas;
+- 80 columnas;
+- 100.000 celdas;
+- una hoja.
+
+Se validan encabezados, duplicados, columnas desconocidas, fórmulas, filas vacías,
+campos requeridos, fechas, enteros, decimales, duplicados de fila y valores
+permitidos de `TipoOperacion` documentados por la auditoría. Los valores
+numéricos se validan con `BigDecimal` y se serializan de forma canónica; no se
+usa `float` en Java.
+
+Los mensajes de error muestran fila, columna, código y regla sin incluir valores
+de negocio completos ni detalles internos de SQL.
+
+## 6. Resultados de pruebas
+
+### Backend
+
+```text
+./gradlew.bat clean test
+PASS
+446 tests
+446 passed
+0 failed
+0 errors
+0 skipped
+./gradlew.bat build
+PASS
+```
+
+La cobertura específica incluye:
+
+- parser XLSX sintético válido;
+- normalización de decimal y fecha;
+- encabezado faltante;
+- fecha/cantidad inválidas;
+- valores de error enmascarados;
+- rechazo de hash duplicado;
+- persistencia de hash nuevo;
+- mapper de `CARGA_PEDIMENTO_VALIDADA`;
+- mapper de `CARGA_PEDIMENTO_CON_ERRORES`;
+- correlación del handler de upload;
+- reglas `PED-001` a `PED-004` en lote;
+- lote vacío sin consulta ni errores;
+- deduplicación por hoja, fila, columna y código;
+- serialización XML segura con `&`, `<`, `>`, `\"` y `'`;
+- `401`, `403` y autorización con `PEDIMENTOS_CARGAR`.
+
+La revalidación explícita de una carga existente no está implementada. La
+idempotencia observada en esta V1 es la deduplicación de errores del resultado y
+la guardia SHA-256 de cargas duplicadas.
+
+```text
+VALIDATION_ERROR_DEDUPLICATION = PASS
+DUPLICATE_UPLOAD_HASH_GUARD = PASS
+REVALIDATION = NOT_IMPLEMENTED
+PEDIMENT_XML_ESCAPING = PASS
+BATCH_EMPTY = PASS
+```
+
+### Frontend
+
+La suite existente de la feature pasó:
+
+```text
+pnpm exec ng test --watch=false
+87 passed
+25 test files
+pnpm lint
+PASS
+pnpm build
+PASS
+parent-relative imports = 0
+```
+
+La UI implementa `/operaciones/pedimentos` con selección de archivo, validación
+previa, upload, totales, preview, errores, retry/limpiar y tabla responsive. El
+mensaje de confirmación es informativo y explícito:
+
+> Previsualización validada. La confirmación operativa todavía no está habilitada.
+
+No se agrega botón ni ruta de confirmación.
+
+Los warnings de presupuesto de bundle Angular y SCSS del sidebar son warnings
+preexistentes del proyecto; no alteran el resultado de los gates ejecutados.
+
+## 7. SQL y efectos
+
+| Operación | Resultado |
+|---|---:|
+| Escrituras de datos en `CALE_IMMEX` | 0 |
+| DDL de tablas legacy en `CALE_IMMEX` | 0 |
+| DDL de SP read-only en `CALE_IMMEX` | `APP24_Q_PEDIMENTO_VALIDAR_REGLAS` aplicado |
+| Ejecuciones de SP legacy mutables | 0 |
+| DDL de aplicación en `ANEXO24_DEV` | migración 09 aplicada |
+| DML de aplicación por runtime | 0 registros de carga; la migración sólo sembró permiso/asignación idempotente |
+| SQL de negocio inline en Java | 0 |
+
+La migración crea cuatro SP de aplicación y tres tablas de staging. El command
+LIVE se ejecutó con payload sintético dentro de una transacción exterior: los
+queries por hash, detalle y errores devolvieron resultados coherentes. El evento
+sintético fue `OPERACIONES / CARGA_PEDIMENTO_CON_ERRORES / FALLO`. Después del
+rollback quedaron 0 cargas, 0 filas, 0 errores y 0 eventos. La prueba adicional
+de hash duplicado produjo conflicto y también dejó 0 datos persistentes.
+
+`STRUCTURAL_MATCH = PASS` entre los cuatro SP versionados y sus objetos LIVE.
+También se comparó `dbo.APP24_Q_PEDIMENTO_VALIDAR_REGLAS` LIVE con
+`infra/sql/procedures/queries/APP24_Q_PEDIMENTO_VALIDAR_REGLAS.sql`:
+`STRUCTURAL_MATCH = PASS`. El SP recibe `@FilasXml XML`, conserva caracteres
+especiales mediante serialización DOM/Transformer y evalúa `TipoOperacion = 1`
+para `PED-003` y `TipoOperacion = 2` para `PED-004`; otros valores no generan
+reglas de catálogo en este SP.
+
+`ISVALIDUNIT_READ_CONTRACT = PASS`: función read-only, consulta unidad por clave
+o alias y devuelve cero sin coincidencia; no se observaron side effects.
+
+`PEDIMENT_COMMAND_SP_TRANSACTION_SAFE = YES`: sólo escribe `app24`, no referencia
+`CALE_IMMEX` ni SP legacy, y el rollback exterior revierte el commit anidado.
+
+## 8. Runtime y límites pendientes
+
+No se ejecutó el smoke HTTP autenticado de upload porque no había credencial
+autorizada disponible. El smoke SQL sintético sí se ejecutó y terminó con
+rollback; no se ejecutó el pipeline legacy ni se dejaron registros persistentes.
+
+Queda pendiente para una siguiente ejecución autorizada:
+
+- upload de un XLSX sintético;
+- consulta de preview mediante API;
+- recuperación después de reinicio;
+- upload HTTP autenticado y consulta de preview;
+- recuperación después de reinicio;
+- decisión de negocio sobre layout oficial y reglas de confirmación.
+
+La validación batch read-only confirmada queda documentada en
+`docs/03-diseno/mapeo-validacion-pedimentos.md`. El SP LIVE se probó con filas
+sintéticas y devolvió códigos `PED-001` a `PED-004`; no se escribieron datos.
+
+## 9. Paridad
+
+En el cierre/publicación de esta feature, `LEGACY-016` cambia de `MISSING` a
+`PARTIAL`: upload, validación estructural, errores, preview, hash, RBAC y staging
+durable están implementados. `LEGACY-017` pasa a `PARTIAL`: cuatro reglas
+read-only confirmadas se ejecutan automáticamente durante el staging; las reglas
+de inventario, duplicado operativo y confirmación autoritativa permanecen fuera
+de alcance. No debe marcarse `IMPLEMENTED_REDESIGNED` mientras la cobertura
+completa y la confirmación operativa sigan sin contrato.
+
+## 10. Decisión
+
+```text
+PEDIMENT_LEGACY_CONTRACT = PARTIAL
+PEDIMENT_LAYOUT_CONTRACT = PARTIAL
+PEDIMENT_STAGING_V1 = PASS
+PEDIMENT_COMMAND_SP_TRANSACTION_SAFE = YES
+PEDIMENT_AUDITLOG_ENUM_COMPATIBILITY = PASS
+SP_VERSIONED_LIVE_MATCH = PASS
+DUPLICATE_HASH_BEHAVIOR = PASS
+PEDIMENT_STAGING_TRANSACTIONAL_SMOKE = PASS
+PEDIMENT_VALIDATION_BATCH = PASS
+PEDIMENT_VALIDATION_RULES = PED-001,PED-002,PED-003,PED-004
+PERSISTENT_TEST_DATA = 0
+PEDIMENT_CONFIRMATION = NOT_IMPLEMENTED
+LEGACY-017 = PARTIAL
+AUTHENTICATED_RUNTIME_SMOKE = NOT_EXECUTED
+```

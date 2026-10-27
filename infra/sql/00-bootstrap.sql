@@ -36,11 +36,10 @@ BEGIN
 END
 GO
 
--- 4. Grant permissions
-ALTER ROLE db_datareader ADD MEMBER anexo24_app;
-ALTER ROLE db_datawriter ADD MEMBER anexo24_app;
-GRANT EXECUTE TO anexo24_app;
-GO
+-- 4. Permisos runtime
+-- La cuenta anexo24_app no recibe permisos globales aquí. Ejecutar
+-- 04-app-runtime-permissions.sql después de crear esquema y seed con una
+-- identidad administrativa para asignar sólo los permisos por objeto requeridos.
 
 PRINT 'ANEXO24_DEV bootstrap completed.';
 GO

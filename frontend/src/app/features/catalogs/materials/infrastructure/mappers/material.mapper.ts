@@ -1,0 +1,26 @@
+import { Material } from '@features/catalogs/materials/domain/models/material.model';
+import { MaterialPage } from '@features/catalogs/materials/domain/repositories/material.repository';
+import { MaterialPageResponseDto, MaterialResponseDto } from '@features/catalogs/materials/infrastructure/dto/material-response.dto';
+
+export const MaterialMapper = {
+  toDomain(dto: MaterialResponseDto): Material {
+    return {
+      materialKey: dto.materialkey,
+      partNumber: dto.clave,
+      supplierCode: dto.claveProveedor ?? null,
+      description: dto.descripcion,
+      tariffFraction: dto.fraccion,
+      unit: dto.unidad,
+      umc: dto.unidadt,
+      materialType: dto.tipomaterial,
+      nationalType: dto.tipom ?? null,
+      family: dto.familia ?? null,
+      nico: dto.nico ?? null,
+      warehouseKey: dto.almacenKey ?? null,
+      warehouse: dto.almacen ?? null,
+    };
+  },
+  toPage(dto: MaterialPageResponseDto): MaterialPage {
+    return { items: dto.items.map((item) => MaterialMapper.toDomain(item)), total: dto.total, page: dto.pagina, pageSize: dto.tamano };
+  },
+};

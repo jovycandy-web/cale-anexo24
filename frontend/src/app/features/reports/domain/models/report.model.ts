@@ -1,0 +1,33 @@
+/** Reportes disponibles en el contrato V1. */
+export type ReportType = 'entradas' | 'salidas' | 'materiales-utilizados' | 'bitacora' | 'compulsa' | 'rectificaciones' | 'vencimientos' | 'dirigidos' | 'analisis-descargas' | 'operaciones-bloqueadas' | 'f4' | 'anexo30-revision-entradas' | 'anexo30-revision-fracciones' | 'anexo30-revision-descargas' | 'anexo30-revision-comparativa' | 'anexo30-revision-inventario-inicial' | 'rectificaciones-detalle' | 'compulsa-detalle' | 'saldos' | 'estructuras-legacy';
+
+/** Filtros comunes y específicos admitidos por los reportes V1. */
+export interface ReportSearchCriteria {
+  type: ReportType;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+  customsDocument: string;
+  customsCode: string;
+  tariffFraction: string;
+  partNumber: string;
+  material: string;
+  product: string;
+  userId: number | null;
+  module: string;
+  result: string;
+  correlationId: string;
+  filter: string;
+}
+
+/** Fila de reporte: las columnas dependen del reporte seleccionado. */
+export type ReportRow = Record<string, string | number | null>;
+
+/** Resultado paginado de un reporte. */
+export interface ReportPage {
+  items: ReportRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}

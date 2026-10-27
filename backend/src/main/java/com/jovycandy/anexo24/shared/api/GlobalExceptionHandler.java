@@ -1,14 +1,25 @@
 package com.jovycandy.anexo24.shared.api;
 
 import com.jovycandy.anexo24.security.CredencialesInvalidasException;
+import com.jovycandy.anexo24.shared.exception.ConfirmacionNoProcesableException;
+import com.jovycandy.anexo24.shared.exception.EstadoIncompatibleException;
+import com.jovycandy.anexo24.shared.exception.RecursoDuplicadoException;
+import com.jovycandy.anexo24.shared.exception.RecursoNoEncontradoException;
+import com.jovycandy.anexo24.shared.exception.SolicitudInvalidaException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,6 +53,129 @@ public class GlobalExceptionHandler {
         ApiError body = new ApiError("CREDENCIALES_INVALIDAS",
                 ex.getMessage(), correlationId);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    /**
+     * Maneja accesos autenticados sin permisos suficientes.
+     *
+     * @param ex excepción de autorización
+     * @param request solicitud HTTP actual
+     * @return 403 con mensaje genérico y correlación
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex,
+                                                        HttpServletRequest request) {
+        return response(HttpStatus.FORBIDDEN, "ACCESO_DENEGADO",
+                "No tienes permisos para realizar esta operación.", request);
+    }
+
+    /**
+     * Maneja solicitudes no autenticadas.
+     *
+     * @param ex excepción de autenticación
+     * @param request solicitud HTTP actual
+     * @return 401 con mensaje genérico y correlación
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiError> handleAuthentication(AuthenticationException ex,
+                                                          HttpServletRequest request) {
+        return response(HttpStatus.UNAUTHORIZED, "AUTENTICACION_REQUERIDA",
+                "Se requiere una autenticación válida.", request);
+    }
+
+    /**
+     * Maneja JSON inválido o parámetros con tipo incorrecto.
+     *
+     * @param ex excepción de formato o conversión
+     * @param request solicitud HTTP actual
+     * @return 400 con mensaje accionable y correlación
+     */
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
+            MissingServletRequestParameterException.class})
+    public ResponseEntity<ApiError> handleMalformedRequest(Exception ex,
+                                                            HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "SOLICITUD_INVALIDA",
+                "La solicitud tiene un formato o parámetro inválido.", request);
+    }
+
+    /**
+     * Maneja reglas de negocio incumplidas por parámetros de la solicitud.
+     *
+     * @param ex excepción de solicitud inválida
+     * @param request solicitud HTTP actual
+     * @return 400 con mensaje público y correlación
+     */
+    @ExceptionHandler(SolicitudInvalidaException.class)
+    public ResponseEntity<ApiError> handleInvalidRequest(SolicitudInvalidaException ex,
+                                                          HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "SOLICITUD_INVALIDA",
+                "La solicitud tiene un formato o parámetro inválido.", request);
+    }
+
+    /**
+     * Maneja recursos inexistentes con respuesta 404.
+     *
+     * @param ex      excepción de recurso no encontrado
+     * @param request solicitud HTTP actual
+     * @return 404 con código RECURSO_NO_ENCONTRADO y correlación
+     */
+    @ExceptionHandler(RecursoNoEncontradoException.class)
+    public ResponseEntity<ApiError> handleRecursoNoEncontrado(RecursoNoEncontradoException ex,
+                                                               HttpServletRequest request) {
+        return response(HttpStatus.NOT_FOUND, "RECURSO_NO_ENCONTRADO",
+                ex.getMessage(), request);
+    }
+
+    /**
+     * Maneja duplicados con respuesta 409.
+     *
+     * @param ex      excepción de recurso duplicado
+     * @param request solicitud HTTP actual
+     * @return 409 con código RECURSO_DUPLICADO y correlación
+     */
+    @ExceptionHandler(RecursoDuplicadoException.class)
+    public ResponseEntity<ApiError> handleRecursoDuplicado(RecursoDuplicadoException ex,
+                                                             HttpServletRequest request) {
+        return response(HttpStatus.CONFLICT, "RECURSO_DUPLICADO",
+                ex.getMessage(), request);
+    }
+
+    /**
+     * Maneja conflictos de estado con respuesta 409.
+     *
+     * @param ex      excepción de estado incompatible
+     * @param request solicitud HTTP actual
+     * @return 409 con código ESTADO_INCOMPATIBLE y correlación
+     */
+    @ExceptionHandler(EstadoIncompatibleException.class)
+    public ResponseEntity<ApiError> handleEstadoIncompatible(EstadoIncompatibleException ex,
+                                                              HttpServletRequest request) {
+        return response(HttpStatus.CONFLICT, "ESTADO_INCOMPATIBLE",
+                ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(ConfirmacionNoProcesableException.class)
+    public ResponseEntity<ApiError> handleConfirmacionNoProcesable(ConfirmacionNoProcesableException ex,
+                                                                   HttpServletRequest request) {
+        return response(HttpStatus.UNPROCESSABLE_ENTITY, "CONFIRMACION_NO_PROCESABLE",
+                ex.getMessage(), request);
+    }
+
+    /**
+     * Maneja indisponibilidad de una dependencia de datos.
+     *
+     * @param ex excepción de acceso a datos
+     * @param request solicitud HTTP actual
+     * @return 503 sin detalles internos
+     */
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<ApiError> handleDataAccess(DataAccessException ex,
+                                                      HttpServletRequest request) {
+        String correlationId = correlationIdOf(request);
+        log.error("Error de acceso a datos [{}] en {} {}", correlationId,
+                request.getMethod(), request.getRequestURI(), ex);
+        return response(HttpStatus.SERVICE_UNAVAILABLE, "DEPENDENCIA_NO_DISPONIBLE",
+                "El servicio de datos no está disponible. Reporte el identificador de correlación.", request);
     }
 
     /**
@@ -79,6 +213,21 @@ public class GlobalExceptionHandler {
                 "Ocurrió un error inesperado. Reporte el identificador de correlación.",
                 correlationId, null, null);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+
+    /**
+     * Construye una respuesta de error estándar.
+     *
+     * @param status estado HTTP
+     * @param code código estable de error
+     * @param message mensaje público
+     * @param request solicitud HTTP actual
+     * @return respuesta estándar de API
+     */
+    private ResponseEntity<ApiError> response(HttpStatus status, String code,
+                                               String message, HttpServletRequest request) {
+        return ResponseEntity.status(status)
+                .body(new ApiError(code, message, correlationIdOf(request)));
     }
 
     /**

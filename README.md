@@ -4,16 +4,16 @@ Sistema de gestión para el control de materiales, productos, estructuras y oper
 
 ## ¿Qué es?
 
-ANEXO 24 es una plataforma web que centraliza la operación del almacén: entradas y salidas de materiales, productos y activos fijos, catálogos, reportes y facturación, sobre una base única de datos SQL Server.
+ANEXO 24 es una plataforma web que centraliza la operación del almacén: entradas y salidas de materiales, productos y activos fijos, catálogos, reportes y facturación. La aplicación integra dos bases SQL Server: CALE_IMMEX, que conserva el Módulo C heredado, y ANEXO24_DEV, cuyo esquema app24 contiene las funcionalidades propias de la nueva aplicación.
 
 ## Arquitectura
 
 Monolito modular con arquitectura hexagonal: el dominio no sabe qué hay detrás de la infraestructura (SQL Server, HTTP), lo que mantiene la lógica de negocio limpia y probable.
 
 ```
-Frontend (Angular)  ──REST /api/v1──►  Backend (Spring Boot)  ──JDBC──►  SQL Server
-       │                                        │
-       └── proxy local ─────────────────────────┘
+Frontend (Angular)  ──REST /api/v1──►  Backend (Spring Boot)
+       │                                        ├── JDBC → CALE_IMMEX (Módulo C)
+       └── proxy local ─────────────────────────└── JDBC → ANEXO24_DEV / app24
 ```
 
 ## Stack
@@ -49,8 +49,18 @@ cale-anexo24/
 
 ### Base de datos
 
-1. Ejecutar `infra/sql/00-bootstrap.sql` para crear la base `ANEXO24_DEV` y el usuario de aplicación.
-2. Copiar `backend/.env.example` a `backend/.env` y cargar los datos reales de conexión.
+Ejecutar estos scripts con una identidad administrativa/de despliegue autorizada,
+nunca con la cuenta runtime `anexo24_app`:
+
+1. `infra/sql/00-bootstrap.sql`: crea `ANEXO24_DEV`, login y usuario runtime sin permisos globales.
+2. `infra/sql/02-app-schema.sql`: crea el esquema y tablas `app24`.
+3. `infra/sql/03-app-seed-security.sql`: carga perfiles, permisos y usuario inicial.
+4. `infra/sql/04-app-runtime-permissions.sql`: retira roles heredados amplios y concede los permisos mínimos por objeto.
+
+`02-app-schema.sql` recrea tablas en desarrollo; ejecutar nuevamente el paso 4
+siempre después de ese script para restaurar permisos sobre objetos nuevos.
+
+Después, copiar `backend/.env.example` a `backend/.env` y cargar datos reales de conexión.
 
 ### Backend
 
@@ -81,7 +91,7 @@ pnpm start
 cd backend && ./gradlew test
 
 # Frontend
-cd frontend && pnpm lint && pnpm test
+cd frontend && pnpm lint
 ```
 
 ## Configuración por ambientes
@@ -90,4 +100,4 @@ Backend: perfiles Spring en `backend/src/main/resources/` (`local`, `test`, `pro
 
 ## CI
 
-Cada push valida: tests y build del backend, lint, tests y build del frontend.
+Cada push valida los tests y el build del backend, además del lint y build del frontend. El frontend no tiene target de tests configurado actualmente.

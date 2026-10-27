@@ -1,15 +1,46 @@
-name: CI
+﻿name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev, 'feature/**']
   pull_request:
-    branches: [main]
+    branches: [main, dev]
+
+permissions:
+  contents: read
 
 jobs:
 
+  sp-first-gate:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Test del gate SP-FIRST
+        run: python3 scripts/tests/check_inline_sql_test.py
+
+      - name: Gate SP-FIRST (SQL inline prohibido)
+        run: python3 scripts/check-inline-sql.py
+
+      - name: Test del checker de deriva runtime
+        run: python3 scripts/tests/check_runtime_sql_permissions_test.py
+
+      - name: Gate de deriva runtime (Java â†” grants SQL)
+        run: python3 scripts/check-runtime-sql-permissions.py
+
+      - name: Gate de contexto de base en commands SQL
+        run: python3 scripts/check-command-database-context.py
+
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    needs: sp-first-gate
 
     defaults:
       run:
@@ -38,7 +69,7 @@ jobs:
         run: ./gradlew build
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     defaults:
       run:
@@ -63,8 +94,111 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Test
+        run: pnpm test
+
       - name: Lint
         run: pnpm lint
 
       - name: Build
         run: pnpm build
+
+  publish-images:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [sp-first-gate, backend, frontend]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      backend-digest: ${{ steps.backend.outputs.digest }}
+      frontend-digest: ${{ steps.frontend.outputs.digest }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Autenticar en GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publicar imagen backend
+        id: backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ghcr.io/jovycandy/cale-anexo24-backend:${{ github.sha }}
+
+      - name: Publicar imagen frontend
+        id: frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: ghcr.io/jovycandy/cale-anexo24-frontend:${{ github.sha }}
+
+  deploy-production:
+    if: needs.publish-images.result == 'success' && vars.ANEXO24_DEPLOY_ENABLED == 'true'
+    needs: publish-images
+    runs-on: [self-hosted, linux, x64, web-prod]
+    environment:
+      name: production
+      url: https://jovycandy.com.mx/anexo24/login
+    concurrency:
+      group: anexo24-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    env:
+      BACKEND_IMAGE: ghcr.io/jovycandy/cale-anexo24-backend@${{ needs.publish-images.outputs.backend-digest }}
+      FRONTEND_IMAGE: ghcr.io/jovycandy/cale-anexo24-frontend@${{ needs.publish-images.outputs.frontend-digest }}
+      DB_URL: ${{ secrets.DB_URL }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      APP_DB_URL: ${{ secrets.APP_DB_URL }}
+      APP_DB_USERNAME: ${{ secrets.APP_DB_USERNAME }}
+      APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_EXPIRATION_MINUTES: ${{ secrets.JWT_EXPIRATION_MINUTES }}
+      APP_CORS_ALLOWED_ORIGINS: ${{ secrets.APP_CORS_ALLOWED_ORIGINS }}
+      FRONTEND_PORT: ${{ vars.ANEXO24_FRONTEND_PORT }}
+      DEPLOY_DIRECTORY: /opt/apps/anexo24
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Autenticar en GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Descargar y actualizar servicios
+        run: |
+          install -d -m 0755 $DEPLOY_DIRECTORY
+          install -m 0644 compose.prod.yml $DEPLOY_DIRECTORY/compose.prod.yml
+          cd $DEPLOY_DIRECTORY
+          docker compose -f compose.prod.yml pull
+          docker compose -f compose.prod.yml up -d --no-build
+
+      - name: Verificar servicios internos
+        run: |
+          cd $DEPLOY_DIRECTORY
+          for intento in $(seq 1 24); do
+            if docker compose -f compose.prod.yml exec -T backend curl --fail --silent http://127.0.0.1:8080/actuator/health \
+              && curl --fail --silent http://127.0.0.1:$FRONTEND_PORT/anexo24/login > /dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1

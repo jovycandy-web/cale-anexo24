@@ -34,7 +34,17 @@ public class JwtTokenService {
      */
     public JwtTokenService(@Value("${jwt.secret}") String secret,
                            @Value("${jwt.expiration-minutes}") long expirationMinutes) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        if (secret == null || secret.isBlank() || secret.startsWith("${")) {
+            throw new IllegalArgumentException("Configuración obligatoria ausente: jwt.secret (JWT_SECRET)");
+        }
+        byte[] secretBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (secretBytes.length < 32) {
+            throw new IllegalArgumentException("jwt.secret (JWT_SECRET) debe tener al menos 32 bytes para HS256");
+        }
+        if (expirationMinutes <= 0) {
+            throw new IllegalArgumentException("jwt.expiration-minutes debe ser mayor que cero");
+        }
+        this.key = Keys.hmacShaKeyFor(secretBytes);
         this.expiration = Duration.ofMinutes(expirationMinutes);
     }
 
@@ -56,6 +66,15 @@ public class JwtTokenService {
                 .expiration(Date.from(now.plus(expiration)))
                 .signWith(key)
                 .compact();
+    }
+
+    /**
+     * Devuelve la vigencia configurada para informar al cliente.
+     *
+     * @return minutos de vigencia del token
+     */
+    public long expirationMinutes() {
+        return expiration.toMinutes();
     }
 
     /**

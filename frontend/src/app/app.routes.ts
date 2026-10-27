@@ -1,11 +1,95 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './auth/auth.guard';
-import { LoginComponent } from './auth/login.component';
-import { MaterialesComponent } from './catalogos/materiales.component';
+import { authGuard } from '@core/guards/auth.guard';
+import { permissionGuard } from '@core/guards/permission.guard';
+import { ForbiddenComponent } from '@core/ui/forbidden/forbidden.component';
+import { MainLayoutComponent } from '@layout/main-layout.component';
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/materiales', pathMatch: 'full' },
-  { path: 'login', component: LoginComponent },
-  { path: 'materiales', component: MaterialesComponent, canActivate: [authGuard] },
-  { path: '**', redirectTo: '/materiales' },
+  {
+    path: 'login',
+    loadChildren: () => import('@features/auth/auth.routes').then((routes) => routes.AUTH_ROUTES),
+  },
+  {
+    path: 'forbidden',
+    component: ForbiddenComponent,
+  },
+  {
+    path: '',
+    component: MainLayoutComponent,
+    canActivate: [authGuard],
+    children: [
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      {
+        path: 'dashboard',
+        loadChildren: () => import('@features/dashboard/dashboard.routes').then((routes) => routes.DASHBOARD_ROUTES),
+      },
+      {
+        path: 'materiales',
+        canActivate: [permissionGuard],
+        data: { permission: 'MATERIALES_CONSULTAR' },
+        loadChildren: () => import('@features/catalogs/materials/materials.routes').then((routes) => routes.MATERIALS_ROUTES),
+      },
+      {
+        path: 'productos',
+        canActivate: [permissionGuard],
+        data: { permission: 'PRODUCTOS_CONSULTAR' },
+        loadChildren: () => import('@features/catalogs/products/products.routes').then((routes) => routes.PRODUCTS_ROUTES),
+      },
+      {
+        path: 'estructuras',
+        canActivate: [permissionGuard],
+        data: { permission: 'ESTRUCTURAS_CONSULTAR' },
+        loadChildren: () => import('@features/catalogs/structures/structures.routes').then((routes) => routes.STRUCTURES_ROUTES),
+      },
+      {
+        path: 'catalogos',
+        canActivate: [permissionGuard],
+        data: { permissions: ['CATALOGOS_AUX_CONSULTAR', 'MATERIALES_CARGAR', 'PRODUCTOS_CARGAR', 'CLIENTES_CARGAR', 'PROVEEDORES_CARGAR', 'AGENTES_CARGAR'] },
+        loadChildren: () => import('@features/catalogs/auxiliary/auxiliary.routes').then((routes) => routes.AUXILIARY_CATALOGS_ROUTES),
+      },
+      {
+        path: 'operaciones',
+        canActivate: [permissionGuard],
+        data: { permission: 'OPERACIONES_CONSULTAR' },
+        loadChildren: () => import('@features/operations/operations.routes').then((routes) => routes.OPERATIONS_ROUTES),
+      },
+      {
+        path: 'actividades',
+        canActivate: [permissionGuard],
+        data: { permission: 'PERFILES_ADMINISTRAR' },
+        loadChildren: () => import('@features/administration/activities/activities.routes').then((routes) => routes.ACTIVITIES_ROUTES),
+      },
+      {
+        path: 'perfiles',
+        canActivate: [permissionGuard],
+        data: { permission: 'PERFILES_ADMINISTRAR' },
+        loadChildren: () => import('@features/administration/profiles/profiles.routes').then((routes) => routes.PROFILES_ROUTES),
+      },
+      {
+        path: 'usuarios',
+        canActivate: [permissionGuard],
+        data: { permission: 'USUARIOS_ADMINISTRAR' },
+        loadChildren: () => import('@features/administration/users/users.routes').then((routes) => routes.USERS_ROUTES),
+      },
+      {
+        path: 'bitacora',
+        canActivate: [permissionGuard],
+        data: { permission: 'BITACORA_CONSULTAR' },
+        loadChildren: () => import('@features/administration/audit-log/audit-log.routes').then((routes) => routes.AUDIT_LOG_ROUTES),
+      },
+      {
+        path: 'reportes',
+        canActivate: [permissionGuard],
+        data: { permission: 'REPORTES_GENERAR' },
+        loadChildren: () => import('@features/reports/reports.routes').then((routes) => routes.REPORTS_ROUTES),
+      },
+      {
+        path: 'facturacion',
+        canActivate: [permissionGuard],
+        data: { permission: 'FACTURACION_CARGAR' },
+        loadChildren: () => import('@features/billing/billing.routes').then((routes) => routes.BILLING_ROUTES),
+      }
+    ],
+  },
+  { path: '**', redirectTo: '' },
 ];

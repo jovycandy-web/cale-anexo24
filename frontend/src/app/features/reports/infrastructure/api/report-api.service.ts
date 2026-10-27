@@ -1,0 +1,80 @@
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { ReportRow, ReportSearchCriteria } from '@features/reports/domain/models/report.model';
+
+interface ReportPageResponseDto {
+  items: ReportRow[];
+  total: number;
+  pagina: number;
+  tamano: number;
+}
+
+/** Adaptador HTTP del contrato V1 de Reportes. */
+@Injectable({ providedIn: 'root' })
+export class ReportApiService {
+  private readonly http = inject(HttpClient);
+
+  search(criteria: ReportSearchCriteria): Observable<ReportPageResponseDto> {
+    if (criteria.type === 'estructuras-legacy') {
+      return this.http
+        .get<ReportRow[]>('/api/v1/reportes/estructuras-legacy', { params: this.params(criteria) })
+        .pipe(map((rows) => ({ items: rows, total: rows.length, pagina: 1, tamano: rows.length })));
+    }
+    return this.http.get<ReportPageResponseDto>(this.url(criteria), { params: this.params(criteria) });
+  }
+
+  export(criteria: ReportSearchCriteria): Observable<Blob> {
+    return this.http.get(`${this.url(criteria)}/exportacion`, { params: this.params(criteria, 100), responseType: 'blob' });
+  }
+
+  private url(criteria: ReportSearchCriteria): string {
+    const path = criteria.type === 'rectificaciones-detalle' ? 'rectificaciones/detalle' : criteria.type === 'compulsa-detalle' ? 'compulsa/detalle' : criteria.type === 'materiales-utilizados' ? 'materiales-utilizados-aduanas' : criteria.type;
+    return `/api/v1/reportes/${path}`;
+  }
+
+  private params(criteria: ReportSearchCriteria, pageSize = criteria.pageSize): HttpParams {
+    if (criteria.type === 'estructuras-legacy') {
+      let legacy = new HttpParams();
+      if (criteria.product.trim()) legacy = legacy.set('producto', criteria.product.trim());
+      if (criteria.material.trim()) legacy = legacy.set('material', criteria.material.trim());
+      return legacy;
+    }
+    let params = new HttpParams()
+      .set('pagina', criteria.page)
+      .set('tamano', pageSize);
+    if (criteria.type !== 'compulsa' && criteria.type !== 'rectificaciones' && criteria.type !== 'vencimientos' && criteria.type !== 'dirigidos' && criteria.type !== 'analisis-descargas' && criteria.type !== 'operaciones-bloqueadas' && criteria.type !== 'f4' && criteria.type !== 'anexo30-revision-entradas' && criteria.type !== 'anexo30-revision-fracciones' && criteria.type !== 'anexo30-revision-descargas' && criteria.type !== 'anexo30-revision-comparativa' && criteria.type !== 'anexo30-revision-inventario-inicial' && criteria.type !== 'rectificaciones-detalle' && criteria.type !== 'compulsa-detalle') {
+      params = params
+        .set('desde', criteria.type === 'bitacora' ? this.startOfDayInstant(criteria.from) : criteria.from)
+        .set('hasta', criteria.type === 'bitacora' ? this.endOfDayInstant(criteria.to) : criteria.to);
+    }
+
+    const optional = criteria.type === 'compulsa' || criteria.type === 'rectificaciones' || criteria.type === 'vencimientos' || criteria.type === 'dirigidos' || criteria.type === 'analisis-descargas' || criteria.type === 'operaciones-bloqueadas' || criteria.type === 'f4' || criteria.type === 'anexo30-revision-entradas' || criteria.type === 'anexo30-revision-fracciones' || criteria.type === 'anexo30-revision-descargas' || criteria.type === 'anexo30-revision-comparativa' || criteria.type === 'anexo30-revision-inventario-inicial' || criteria.type === 'rectificaciones-detalle' || criteria.type === 'compulsa-detalle'
+      ? { filtro: criteria.filter }
+      : criteria.type === 'materiales-utilizados'
+      ? { material: criteria.material, producto: criteria.product, pedimentoImportacion: criteria.customsDocument, pedimentoExportacion: criteria.partNumber }
+      : criteria.type === 'bitacora'
+        ? { usuarioId: criteria.userId?.toString() ?? '', modulo: criteria.module, resultado: criteria.result, correlationId: criteria.correlationId }
+        : criteria.type === 'saldos'
+        ? { documento: criteria.customsDocument }
+        : { pedimento: criteria.customsDocument, clavePedimento: criteria.customsCode, fraccion: criteria.tariffFraction, numeroParte: criteria.partNumber };
+
+    for (const [name, value] of Object.entries(optional)) {
+      if (value.trim()) params = params.set(name, value.trim());
+    }
+    return params;
+  }
+
+  private startOfDayInstant(date: string): string {
+    return this.localInstant(date, 0, 0, 0, 0);
+  }
+
+  private endOfDayInstant(date: string): string {
+    return this.localInstant(date, 23, 59, 59, 999);
+  }
+
+  private localInstant(date: string, hours: number, minutes: number, seconds: number, milliseconds: number): string {
+    const [year, month, day] = date.split('-').map(Number);
+    return new Date(year, month - 1, day, hours, minutes, seconds, milliseconds).toISOString();
+  }
+}

@@ -1,0 +1,126 @@
+package com.jovycandy.anexo24.operations.pediments;
+
+import com.jovycandy.anexo24.operations.pediments.application.command.ExcelPedimentoParser;
+import com.jovycandy.anexo24.operations.pediments.domain.model.CargaPedimentoArchivo;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.junit.jupiter.api.Test;
+
+import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/** Pruebas de parser sin documentos empresariales ni base real. */
+class ExcelPedimentoParserTest {
+    private final ExcelPedimentoParser parser = new ExcelPedimentoParser();
+
+    @Test
+    void aceptaFilaConfirmadaYCanonizaDecimalFecha() throws Exception {
+        byte[] workbook = workbook(List.of("Aduana", "Patente", "NumeroPedimento", "ClavePedimento", "TipoOperacion",
+                "FechaPago", "Sec", "Clave", "Descripcion", "Fraccion", "CantidadComercial", "UnidadComercial"),
+                List.of("190", "3302", "5003971", "A1", "1", "2026-05-28", "1", "MAT-1", "Material sintético", "17019999", "12.50", "KG"));
+
+        CargaPedimentoArchivo result = parser.parsear("sintetico.xlsx", "a".repeat(64), workbook);
+
+        assertEquals(1, result.totalFilas());
+        assertEquals(1, result.filasValidas());
+        assertTrue(result.errores().isEmpty());
+        assertEquals("12.50", result.filas().getFirst().datos().get("CantidadComercial"));
+        assertEquals("2026-05-28", result.filas().getFirst().datos().get("FechaPago"));
+        assertEquals(new BigDecimal("12.50"), new BigDecimal(result.filas().getFirst().datos().get("CantidadComercial")));
+    }
+
+    @Test
+    void conservaOperacionExportacionSinCrearStagingParalelo() throws Exception {
+        byte[] workbook = workbook(List.of("Aduana", "Patente", "NumeroPedimento", "ClavePedimento", "TipoOperacion",
+                "FechaPago", "Sec", "Clave", "Descripcion", "Fraccion", "CantidadComercial", "UnidadComercial"),
+                List.of("190", "3302", "5003972", "A1", "2", "2026-05-28", "1", "PROD-1", "Producto sintético", "17019999", "12.50", "KG"));
+
+        CargaPedimentoArchivo result = parser.parsear("exportacion-sintetica.xlsx", "c".repeat(64), workbook);
+
+        assertEquals(1, result.totalFilas());
+        assertEquals("2", result.filas().getFirst().datos().get("TipoOperacion"));
+        assertTrue(result.errores().isEmpty());
+    }
+
+    @Test
+    void reportaHeaderFaltanteYFechaInvalidaSinGuardarValor() throws Exception {
+        byte[] workbook = workbook(List.of("Aduana", "Patente", "NumeroPedimento", "ClavePedimento", "TipoOperacion",
+                "FechaPago", "Sec", "Clave", "Descripcion", "Fraccion", "CantidadComercial"),
+                List.of("190", "3302", "5003971", "A1", "1", "fecha-no-valida", "1", "MAT-1", "Material", "17019999", "0"));
+
+        CargaPedimentoArchivo result = parser.parsear("invalido.xlsx", "b".repeat(64), workbook);
+
+        assertEquals(1, result.totalFilas());
+        assertEquals(0, result.filasValidas());
+        assertTrue(result.errores().stream().anyMatch(error -> "COLUMNA_OBLIGATORIA_AUSENTE".equals(error.codigo())));
+        assertTrue(result.errores().stream().anyMatch(error -> "TIPO_INVALIDO".equals(error.codigo()) || "FECHA_INVALIDA".equals(error.codigo())));
+        assertTrue(result.errores().stream().allMatch(error -> "no almacenado".equals(error.valorEnmascarado())));
+    }
+
+    @Test
+    void canonizaCamposFiscalesV2() throws Exception {
+        byte[] workbook = workbook(List.of("Aduana", "Patente", "NumeroPedimento", "ClavePedimento", "TipoOperacion",
+                "FechaPago", "Sec", "Clave", "Descripcion", "Fraccion", "CantidadComercial", "UnidadComercial",
+                "IGIE", "IVA", "DTA", "PREV", "TIPOTASAIGIE"),
+                List.of("190", "3302", "5003971", "A1", "1", "2026-05-28", "1", "MAT-1", "Material", "17019999", "12.50", "KG",
+                        "1.2500", "0", "3.50", "0.75", "  TASA-GENERAL  "));
+
+        CargaPedimentoArchivo result = parser.parsear("fiscal-v2.xlsx", "d".repeat(64), workbook);
+
+        assertTrue(result.errores().isEmpty());
+        assertEquals("1.2500", result.filas().getFirst().datos().get("IGIE"));
+        assertEquals("0", result.filas().getFirst().datos().get("IVA"));
+        assertEquals("3.50", result.filas().getFirst().datos().get("DTA"));
+        assertEquals("0.75", result.filas().getFirst().datos().get("PREV"));
+        assertEquals("TASA-GENERAL", result.filas().getFirst().datos().get("TIPOTASAIGIE"));
+        assertEquals(ExcelPedimentoParser.VERSION_CONTRATO, result.versionPlantilla());
+    }
+
+    @Test
+    void fiscalVacioNoSeConvierteEnCeroYDecimalInvalidoSeReporta() throws Exception {
+        byte[] workbook = workbook(List.of("Aduana", "Patente", "NumeroPedimento", "ClavePedimento", "TipoOperacion",
+                "FechaPago", "Sec", "Clave", "Descripcion", "Fraccion", "CantidadComercial", "UnidadComercial",
+                "IGIE", "IVA", "DTA", "PREV", "TIPOTASAIGIE"),
+                List.of("190", "3302", "5003971", "A1", "1", "2026-05-28", "1", "MAT-1", "Material", "17019999", "12.50", "KG",
+                        "", "", "no-decimal", "", ""));
+
+        CargaPedimentoArchivo result = parser.parsear("fiscal-v2-invalido.xlsx", "e".repeat(64), workbook);
+
+        assertEquals(0, result.filasValidas());
+        // Blank fiscal queda null (propiedad omitida), no cero ni cadena vacía.
+        assertNull(result.filas().getFirst().datos().get("IGIE"));
+        assertNull(result.filas().getFirst().datos().get("IVA"));
+        assertNull(result.filas().getFirst().datos().get("PREV"));
+        assertNull(result.filas().getFirst().datos().get("TIPOTASAIGIE"));
+        assertTrue(result.errores().stream().anyMatch(error -> "DTA".equals(error.columna())));
+    }
+
+    @Test
+    void cargaV1SinCamposFiscalesSigueSiendoLegible() throws Exception {
+        byte[] workbook = workbook(List.of("Aduana", "Patente", "NumeroPedimento", "ClavePedimento", "TipoOperacion",
+                "FechaPago", "Sec", "Clave", "Descripcion", "Fraccion", "CantidadComercial", "UnidadComercial"),
+                List.of("190", "3302", "5003971", "A1", "1", "2026-05-28", "1", "MAT-1", "Material", "17019999", "12.50", "KG"));
+
+        CargaPedimentoArchivo result = parser.parsear("v1.xlsx", "f".repeat(64), workbook);
+
+        assertEquals(1, result.filasValidas());
+        assertTrue(result.errores().isEmpty());
+        assertNull(result.filas().getFirst().datos().get("IGIE"));
+    }
+
+    private byte[] workbook(List<String> headers, List<String> values) throws Exception {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet("PEDIMENTOS");
+            var header = sheet.createRow(0);
+            for (int i = 0; i < headers.size(); i++) header.createCell(i).setCellValue(headers.get(i));
+            var row = sheet.createRow(1);
+            for (int i = 0; i < values.size(); i++) row.createCell(i).setCellValue(values.get(i));
+            workbook.write(output);
+            return output.toByteArray();
+        }
+    }
+}

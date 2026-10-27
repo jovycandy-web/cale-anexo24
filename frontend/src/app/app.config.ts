@@ -1,15 +1,65 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
-import { authInterceptor } from './auth/auth.interceptor';
+import { apiPrefixInterceptor } from './core/interceptors/api-prefix.interceptor';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { MaterialRepository } from '@features/catalogs/materials/domain/repositories/material.repository';
+import { HttpMaterialRepository } from '@features/catalogs/materials/infrastructure/repositories/http-material.repository';
+import { ProductRepository } from '@features/catalogs/products/domain/repositories/product.repository';
+import { HttpProductRepository } from '@features/catalogs/products/infrastructure/repositories/http-product.repository';
+import { StructureRepository } from '@features/catalogs/structures/domain/repositories/structure.repository';
+import { HttpStructureRepository } from '@features/catalogs/structures/infrastructure/repositories/http-structure.repository';
+import { AuxiliaryCatalogRepository } from '@features/catalogs/auxiliary/domain/repositories/auxiliary-catalog.repository';
+import { HttpAuxiliaryCatalogRepository } from '@features/catalogs/auxiliary/infrastructure/repositories/http-auxiliary-catalog.repository';
+import { EntryRepository } from '@features/operations/entries/domain/repositories/entry.repository';
+import { HttpEntryRepository } from '@features/operations/entries/infrastructure/repositories/http-entry.repository';
+import { ExitRepository } from '@features/operations/exits/domain/repositories/exit.repository';
+import { HttpExitRepository } from '@features/operations/exits/infrastructure/repositories/http-exit.repository';
+import { UsedMaterialRepository } from '@features/operations/usedmaterials/domain/repositories/used-material.repository';
+import { HttpUsedMaterialRepository } from '@features/operations/usedmaterials/infrastructure/repositories/http-used-material.repository';
+import { FixedAssetRepository } from '@features/operations/fixed-assets/domain/repositories/fixed-asset.repository';
+import { HttpFixedAssetRepository } from '@features/operations/fixed-assets/infrastructure/repositories/http-fixed-asset.repository';
+import { PedimentRepository } from '@features/operations/pediments/domain/repositories/pediment.repository';
+import { HttpPedimentRepository } from '@features/operations/pediments/infrastructure/repositories/http-pediment.repository';
+import { ActaImportRepository } from '@features/operations/actas/domain/repositories/acta-import.repository';
+import { HttpActaImportRepository } from '@features/operations/actas/infrastructure/repositories/http-acta-import.repository';
+import { ConstanciaImportRepository } from '@features/operations/constancias/domain/repositories/constancia-import.repository';
+import { HttpConstanciaImportRepository } from '@features/operations/constancias/infrastructure/repositories/http-constancia-import.repository';
+import { CatalogImportRepository } from '@features/catalogs/imports/domain/repositories/catalog-import.repository';
+import { HttpCatalogImportRepository } from '@features/catalogs/imports/infrastructure/repositories/http-catalog-import.repository';
+import { AuditLogRepository } from '@features/administration/audit-log/domain/repositories/audit-log.repository';
+import { HttpAuditLogRepository } from '@features/administration/audit-log/infrastructure/repositories/http-audit-log.repository';
+import { ReportRepository } from '@features/reports/domain/repositories/report.repository';
+import { HttpReportRepository } from '@features/reports/infrastructure/repositories/http-report.repository';
+import { BillingRepository } from '@features/billing/domain/repositories/billing.repository';
+import { HttpBillingRepository } from '@features/billing/infrastructure/repositories/http-billing.repository';
+import { catchError, firstValueFrom, of } from 'rxjs';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([apiPrefixInterceptor, authInterceptor])),
+    provideAppInitializer(() => firstValueFrom(
+      inject(HttpClient).get('/api/v1/auth/csrf').pipe(catchError(() => of(null))),
+    )),
     provideAnimationsAsync(),
+    { provide: MaterialRepository, useClass: HttpMaterialRepository },
+    { provide: ProductRepository, useClass: HttpProductRepository },
+    { provide: StructureRepository, useClass: HttpStructureRepository },
+    { provide: AuxiliaryCatalogRepository, useClass: HttpAuxiliaryCatalogRepository },
+    { provide: EntryRepository, useClass: HttpEntryRepository },
+    { provide: ExitRepository, useClass: HttpExitRepository },
+    { provide: UsedMaterialRepository, useClass: HttpUsedMaterialRepository },
+    { provide: FixedAssetRepository, useClass: HttpFixedAssetRepository },
+    { provide: PedimentRepository, useClass: HttpPedimentRepository },
+    { provide: ActaImportRepository, useClass: HttpActaImportRepository },
+    { provide: ConstanciaImportRepository, useClass: HttpConstanciaImportRepository },
+    { provide: CatalogImportRepository, useClass: HttpCatalogImportRepository },
+    { provide: AuditLogRepository, useClass: HttpAuditLogRepository },
+    { provide: ReportRepository, useClass: HttpReportRepository },
+    { provide: BillingRepository, useClass: HttpBillingRepository },
   ],
 };

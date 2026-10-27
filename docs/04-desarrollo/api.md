@@ -1,6 +1,7 @@
-# API REST propuesta
+# API REST
 
-**Base:** `/api/v1` · **Formato:** JSON UTF-8 · **Seguridad:** Bearer token y autorización por permiso · **Errores:** `{ code, message, correlationId, details? }`.
+**Base:** `/api/v1` · **Formato:** JSON UTF-8 · **Seguridad:** Bearer token y
+autorización por permiso · **Errores:** `{ code, message, correlationId, details? }`.
 
 | Método | Ruta | Función | Permiso |
 |---|---|---|---|
@@ -10,8 +11,304 @@
 | GET | `/operaciones/{tipo}` | Consulta entradas, salidas, consumo o activo fijo por rango. | Permiso del módulo |
 | GET | `/reportes/{tipo}` | Genera datos de reporte por rango. | `REPORTES_GENERAR` |
 | GET | `/reportes/{tipo}/exportacion` | Exporta reporte con resultados. | `REPORTES_EXPORTAR` |
+| GET | `/reportes/estructuras-legacy` | Informe legacy de estructuras (`dbo.PR_INFORME_ESTRUCTURAS`), sin paginación. | `REPORTES_GENERAR` |
+| GET | `/reportes/estructuras-legacy/exportacion` | Exporta el informe legacy de estructuras a XLSX. | `REPORTES_EXPORTAR` |
 | POST | `/facturacion/cargas` | Valida archivo y crea lote no persistido. | `FACTURACION_CARGAR` |
 | POST | `/facturacion/cargas/{id}/confirmar` | Guarda lote validado. | `FACTURACION_GUARDAR` |
-| GET | `/bitacora` | Consulta eventos filtrables. | `BITACORA_CONSULTAR` |
+| GET | `/bitacora` | Consulta read-only paginada con rango UTC obligatorio (`desde`/`hasta`), filtros `usuarioId`, `modulo`, `resultado`, `correlationId` y orden `fecha DESC, id DESC`. | `BITACORA_CONSULTAR` |
+| GET | `/administracion/usuarios` | Lista usuarios paginados. | `USUARIOS_ADMINISTRAR` |
+| GET | `/administracion/usuarios/{id}` | Obtiene el detalle sin secretos de un usuario. | `USUARIOS_ADMINISTRAR` |
+| POST | `/administracion/usuarios` | Crea un usuario activo, registra auditoría y devuelve `201 Created`. | `USUARIOS_ADMINISTRAR` |
+| PUT | `/administracion/usuarios/{id}` | Modifica exclusivamente `nombre` y `correo`; registra auditoría. | `USUARIOS_ADMINISTRAR` |
+| PATCH | `/administracion/usuarios/{id}/estado` | Cambia el estado del usuario. | `USUARIOS_ADMINISTRAR` |
+| PATCH | `/administracion/usuarios/{id}/perfil` | Cambia el perfil asignado. | `USUARIOS_ADMINISTRAR` |
+| PATCH | `/administracion/usuarios/{id}/vigencia` | Cambia la vigencia o la elimina. | `USUARIOS_ADMINISTRAR` |
+| POST | `/administracion/usuarios/{id}/password` | Restablece la contraseña y responde `204 No Content`. | `USUARIOS_ADMINISTRAR` |
+| GET | `/administracion/perfiles` | Lista perfiles paginados para el catálogo administrativo. | `USUARIOS_ADMINISTRAR` o `PERFILES_ADMINISTRAR` |
+| POST | `/administracion/perfiles` | Crea un perfil activo sin permisos implícitos. | `PERFILES_ADMINISTRAR` |
+| PUT | `/administracion/perfiles/{id}` | Modifica exclusivamente el nombre del perfil. | `PERFILES_ADMINISTRAR` |
+| PATCH | `/administracion/perfiles/{id}/estado` | Activa o inactiva un perfil con guardrail administrativo. | `PERFILES_ADMINISTRAR` |
+| GET | `/administracion/perfiles/{id}/permisos` | Consulta las actividades asignadas al perfil. | `PERFILES_ADMINISTRAR` |
+| PUT | `/administracion/perfiles/{id}/permisos` | Reemplaza atómicamente el conjunto de actividades. | `PERFILES_ADMINISTRAR` |
+| GET | `/administracion/actividades` | Lista el catálogo técnico de actividades. | `PERFILES_ADMINISTRAR` |
 
-Los endpoints de administración siguen `/usuarios`, `/perfiles` y `/actividades`; aplican validación de esquema, paginación y bitácora. Los nombres de procedimientos detrás de la API se mantienen internos.
+## Administración de usuarios — Fase 3A
+
+Las rutas de usuarios están protegidas por `USUARIOS_ADMINISTRAR`.
+Fases 3A, 3B y 3C están implementadas e integradas en DEV mediante commands SP
+atómicos. Fase 3C también está validada LIVE. Runtime está
+READY: `app24_runtime` provisionado, membership correcta, 19 EXECUTE específicos,
+cero grants directos de tablas y ownership chain compatible.
+
+### `GET /administracion/usuarios`
+
+Lista paginada con filtros `clave` (exacto), `nombre` (parcial con comodines
+escapados), `correo` (exacto), `estado` (`ACTIVO` o `INACTIVO`) y `perfilId`
+(exacto). El orden es `clave ASC, id ASC`.
+
+### `GET /administracion/usuarios/{id}`
+
+Devuelve los datos administrativos y el perfil asignado. Nunca expone
+`password`, `passwordHash` ni otros secretos.
+
+### `POST /administracion/usuarios`
+
+Recibe `clave`, `nombre`, `correo`, `password`, `perfilId` y opcionalmente
+`vigencia`. El usuario se crea en estado `ACTIVO`, con un perfil existente y
+activo; `clave` y `correo` son únicos.
+
+La contraseña debe tener **entre 10 y 50 caracteres**, e incluir al menos una
+**mayúscula**, un **número** y un **carácter especial**. Se persiste únicamente
+su hash BCrypt; la contraseña y el hash nunca se devuelven ni se registran en
+la bitácora.
+
+### `PUT /administracion/usuarios/{id}`
+
+Solo admite la actualización de `nombre` y `correo`. La clave, el estado, el
+perfil, la vigencia y la contraseña no se modifican por esta ruta ni forman
+parte de Fase 3A.
+
+Los commands de creación y edición invocan Stored Procedures app24; el usuario
+y evento de bitácora se escriben en una única transacción mediante
+`appTransactionManager`. La contraseña en claro nunca llega a SQL: sólo BCrypt.
+
+## Administración de usuarios — Fase 3B
+
+Fase 3B está implementada en repositorio y sus commands fueron validados con
+pruebas LIVE sintéticas reversibles. Las mutaciones usan `appTransactionManager`
+con aislamiento `SERIALIZABLE`; el command SQL preserva al menos un administrador
+efectivo: usuario `ACTIVO`,
+vigencia `null` o `>= LocalDate.now()` de la JVM, perfil `ACTIVO` y permisos
+`USUARIOS_ADMINISTRAR` y `PERFILES_ADMINISTRAR`. No se permite la
+auto-inactivación ni el cambio real del perfil propio; la vigencia propia se
+permite, sujeta a ese guardrail. Los JWT ya emitidos no se revocan y conservan
+sus autoridades hasta expirar.
+
+### `PATCH /administracion/usuarios/{id}/estado`
+
+Recibe `{ "estado": "ACTIVO" | "INACTIVO" }`. Cambia únicamente el estado;
+rechaza la auto-inactivación y cualquier resultado que incumpla el guardrail
+administrativo global.
+
+### `PATCH /administracion/usuarios/{id}/perfil`
+
+Recibe `{ "perfilId": number }`. El perfil debe existir y estar `ACTIVO`.
+Rechaza un cambio real del perfil del propio actor y cualquier resultado que
+incumpla el guardrail administrativo global.
+
+### `PATCH /administracion/usuarios/{id}/vigencia`
+
+Recibe `{ "vigencia": "YYYY-MM-DD" }` o `{ "vigencia": null }`. `null`
+elimina el vencimiento; una fecha es válida si es igual o posterior a
+`LocalDate.now()` de la JVM. La modificación de la vigencia propia se permite,
+pero debe conservar el guardrail administrativo global.
+
+## Administración de usuarios — Fase 3C
+
+### `POST /administracion/usuarios/{id}/password`
+
+Recibe `{ "password": "..." }` y responde `204 No Content`. Requiere
+`USUARIOS_ADMINISTRAR`; permite reset propio, de usuario inactivo o vencido. La
+política compartida exige 10..50 caracteres, una mayúscula, un número y un
+carácter especial. BCrypt se ejecuta en Java y sólo `password_hash` llega a
+`APP24_C_USUARIO_RESTABLECER_PASSWORD`.
+
+El update y `USUARIO_PASSWORD_RESTABLECIDA` comparten `appTransactionManager`;
+si falla Bitácora, todo revierte. El detalle contiene únicamente
+`usuarioObjetivoId`. No cambia estado, vigencia, perfil, clave o permisos; no
+revoca JWT existentes ni agrega `must_change_password` o historial.
+
+## Administración de perfiles — Fases 5A–5D
+
+F5B tiene el diseño cerrado. F5C está implementada y validada LIVE: desplegó
+seis SP `app24`, mantiene 19 grants `EXECUTE` específicos para SP `app24` y cero
+grants directos sobre tablas. Las operaciones mutables usan
+`appTransactionManager` con aislamiento `SERIALIZABLE`; los SP usan
+`SET XACT_ABORT ON`, `UPDLOCK` y `HOLDLOCK` donde requiere el guardrail, y el
+cambio de negocio y la Bitácora comparten la misma transacción.
+
+La validación sintética LIVE se ejecutó con rollback y no dejó filas persistentes.
+No se ejecutó la operación destructiva que dejaría sin el último administrador
+efectivo; no se declara esa prueba como realizada.
+
+### `GET /administracion/perfiles`
+
+Endpoint read-only para el catálogo de perfiles. Requiere
+`hasAnyAuthority('USUARIOS_ADMINISTRAR', 'PERFILES_ADMINISTRAR')`: ambos permisos
+pueden consultar el catálogo, pues es dependencia de las operaciones de usuarios.
+Los endpoints de escritura de perfiles requieren exclusivamente
+`PERFILES_ADMINISTRAR`.
+
+Acepta `nombre` como filtro parcial con comodines escapados, `estado`
+(`ACTIVO` o `INACTIVO`), `pagina` (default `1`) y `tamano` (default `20`, máximo
+`100`). El orden estable es `nombre ASC, id ASC`. Cada elemento de la página expone
+`id`, `nombre`, `estado` y `cantidadPermisos`.
+
+La consulta se resuelve mediante `APP24_Q_PERFILES_LISTAR`, clasificado como
+`READ_ONLY`; no genera bitácora ni realiza DML.
+
+### Commands y consultas F5C
+
+`POST /administracion/perfiles` recibe `{ "nombre": "..." }`, crea un perfil
+`ACTIVO` sin permisos implícitos y responde `201 Created`. `PUT
+/administracion/perfiles/{id}` recibe el mismo cuerpo y sólo cambia el nombre.
+
+`PATCH /administracion/perfiles/{id}/estado` recibe `{ "estado": "ACTIVO" |
+"INACTIVO" }`. Al inactivar, preserva al menos un administrador efectivo:
+usuario `ACTIVO`, vigente, perfil `ACTIVO` y ambas autoridades
+`USUARIOS_ADMINISTRAR` y `PERFILES_ADMINISTRAR`.
+
+`GET /administracion/perfiles/{id}/permisos` devuelve `{ perfilId, permisos }`;
+las actividades se ordenan `clave ASC, id ASC`. `PUT
+/administracion/perfiles/{id}/permisos` recibe `{ "actividadIds": [...] }` y
+reemplaza el conjunto completo de forma atómica. IDs deben ser positivos,
+únicos y existentes; un conjunto vacío es válido si conserva el guardrail.
+
+`GET /administracion/actividades` devuelve el catálogo read-only completo con
+`id`, `clave`, `nombre`, `recurso` y `accion`, ordenado `clave ASC, id ASC`, sin
+paginación. No hay CRUD de Actividad en V1 y `ACTIVIDADES_ADMINISTRAR` permanece
+reservado.
+
+Todos estos endpoints requieren exclusivamente `PERFILES_ADMINISTRAR`. Los
+commands registran, sólo al tener éxito, `PERFIL_CREADO`,
+`PERFIL_ACTUALIZADO`, `PERFIL_ESTADO_CAMBIADO` o
+`PERFIL_PERMISOS_CAMBIADOS`; el detalle nunca contiene JWT, cabeceras,
+credenciales, SQL ni trazas.
+
+### Frontend F5D
+
+La pantalla `/perfiles`, protegida por `PERFILES_ADMINISTRAR`, consume únicamente
+los endpoints anteriores: listado paginado (carga multipágina), catálogo de
+actividades, permisos actuales, creación, cambio de nombre/estado y reemplazo
+total. El catálogo y permisos son de sólo lectura; se evita el PUT si el conjunto
+final no cambió. Los errores usan el traductor seguro existente. F5D no agrega
+contratos backend, SP ni permisos.
+
+**Validación runtime F5D:** el operador validó manualmente que Administración →
+Perfiles abre y carga listado, actividades y permisos; los HTTP 500 observados
+antes no se reprodujeron en esa sesión. Esta evidencia es del operador; no se
+realizó reproducción autenticada independiente por el agente. El vertical
+F5C/F5D quedó integrado en `dev` mediante fast-forward al SHA
+`1c0ce3ed83b86975f47d4486d658dc279d61ba40`.
+
+## Bitácora de Administración
+
+Las acciones disponibles incluyen `LOGIN_OK`, `LOGIN_FALLIDO`,
+`USUARIO_CREADO`, `USUARIO_ACTUALIZADO`, `USUARIO_ESTADO_CAMBIADO`,
+`USUARIO_PERFIL_CAMBIADO`, `USUARIO_VIGENCIA_CAMBIADA` y
+`USUARIO_PASSWORD_RESTABLECIDA`, `PERFIL_CREADO`, `PERFIL_ACTUALIZADO`,
+`PERFIL_ESTADO_CAMBIADO` y `PERFIL_PERMISOS_CAMBIADOS`. El detalle de los eventos
+no contiene contraseñas, hashes, JWT ni cabeceras de autorización.
+
+## Bitácora de reportes
+
+`GET /reportes/{tipo}/exportacion` registra un evento `REPORTE_EXPORTADO`
+(`modulo = REPORTES`, `resultado = EXITO`) sólo cuando el backend generó un
+archivo con contenido. La respuesta `204 No Content` (sin filas), `401` y `403`
+no producen evento. El detalle se limita a `tipoReporte=<identificador>` y
+conserva el `correlationId` de la solicitud (`X-Correlation-Id`).
+
+La consulta paginada `GET /reportes/{tipo}` (generar, filtrar, paginar) **no**
+emite eventos de negocio: el contrato actual no distingue una generación
+explícita de una consulta, por lo que un evento por petición sería falsificable.
+`REPORTE_GENERADO` queda pendiente de un contrato mínimo explícito.
+
+Si la persistencia de Bitácora falla, la exportación responde error y no se
+devuelve el archivo (política fail-closed) hasta que negocio defina si la
+auditoría es obligatoria para lecturas y exportaciones. La misma regla aplica si
+la solicitud no tiene una identidad JWT atribuible: el evento no puede
+registrarse y el archivo no se entrega.
+
+## Catálogo de productos — paridad `SCR-046`
+
+`GET /catalogos/productos` devuelve `items[]` con `id`, `clave`,
+`claveCliente`, `descripcion`, `fraccion`, `unidadComercial`,
+`unidadTarifaria`, `nico`, `tipo`, `auxiliar`, `almacenKey` y `almacen`, más
+`total`, `pagina` y `tamano`. Cualquier campo nullable puede llegar como `null`;
+el frontend lo presenta como `—`.
+
+Parámetros: `filtro` (opcional; búsqueda global server-side sobre clave, código
+de cliente, descripción, fracción, unidades, NICO, tipo, auxiliar, almacén y
+clave de almacén), `pagina` (desde 1) y `tamano` (1–100). El SP
+`dbo.APP24_Q_PRODUCTOS_LISTAR` mantiene el orden `CVE_PRODUCTO ASC,
+PRODUCTOKEY ASC` y calcula `@Total` con el mismo predicado del listado.
+
+`Planta` y `Lista de Materiales` de `SCR-046` no se exponen: no existe columna
+autoritativa ni contrato de relación confirmado. Ver
+`docs/03-diseno/mapeo-productos.md`.
+
+## Catálogo de materiales — paridad parcial `SCR-084`
+
+`GET /catalogos/materiales` devuelve `items[]` con `materialkey`, `clave`,
+`claveProveedor`, `descripcion`, `fraccion`, `nico`, `unidad`, `unidadt`,
+`tipom`, `tipomaterial`, `familia`, `almacenKey` y `almacen`, más `total`,
+`pagina` y `tamano`. Los campos nullable pueden llegar como `null` y el frontend
+los presenta como `-`.
+
+Parámetros: `filtro` (opcional; búsqueda global server-side sobre clave, clave de
+proveedor, descripción, fracción, unidades, NICO, tipo, tipo de material,
+familia, almacén y clave de almacén), `pagina` (desde 1) y `tamano` (1–100). El
+SP `dbo.APP24_Q_MATERIALES_LISTAR` conserva firma, validación, orden
+`clave, materialkey` y `@Total` con el mismo predicado del listado.
+
+`tipom` se expone con el valor almacenado: la equivalencia «nacional/importado»
+del grid legacy no está confirmada por negocio. Alcance y pendientes (CRUD,
+filtros avanzados `B-09`, XLSX) en `docs/03-diseno/mapeo-catalogo-materiales.md`.
+
+**Despliegue pendiente y orden obligatorio:** la versión ampliada del SP no está
+aplicada en `CALE_IMMEX`. Debe ejecutarse `CREATE OR ALTER` (con autorización)
+**antes** de desplegar la API: el adaptador consume las 16 columnas del result
+set y con el SP vigente (10 columnas) la consulta falla. Ver
+`docs/03-diseno/mapeo-catalogo-materiales.md`.
+
+## Recursos no expuestos
+
+Actividad permanece como catálogo técnico: no expone `POST`, `PUT`, `PATCH` ni
+`DELETE`. Tampoco existe `DELETE` físico de PerfilApp; la baja es lógica mediante
+el endpoint de estado.
+
+Consumidor frontend de `GET /bitacora`: pantalla read-only en
+`frontend/src/app/features/administration/audit-log` (ruta `/bitacora`, permiso
+`BITACORA_CONSULTAR`).
+
+## Frontend Usuarios — Fases 4A y 4B
+
+**FRONTEND USUARIOS V1 COMPLETO / VALIDADO FRONTEND** en
+`frontend/src/app/features/administration/users`, ruta `/usuarios`, protegida por
+`USUARIOS_ADMINISTRAR`. La UI consume listado, filtros (incluido perfil),
+paginación, alta, detalle, edición de nombre/correo, cambio de estado, cambio de
+perfil, vigencia y reset de contraseña. Suite Angular 22 Vitest/jsdom valida
+contratos HTTP, UI, RBAC y DI route-scoped en MatDialog. No persiste ni muestra
+contraseñas.
+
+Fase 4B consume el catálogo real `GET /api/v1/administracion/perfiles`: perfiles
+activos para alta/cambio y todos los estados para filtro. La UI no solicita
+`perfilId` manual, no hardcodea IDs ni deduce catálogo desde usuarios. No expone
+pantalla ni CRUD de perfiles.
+
+## Activos fijos — filtros por columna (Sprint 06)
+
+`GET /api/v1/operaciones/activos-fijos` mantiene su contrato V1 y agrega
+operadores opcionales por columna. El detalle del modelo, la justificación
+SP-first y las brechas de paridad están en
+`docs/03-diseno/mapeo-activos-fijos.md` (§13).
+
+| Parámetro | Tipo | Valores | Default |
+|---|---|---|---|
+| `pedimentoOp`, `clavePedimentoOp`, `numeroParteOp`, `descripcionOp`, `serieOp`, `marcaOp`, `modeloOp` | string | `EQ`, `NEQ`, `CT`, `SW`, `EW` | `EQ` |
+
+Reglas:
+
+- El operador sólo se aplica cuando su filtro de valor está informado; si el
+  valor está vacío, ambos se ignoran.
+- Un operador fuera del conjunto responde `400 SOLICITUD_INVALIDA`.
+- `desde` y `hasta` siguen siendo obligatorios en pareja y el rango se aplica a
+  `IMPORTACIONES.Fecha`.
+- Permiso: `OPERACIONES_CONSULTAR`. Errores: `400`, `401`, `403`, `503`.
+- No se agregaron campos (`NICO`, UMT, almacén, tipo controlado) porque no
+  tienen fuente demostrada; ver brechas B-06.
+
+Consumidor frontend: `frontend/src/app/features/operations/fixed-assets`. La
+pantalla conserva CSV y agrega XLSX generado en el navegador, sin endpoint de
+exportación nuevo: ambos formatos descargan el conjunto filtrado completo con
+tope de 10,000 registros y conservan los operadores activos.

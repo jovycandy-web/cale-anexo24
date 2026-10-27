@@ -44,8 +44,12 @@ dependencies {
     // OpenAPI / Swagger
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
 
+    // Exportación de reportes
+    implementation("org.apache.poi:poi-ooxml:5.4.1")
+
     // Pruebas
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.security:spring-security-test")
 
     testImplementation("org.testcontainers:testcontainers:1.20.4")
@@ -75,6 +79,11 @@ tasks.named<BootRun>("bootRun") {
 }
 
 tasks.withType<Test> {
-    environment(loadDotEnv())
+    // Los tests deben usar application-test.yml y no depender de credenciales reales.
     useJUnitPlatform()
+    // Evidencia explícita en CI de los tests ejecutados/omitidos (p. ej. concurrencia SQL).
+    testLogging {
+        events("passed", "skipped", "failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }

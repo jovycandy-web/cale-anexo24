@@ -1,0 +1,539 @@
+import { Component, OnInit, ViewChild, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatTableModule } from '@angular/material/table';
+import { EMPTY, catchError, finalize } from 'rxjs';
+import { AuthService } from '@core/auth/auth.service';
+import { userFacingApiError } from '@core/http/api-error.util';
+import { NotificationService } from '@core/notifications/notification.service';
+import { AppAlertComponent } from '@core/ui/app-alert/app-alert.component';
+import { SavedCriteria } from '@features/saved-queries/domain/saved-query.model';
+import { SavedQueriesControlComponent } from '@features/saved-queries/presentation/saved-queries-control.component';
+import { formatLocalDateForApi, formatOperationDate, formatOperationPartida, formatOperationQuantity, formatOperationText } from '@features/operations/shared/operation-formatters';
+import { OperationPeriod, OperationPeriodFilterComponent } from '@features/operations/shared/presentation/operation-period-filter/operation-period-filter.component';
+import { ExportReportUseCase } from '@features/reports/application/use-cases/export-report.use-case';
+import { SearchReportUseCase } from '@features/reports/application/use-cases/search-report.use-case';
+import { ReportRow, ReportSearchCriteria, ReportType } from '@features/reports/domain/models/report.model';
+
+interface ReportOption {
+  type: ReportType | 'saldos';
+  label: string;
+  icon: string;
+  available: boolean;
+}
+
+interface ReportColumn {
+  key: string;
+  label: string;
+  format?: 'date' | 'quantity' | 'partida';
+}
+
+/** Reportes de uso frecuente, en el orden en que se muestran siempre. */
+const PRIMARY_REPORT_TYPES: readonly ReportType[] = ['entradas', 'salidas', 'materiales-utilizados', 'saldos'];
+
+/** Nombres de archivo descriptivos para reportes cuyo tipo resulta ambiguo. */
+const EXPORT_FILENAMES: Partial<Record<ReportType, string>> = {
+  'materiales-utilizados': 'materiales-utilizados-aduanas',
+};
+
+const REPORTS: ReportOption[] = [
+  { type: 'entradas', label: 'Entradas', icon: 'move_to_inbox', available: true },
+  { type: 'salidas', label: 'Salidas', icon: 'outbox', available: true },
+  { type: 'materiales-utilizados', label: 'Materiales utilizados (aduanas)', icon: 'layers', available: true },
+  { type: 'bitacora', label: 'Bitácora', icon: 'manage_search', available: true },
+  { type: 'compulsa', label: 'Compulsa', icon: 'compare_arrows', available: true },
+  { type: 'compulsa-detalle', label: 'Compulsa - detalle', icon: 'difference', available: true },
+  { type: 'rectificaciones', label: 'Rectificaciones', icon: 'rule', available: true },
+  { type: 'rectificaciones-detalle', label: 'Rectificaciones - detalle', icon: 'rule_folder', available: true },
+  { type: 'vencimientos', label: 'Vencimientos de desperdicio', icon: 'event_busy', available: true },
+  { type: 'dirigidos', label: 'Dirigidos', icon: 'alt_route', available: true },
+  { type: 'analisis-descargas', label: 'Análisis de descargas', icon: 'account_tree', available: true },
+  { type: 'operaciones-bloqueadas', label: 'Operaciones bloqueadas', icon: 'block', available: true },
+  { type: 'f4', label: 'F4 (CTM / desperdicio)', icon: 'route', available: true },
+  { type: 'anexo30-revision-entradas', label: 'Revision Anexo 30 - Entradas', icon: 'fact_check', available: true },
+  { type: 'anexo30-revision-fracciones', label: 'Revision Anexo 30 - Fracciones de descarga', icon: 'description', available: true },
+  { type: 'anexo30-revision-descargas', label: 'Revision Anexo 30 - Descargas', icon: 'account_tree', available: true },
+  { type: 'anexo30-revision-comparativa', label: 'Revisi\u00f3n Anexo 30 - Comparativa', icon: 'difference', available: true },
+  { type: 'anexo30-revision-inventario-inicial', label: 'Revisi\u00f3n Anexo 30 - Inventario inicial', icon: 'inventory_2', available: true },
+  { type: 'saldos', label: 'Saldos', icon: 'account_balance_wallet', available: true },
+  { type: 'estructuras-legacy', label: 'Estructuras (legacy)', icon: 'account_tree', available: true },
+];
+
+const COLUMNS: Record<ReportType, ReportColumn[]> = {
+  entradas: [
+    { key: 'pedimento', label: 'Pedimento' }, { key: 'clavePedimento', label: 'Clave' },
+    { key: 'fechaEntrada', label: 'Fecha de entrada', format: 'date' }, { key: 'fraccion', label: 'Fracción' },
+    { key: 'unidadComercial', label: 'UMC' }, { key: 'cantidadComercial', label: 'Cantidad', format: 'quantity' },
+    { key: 'numeroParte', label: 'N° parte' }, { key: 'fechaPago', label: 'Fecha de pago', format: 'date' },
+  ],
+  salidas: [
+    { key: 'pedimento', label: 'Pedimento' }, { key: 'fechaEntrada', label: 'Fecha de entrada', format: 'date' },
+    { key: 'clavePedimento', label: 'Clave del pedimento' },
+    { key: 'fraccion', label: 'Fracción' }, { key: 'unidadComercial', label: 'UMC' },
+    { key: 'cantidad', label: 'Cantidad', format: 'quantity' }, { key: 'numeroParte', label: 'Nº parte' },
+    { key: 'fechaPago', label: 'Fecha de pago', format: 'date' },
+  ],
+  'materiales-utilizados': [
+    { key: 'pedimentoImportacion', label: 'Pedimento impo' },
+    { key: 'fechaPagoImportacion', label: 'Fecha de pago impo', format: 'date' },
+    { key: 'cantidadImportacion', label: 'Cantidad impo', format: 'quantity' },
+    { key: 'fraccionImportacion', label: 'Fracción impo' },
+    { key: 'numeroParteImportacion', label: 'Número de Parte impo' },
+    { key: 'umcImportacion', label: 'UMC impo' },
+    { key: 'descripcionImportacion', label: 'Descripción impo' },
+    { key: 'pedimentoExportacion', label: 'Pedimento expo' },
+    { key: 'fechaPagoExportacion', label: 'Fecha de pago expo', format: 'date' },
+    { key: 'cantidadExportacion', label: 'Cantidad expo', format: 'quantity' },
+    { key: 'fraccionExportacion', label: 'Fracción expo' },
+    { key: 'numeroParteExportacion', label: 'Número de Parte expo' },
+    { key: 'umcExportacion', label: 'UMC expo' },
+    { key: 'descripcionExportacion', label: 'Descripción expo' },
+    { key: 'cantidadUtilizada', label: 'Cantidad material utilizado', format: 'quantity' },
+    { key: 'desperdicio', label: 'Desperdicio de material utilizado', format: 'quantity' },
+    { key: 'merma', label: 'Merma de material utilizado', format: 'quantity' },
+    { key: 'umcUtilizada', label: 'UMC material utilizado expo' },
+  ],
+  bitacora: [
+    { key: 'fecha', label: 'Fecha', format: 'date' }, { key: 'usuario', label: 'Usuario' },
+    { key: 'modulo', label: 'Módulo' }, { key: 'accion', label: 'Acción' }, { key: 'resultado', label: 'Resultado' },
+    { key: 'detalle', label: 'Detalle' }, { key: 'correlationId', label: 'Correlation ID' },
+  ],
+  compulsa: [
+    { key: 'pedimentoGlosa', label: 'Pedimento glosa' }, { key: 'pedimentoAnexo24', label: 'Pedimento Anexo 24' },
+    { key: 'fechaGlosa', label: 'Fecha glosa', format: 'date' }, { key: 'fechaAnexo24', label: 'Fecha Anexo 24', format: 'date' },
+    { key: 'claveGlosa', label: 'Clave glosa' }, { key: 'claveAnexo24', label: 'Clave Anexo 24' },
+    { key: 'fraccionGlosa', label: 'Fracción glosa' }, { key: 'fraccionAnexo24', label: 'Fracción Anexo 24' },
+  ],
+  'compulsa-detalle': [
+    { key: 'pedimentoGlosa', label: 'Pedimento Glosa' }, { key: 'secGlosa', label: 'SEC Glosa' },
+    { key: 'pedimentoA24', label: 'Pedimento A24' }, { key: 'secA24', label: 'SEC A24' },
+    { key: 'clavePedimentoGlosa', label: 'Clave pedimento Glosa' }, { key: 'clavePedimentoA24', label: 'Clave pedimento A24' }, { key: 'statusClavePedimento', label: 'Estado clave' },
+    { key: 'fechaGlosa', label: 'Fecha Glosa', format: 'date' }, { key: 'fechaA24', label: 'Fecha A24', format: 'date' }, { key: 'statusFechas', label: 'Estado fechas' },
+    { key: 'fraccionGlosa', label: 'Fracci\u00f3n Glosa' }, { key: 'fraccionA24', label: 'Fracci\u00f3n A24' }, { key: 'statusFraccion', label: 'Estado fracci\u00f3n' },
+    { key: 'paisOdGlosa', label: 'Pa\u00eds OD Glosa' }, { key: 'paisOdA24', label: 'Pa\u00eds OD A24' }, { key: 'statusPaisOd', label: 'Estado pa\u00eds OD' },
+    { key: 'paisCvGlosa', label: 'Pa\u00eds CV Glosa' }, { key: 'paisCvA24', label: 'Pa\u00eds CV A24' }, { key: 'statusPaisCv', label: 'Estado pa\u00eds CV' },
+    { key: 'valorAduanaGlosa', label: 'Valor aduana Glosa', format: 'quantity' }, { key: 'valorAduanaA24', label: 'Valor aduana A24', format: 'quantity' }, { key: 'statusValorAduana', label: 'Estado valor aduana' },
+    { key: 'valorComercialGlosa', label: 'Valor comercial Glosa', format: 'quantity' }, { key: 'valorComercialA24', label: 'Valor comercial A24', format: 'quantity' }, { key: 'statusValorComercial', label: 'Estado valor comercial' },
+    { key: 'cantidadUmcGlosa', label: 'Cantidad UMC Glosa', format: 'quantity' }, { key: 'cantidadUmcA24', label: 'Cantidad UMC A24', format: 'quantity' }, { key: 'statusCantidadComercial', label: 'Estado cantidad comercial' },
+    { key: 'cantidadUmtGlosa', label: 'Cantidad UMT Glosa', format: 'quantity' }, { key: 'cantidadUmtA24', label: 'Cantidad UMT A24', format: 'quantity' }, { key: 'statusCantidadTarifa', label: 'Estado cantidad tarifa' },
+    { key: 'tipoOperacionGlosa', label: 'Tipo operaci\u00f3n Glosa' }, { key: 'tipoPedimentoGlosa', label: 'Tipo pedimento Glosa' },
+  ],
+  rectificaciones: [
+    { key: 'pedimento', label: 'Pedimento' }, { key: 'total', label: 'Rectificaciones', format: 'quantity' },
+  ],
+  'rectificaciones-detalle': [
+    { key: 'pedimento', label: 'Pedimento' }, { key: 'clavePedimento', label: 'Clave pedimento' },
+    { key: 'descarga', label: 'Descarga' }, { key: 'pedimentoOriginal', label: 'Pedimento original' },
+    { key: 'existePedimento', label: 'Existe pedimento' }, { key: 'clavePedimentoOriginal', label: 'Clave pedimento original' },
+    { key: 'descargaOriginal', label: 'Descarga original' }, { key: 'status', label: 'Estado' },
+  ],
+  vencimientos: [
+    { key: 'pedimento', label: 'Pedimento' }, { key: 'fechaBase', label: 'Fecha base', format: 'date' },
+    { key: 'clavePedimento', label: 'Clave pedimento' }, { key: 'clave', label: 'Clave' },
+    { key: 'desperdicio', label: 'Desperdicio', format: 'quantity' },
+    { key: 'aplicado', label: 'Aplicado', format: 'quantity' },
+    { key: 'factura', label: 'Factura' }, { key: 'vencimiento', label: 'Vencimiento', format: 'date' },
+  ],
+  dirigidos: [
+    { key: 'documento', label: 'Documento' }, { key: 'fechaSalida', label: 'Fecha salida', format: 'date' },
+    { key: 'clavePedimento', label: 'Clave pedimento' }, { key: 'producto', label: 'Producto' },
+    { key: 'cantidad', label: 'Cantidad', format: 'quantity' }, { key: 'factura', label: 'Factura' },
+    { key: 'descargo', label: 'Descargo' }, { key: 'dirigido', label: 'Dirigido' },
+  ],
+  'analisis-descargas': [
+    { key: 'pedimentoEntrada', label: 'Pedimento entrada' }, { key: 'partidaEntrada', label: 'Partida entrada', format: 'partida' },
+    { key: 'pedimentoSalida', label: 'Pedimento salida' }, { key: 'partidaSalida', label: 'Partida salida', format: 'partida' },
+    { key: 'material', label: 'Material' }, { key: 'producto', label: 'Producto' },
+    { key: 'fechaSalida', label: 'Fecha salida', format: 'date' }, { key: 'fechaVencimiento', label: 'Vencimiento', format: 'date' },
+    { key: 'cantidadIncorporada', label: 'Incorporada', format: 'quantity' },
+    { key: 'cantidadMerma', label: 'Merma', format: 'quantity' },
+    { key: 'cantidadDesperdicio', label: 'Desperdicio', format: 'quantity' },
+    { key: 'unidad', label: 'Unidad' },
+  ],
+  'operaciones-bloqueadas': [
+    { key: 'fechaBloqueo', label: 'Fecha bloqueo', format: 'date' },
+    { key: 'pedimentoExportacion', label: 'Pedimento exportación' }, { key: 'claveExportacion', label: 'Clave exportación' },
+    { key: 'producto', label: 'Producto' }, { key: 'cantidadProducto', label: 'Cantidad producto', format: 'quantity' },
+    { key: 'pedimentoImportacion', label: 'Pedimento importación' }, { key: 'material', label: 'Material' },
+    { key: 'cantidadMaterial', label: 'Cantidad material', format: 'quantity' },
+    { key: 'incorporado', label: 'Incorporado', format: 'quantity' },
+    { key: 'desperdicio', label: 'Desperdicio', format: 'quantity' },
+    { key: 'merma', label: 'Merma', format: 'quantity' }, { key: 'folio', label: 'Folio' },
+  ],
+  f4: [
+    { key: 'tipoDescarga', label: 'Tipo descarga' }, { key: 'f4', label: 'F4' },
+    { key: 'fecha', label: 'Fecha', format: 'date' }, { key: 'importacion', label: 'Importación' },
+    { key: 'clave', label: 'Clave' }, { key: 'incorporado', label: 'Incorporado', format: 'quantity' },
+    { key: 'saldo', label: 'Saldo', format: 'quantity' },
+  ],
+  saldos: [
+    { key: 'documento', label: 'Pedimento de importación' },
+    { key: 'fraccion', label: 'Fracción' },
+    { key: 'saldo', label: 'Cantidad', format: 'quantity' },
+    { key: 'clave', label: 'Número de Parte' },
+  ],
+  'anexo30-revision-fracciones': [
+    { key: 'tipo', label: 'Tipo' }, { key: 'clavePedimento', label: 'Clave pedimento' }, { key: 'ejercicio', label: 'Ejercicio' }, { key: 'periodo', label: 'Periodo' }, { key: 'fraccion', label: 'Fracción' }, { key: 'valor', label: 'Valor', format: 'quantity' }, { key: 'af', label: 'AF' }, { key: 'archivo', label: 'Archivo' },
+  ],
+  'anexo30-revision-descargas': [
+    { key: 'pedimento', label: 'Pedimento' }, { key: 'fechaEntrada', label: 'Fecha entrada', format: 'date' }, { key: 'clavePedimentoEntrada', label: 'Clave pedimento' }, { key: 'partida', label: 'Partida' }, { key: 'esaf', label: 'ESAF' }, { key: 'fraccionEntrada', label: 'Fracción entrada' }, { key: 'fraccionDescarga', label: 'Fracción descarga' }, { key: 'valorComercialEntrada', label: 'Valor comercial', format: 'quantity' }, { key: 'valorDescargado', label: 'Valor descargado', format: 'quantity' }, { key: 'ejercicio', label: 'Ejercicio' }, { key: 'periodo', label: 'Periodo' }, { key: 'clavePedimentoA31', label: 'Clave pedimento A31' }, { key: 'fraccionA31', label: 'Fracción A31' }, { key: 'archivo', label: 'Archivo' },
+  ],
+  'anexo30-revision-comparativa': [
+    { key: 'clavePedimento', label: 'Clave pedimento' }, { key: 'ejercicio', label: 'Ejercicio' }, { key: 'periodo', label: 'Periodo' }, { key: 'fraccion', label: 'Fracci\u00f3n' },
+    { key: 'valorA31', label: 'Valor A31', format: 'quantity' }, { key: 'valorA24', label: 'Valor A24', format: 'quantity' }, { key: 'diferencia', label: 'Diferencia', format: 'quantity' },
+    { key: 'iva21Total', label: 'IVA 21 total', format: 'quantity' }, { key: 'iva22Total', label: 'IVA 22 total', format: 'quantity' }, { key: 'valorTotal', label: 'Valor total', format: 'quantity' },
+    { key: 'ivaDescargadoA31', label: 'IVA descargado A31', format: 'quantity' }, { key: 'ivaDescargadoA24', label: 'IVA descargado A24', format: 'quantity' },
+  ],
+  'anexo30-revision-inventario-inicial': [
+    { key: 'patente', label: 'Patente' }, { key: 'numeroPedimento', label: 'N\u00famero de pedimento' },
+    { key: 'claveSeccionAduanera', label: 'Clave secci\u00f3n aduanera' }, { key: 'fechaSeleccion', label: 'Fecha de selecci\u00f3n', format: 'date' },
+    { key: 'fraccion', label: 'Fracci\u00f3n arancelaria' }, { key: 'valorComercialHistorico', label: 'Valor comercial hist\u00f3rico', format: 'quantity' },
+    { key: 'identificadorActivoFijo', label: 'Activo fijo' },
+  ],
+  'anexo30-revision-entradas': [
+    { key: 'pedimento', label: 'Pedimento' }, { key: 'pedimentoOriginal', label: 'Pedimento original' },
+    { key: 'fecha', label: 'Fecha', format: 'date' }, { key: 'fechaOriginal', label: 'Fecha original', format: 'date' },
+    { key: 'clavePedimento', label: 'Clave pedimento' }, { key: 'fraccion', label: 'Fracción' },
+    { key: 'valorComercial', label: 'Valor comercial', format: 'quantity' },
+    { key: 'ivaFp21', label: 'IVA FP21', format: 'quantity' }, { key: 'ivaFp22', label: 'IVA FP22', format: 'quantity' },
+    { key: 'saldo', label: 'Saldo', format: 'quantity' },
+    { key: 'operacion', label: 'Operación' }, { key: 'partida', label: 'Partida' }, { key: 'esaf', label: 'ESAF' },
+  ],
+  'estructuras-legacy': [
+    { key: 'codigoProducto', label: 'Código de producto' },
+    { key: 'descripcionProducto', label: 'Descripción del producto' },
+    { key: 'unidadMedida', label: 'Unidad de medida' },
+    { key: 'inicioEstructura', label: 'Inicio estructura', format: 'date' },
+    { key: 'finEstructura', label: 'Fin estructura', format: 'date' },
+    { key: 'codigoMateriaPrima', label: 'Código de materia prima' },
+    { key: 'cantidadIncorporada', label: 'Cantidad incorporada', format: 'quantity' },
+    { key: 'cantidadMermada', label: 'Cantidad mermada', format: 'quantity' },
+    { key: 'cantidadDesperdiciada', label: 'Cantidad desperdiciada', format: 'quantity' },
+    { key: 'productoKey', label: 'Código A24 interno' },
+    { key: 'descripcionMateriaPrima', label: 'Descripción de MP' },
+    { key: 'unidadMateriaPrima', label: 'Unidad MP' },
+    { key: 'fraccionMateriaPrima', label: 'Fracción MP' },
+    { key: 'ultimaSalida', label: 'Última salida', format: 'date' },
+    { key: 'prodMatKey', label: 'PRODMATKEY' },
+    { key: 'estructuraKey', label: 'EstructuraKey' },
+  ],
+};
+
+/** Genera reportes V1 paginados para el periodo obligatorio seleccionado. */
+@Component({
+  imports: [AppAlertComponent, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatPaginatorModule, MatTableModule, OperationPeriodFilterComponent, SavedQueriesControlComponent],
+  selector: 'app-report-list',
+  template: `
+    <div class="min-h-full bg-[#f4f7fb] text-slate-800">
+      <main class="mx-auto w-full max-w-360 px-5 py-8 sm:px-8">
+        <header class="mb-6">
+          <p class="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Consultas consolidadas</p>
+          <h1 class="m-0 text-2xl font-semibold tracking-tight text-slate-900">Reportes</h1>
+          <p class="mt-1 text-sm text-slate-500">Selecciona un reporte, define el periodo obligatorio y genera la consulta.</p>
+        </header>
+
+        <section class="mb-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_4px_18px_rgb(15_23_42/4%)]" aria-label="Configuración del reporte">
+          <label class="mb-3 block"><span class="mb-1 block text-xs font-medium text-slate-700">Buscar reporte</span><input matInput name="reportSearch" [(ngModel)]="reportSearch" class="report-input" aria-label="Buscar reporte" /></label>
+          @if (filteredReports().length) {
+          <div id="reportes-disponibles" class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5" role="list" aria-label="Tipo de reporte">
+            @for (report of visibleReports(); track report.type) {
+              <button type="button" class="flex min-h-20 items-center gap-3 rounded-xl border px-3 text-left transition disabled:cursor-not-allowed disabled:opacity-55" [class.border-blue-500]="selectedType() === report.type" [class.bg-blue-50]="selectedType() === report.type" [class.border-slate-200]="selectedType() !== report.type" [class.bg-white]="selectedType() !== report.type" [disabled]="!report.available" [attr.aria-current]="selectedType() === report.type ? 'true' : null" (click)="selectReport(report)">
+                <mat-icon [class.text-blue-600]="selectedType() === report.type" [class.text-slate-400]="selectedType() !== report.type" aria-hidden="true">{{ report.icon }}</mat-icon>
+                <span class="text-sm font-medium text-slate-700">{{ report.label }} @if (!report.available) { <small class="block text-xs font-normal text-slate-400">No disponible</small> }</span>
+              </button>
+            }
+          </div>
+          @if (!reportSearch.trim() && secondaryReports().length) {
+            <button type="button" class="mt-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-50 focus:ring-4 focus:ring-blue-500/10" [attr.aria-expanded]="showAllReports()" aria-controls="reportes-disponibles" (click)="toggleAllReports()">
+              <mat-icon class="text-[18px]!" aria-hidden="true">{{ showAllReports() ? 'expand_less' : 'expand_more' }}</mat-icon>
+              <span>{{ showAllReports() ? 'Menos reportes' : 'Más reportes' }} ({{ secondaryReports().length }})</span>
+            </button>
+          }
+          } @else { <p class="m-0 rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">No se encontraron reportes.</p> }
+
+          <div class="mt-4 border-t border-slate-100 pt-4">
+            @if (!isTextReport()) {
+              <app-operation-period-filter #periodFilter (periodChange)="onPeriodChange($event)" />
+              @if (periodMessage()) { <p class="mb-0 mt-2 text-xs text-amber-700" aria-live="polite">{{ periodMessage() }}</p> }
+            } @else if (!isLegacyEstructuras()) {
+              <label><span class="mb-1 block text-xs font-medium text-slate-700">{{ selectedType() === 'rectificaciones' ? 'Pedimento' : selectedType() === 'compulsa-detalle' ? 'Pedimento, clave, fracci\u00f3n, pa\u00eds o estado' : selectedType() === 'rectificaciones-detalle' ? 'Pedimento, clave, pedimento original, existe o estado' : selectedType() === 'vencimientos' ? 'Pedimento, clave o factura' : selectedType() === 'dirigidos' ? 'Documento, clave, producto o factura' : selectedType() === 'analisis-descargas' ? 'Importación, exportación, material o producto' : selectedType() === 'operaciones-bloqueadas' ? 'Pedimento, clave, producto, material o folio' : selectedType() === 'f4' ? 'Documento, importación, clave o tipo' : 'Pedimento, clave o fracción' }}</span><input matInput name="filter" [(ngModel)]="filter" maxlength="60" class="report-input" /></label>
+            }
+          </div>
+
+          <div class="mt-4 border-t border-slate-100 pt-4">
+            @if (selectedType() === 'compulsa') {
+              <p class="m-0 text-xs text-slate-500">Compara registros generales de glosa contra Anexo 24.</p>
+            } @else if (selectedType() === 'compulsa-detalle') {
+              <p class="m-0 text-xs text-slate-500">Detalle read-only de la compulsa Glosa vs Anexo 24. Los estados y diferencias provienen de la vista legacy; la consulta no genera ni recalcula la compulsa.</p>
+            } @else if (selectedType() === 'rectificaciones-detalle') {
+              <p class="m-0 text-xs text-slate-500">Detalle read-only de relaciones de rectificaci&oacute;n persistidas. La consulta no aplica ni procesa rectificaciones.</p>
+            } @else if (selectedType() === 'rectificaciones') {
+              <p class="m-0 text-xs text-slate-500">Resume pedimentos con relaciones de rectificación observadas.</p>
+            } @else if (selectedType() === 'vencimientos') {
+              <p class="m-0 text-xs text-slate-500">Consulta de fechas de vencimiento asociadas a desperdicios de importación.</p>
+            } @else if (selectedType() === 'dirigidos') {
+              <p class="m-0 text-xs text-slate-500">Consulta de líneas de salida marcadas como dirigidas; no genera descargos.</p>
+            } @else if (selectedType() === 'analisis-descargas') {
+              <p class="m-0 text-xs text-slate-500">Consulta relaciones históricas entre importaciones, descargas y salidas; no recalcula saldos.</p>
+            } @else if (selectedType() === 'operaciones-bloqueadas') {
+              <p class="m-0 text-xs text-slate-500">Consulta snapshots históricos de operaciones bloqueadas; no resuelve ni desbloquea.</p>
+            } @else if (selectedType() === 'f4') {
+              <p class="m-0 text-xs text-slate-500">Consulta líneas dirigidas de salidas F4/A3 con tipo CTM APAA o desperdicio; no genera descargos.</p>
+            } @else if (selectedType() === 'anexo30-revision-inventario-inicial') {
+              <p class="m-0 text-xs text-slate-500">Consulta read-only de dbo.INVENTARIOINICIAL, derivada de saldos operacionales disponibles; no garantiza fecha de corte fiscal ni recalcula saldos.</p>
+            } @else if (selectedType() === 'anexo30-revision-fracciones') {
+              <p class="m-0 text-xs text-slate-500">Registros persistidos de fracción utilizados por el proceso Anexo 30.</p>
+            } @else if (selectedType() === 'anexo30-revision-descargas') {
+              <p class="m-0 text-xs text-slate-500">Revisión read-only del �ltimo estado persistido de descargas Anexo 30. Esta consulta no ejecuta ni recalcula el proceso.</p>
+            } @else if (selectedType() === 'anexo30-revision-comparativa') {
+              <p class="m-0 text-xs text-slate-500">Revisi&oacute;n read-only de la &uacute;ltima comparativa A31/A24 persistida. La consulta no ejecuta ni recalcula el proceso de comparaci&oacute;n.</p>
+            } @else if (selectedType() === 'saldos') {
+              <p class="mb-3 text-xs text-slate-500">Consulta read-only del reporte legacy de saldos.</p>
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <label><span class="mb-1 block text-xs font-medium text-slate-700">Documento / Pedimento</span><input matInput name="customsDocument" [(ngModel)]="customsDocument" maxlength="50" class="report-input" /></label>
+              </div>
+            } @else if (selectedType() === 'estructuras-legacy') {
+              <p class="mb-3 text-xs text-slate-500">Informe legacy de estructuras (dbo.PR_INFORME_ESTRUCTURAS): cantidades, merma, desperdicio y última salida tal como los calcula el procedimiento original. El periodo del procedimiento no filtra resultados.</p>
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <label><span class="mb-1 block text-xs font-medium text-slate-700">Producto</span><input matInput name="product" [(ngModel)]="product" maxlength="50" class="report-input" /></label>
+                <label><span class="mb-1 block text-xs font-medium text-slate-700">Material</span><input matInput name="material" [(ngModel)]="material" maxlength="50" class="report-input" /></label>
+              </div>
+            } @else if (isOperationalReport()) {
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                @if (selectedType() !== 'materiales-utilizados') {
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Clave de pedimento</span><input matInput name="customsCode" [(ngModel)]="customsCode" maxlength="5" class="report-input" /></label>
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Fracción</span><input matInput name="tariffFraction" [(ngModel)]="tariffFraction" maxlength="15" class="report-input" /></label>
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">N° parte</span><input matInput name="partNumber" [(ngModel)]="partNumber" maxlength="50" class="report-input" /></label>
+                } @else {
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Pedimento de importación</span><input matInput name="customsDocument" [(ngModel)]="customsDocument" maxlength="60" class="report-input" /></label>
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Pedimento de exportación</span><input matInput name="partNumber" [(ngModel)]="partNumber" maxlength="60" class="report-input" /></label>
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Material</span><input matInput name="material" [(ngModel)]="material" maxlength="50" class="report-input" /></label>
+                  <label><span class="mb-1 block text-xs font-medium text-slate-700">Producto</span><input matInput name="product" [(ngModel)]="product" maxlength="50" class="report-input" /></label>
+                }
+              </div>
+            } @else {
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <label><span class="mb-1 block text-xs font-medium text-slate-700">Usuario ID</span><input matInput type="number" min="1" name="userId" [(ngModel)]="userId" class="report-input" /></label>
+                <label><span class="mb-1 block text-xs font-medium text-slate-700">Módulo</span><input matInput name="module" [(ngModel)]="module" maxlength="30" class="report-input" /></label>
+                <label><span class="mb-1 block text-xs font-medium text-slate-700">Resultado</span><input matInput name="result" [(ngModel)]="result" maxlength="20" class="report-input" /></label>
+                <label><span class="mb-1 block text-xs font-medium text-slate-700">Correlation ID</span><input matInput name="correlationId" [(ngModel)]="correlationId" maxlength="40" class="report-input" /></label>
+              </div>
+            }
+          </div>
+
+          <div class="mt-4 border-t border-slate-100 pt-4"><app-saved-queries-control scope="REPORTES" [criteria]="savedCriteria()" (applyCriteria)="applySavedCriteria($event)" /></div>
+
+          <div class="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+            <button mat-button type="button" (click)="clearFilters()">Limpiar</button>
+            <button mat-flat-button type="button" [disabled]="!canGenerate() || isLoading()" (click)="generate()"><mat-icon aria-hidden="true">assessment</mat-icon>Generar</button>
+          </div>
+        </section>
+
+        @if (hasGenerated()) {
+          <div class="mb-3 flex min-h-9 items-center justify-between gap-3 px-1">
+            <span class="text-xs font-medium text-slate-500" aria-live="polite">{{ formatTotal() }} resultados</span>
+            <div class="flex gap-1">
+              @if (canExport()) { <button mat-button type="button" [disabled]="isExporting()" (click)="exportXlsx()"><mat-icon aria-hidden="true">download</mat-icon>XLSX</button> }
+              <button mat-button type="button" [disabled]="isLoading()" (click)="generate()"><mat-icon aria-hidden="true">refresh</mat-icon>Actualizar</button>
+            </div>
+          </div>
+        }
+
+        @if (isLoading()) {
+          <div class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" aria-label="Generando reporte" aria-busy="true">@for (row of loadingRows; track row) { <div class="h-10 animate-pulse rounded-lg bg-slate-100"></div> }</div>
+        } @else if (error()) {
+          <section class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm"><app-alert kind="error" title="No pudimos generar el reporte" [message]="error()!" actionLabel="Reintentar" (action)="generate()" /></section>
+        } @else if (!hasGenerated()) {
+          <section class="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center" aria-live="polite"><span class="mb-4 grid h-12 w-12 place-items-center rounded-full bg-slate-50 text-slate-300"><mat-icon class="h-6 w-6 text-[24px]!" aria-hidden="true">assessment</mat-icon></span><p class="m-0 text-sm font-semibold text-slate-700">Aún no has generado este reporte</p><p class="mt-2 mb-0 max-w-md text-xs leading-relaxed text-slate-500">Elige el periodo y, si lo necesitas, agrega los filtros opcionales. Los resultados aparecerán aquí.</p><p class="mt-3 mb-0 max-w-md rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">{{ isTextReport() ? 'El filtro por pedimento es opcional: si lo dejas vacío se incluyen todas las operaciones del periodo.' : 'El periodo inicial y final son obligatorios para generar el reporte.' }}</p></section>
+        } @else {
+          <section class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm" aria-label="Resultados del reporte">
+            @if (items().length) {
+              <div class="overflow-x-auto"><table mat-table [dataSource]="items()" class="w-full min-w-240">@for (column of columns(); track column.key) { <ng-container [matColumnDef]="column.key"><th mat-header-cell *matHeaderCellDef>{{ column.label }}</th><td mat-cell *matCellDef="let row" [class.text-right]="column.format === 'quantity'" [class.tabular-nums]="column.format === 'quantity'">{{ formatCell(row, column) }}</td></ng-container> }<tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr><tr mat-row *matRowDef="let row; columns: displayedColumns()"></tr></table></div>
+            } @else {
+              <div class="flex min-h-56 flex-col items-center justify-center px-6 py-12 text-center"><span class="mb-4 grid h-12 w-12 place-items-center rounded-full bg-slate-50 text-slate-300"><mat-icon class="h-6 w-6 text-[24px]!" aria-hidden="true">search_off</mat-icon></span><p class="m-0 text-sm font-semibold text-slate-700">Sin resultados para estos filtros</p><p class="mt-2 mb-0 max-w-md text-xs leading-relaxed text-slate-500">{{ selectedType() === 'vencimientos' ? 'No hay vencimientos de desperdicio para los filtros seleccionados.' : selectedType() === 'dirigidos' ? 'No hay líneas marcadas como dirigidas para los filtros seleccionados.' : selectedType() === 'analisis-descargas' ? 'No hay relaciones de descarga para los filtros seleccionados.' : selectedType() === 'operaciones-bloqueadas' ? 'No hay operaciones bloqueadas para los filtros seleccionados.' : selectedType() === 'f4' ? 'No hay líneas F4 dirigidas para los filtros seleccionados.' : 'No hay registros para el periodo y filtros seleccionados.' }}</p><p class="mt-3 mb-0 max-w-md rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">Amplía el periodo o quita algún filtro e intenta de nuevo.</p></div>
+            }
+            @if (isLegacyEstructuras()) {
+              <p class="m-0 border-t border-slate-100 px-4 py-2 text-xs text-slate-500">Informe legacy sin paginación: {{ formatTotal() }} filas.</p>
+            } @else {
+              <mat-paginator [length]="totalItems()" [pageIndex]="currentPage - 1" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" (page)="changePage($event)" showFirstLastButtons aria-label="Paginación del reporte" />
+            }
+          </section>
+        }
+      </main>
+    </div>
+  `,
+  styles: [`
+    .report-input { width: 100%; height: 2.5rem; border: 1px solid rgb(226 232 240); border-radius: .5rem; background: rgb(248 250 252); padding: 0 .75rem; font-size: .875rem; outline: none; }
+    .report-input:focus { border-color: rgb(59 130 246); background: white; box-shadow: 0 0 0 4px rgb(59 130 246 / 10%); }
+  `],
+})
+export class ReportListPage implements OnInit {
+  @ViewChild(OperationPeriodFilterComponent) private periodFilter?: OperationPeriodFilterComponent;
+
+  protected readonly reports = REPORTS;
+  protected readonly pageSizeOptions = [20, 50, 100];
+  protected readonly loadingRows = [1, 2, 3, 4, 5];
+  protected readonly selectedType = signal<ReportType>('entradas');
+  protected reportSearch = '';
+  protected readonly items = signal<ReportRow[]>([]);
+  protected readonly totalItems = signal(0);
+  protected readonly isLoading = signal(false);
+  protected readonly isExporting = signal(false);
+  protected readonly hasGenerated = signal(false);
+  protected readonly showAllReports = signal(false);
+  protected readonly error = signal<string | null>(null);
+  protected fromDate: Date | null = null;
+  protected toDate: Date | null = null;
+  protected customsDocument = '';
+  protected customsCode = '';
+  protected tariffFraction = '';
+  protected partNumber = '';
+  protected material = '';
+  protected product = '';
+  protected userId: number | null = null;
+  protected module = '';
+  protected result = '';
+  protected correlationId = '';
+  protected filter = '';
+  protected currentPage = 1;
+  protected pageSize = 20;
+
+  private readonly route = inject(ActivatedRoute, { optional: true });
+  private readonly router = inject(Router, { optional: true });
+  private readonly auth = inject(AuthService);
+  private readonly searchReport = inject(SearchReportUseCase);
+  private readonly exportReport = inject(ExportReportUseCase);
+  private readonly notifications = inject(NotificationService);
+
+  ngOnInit(): void {
+    this.route?.queryParamMap.subscribe((params) => {
+      const type = params.get('tipo');
+      const report = REPORTS.find((option) => option.type === type && option.available);
+      if (report) {
+        if (!PRIMARY_REPORT_TYPES.includes(report.type)) this.showAllReports.set(true);
+        if (report.type !== this.selectedType()) {
+          this.selectedType.set(report.type);
+          this.resetResults();
+        }
+      }
+    });
+  }
+
+  protected filteredReports(): ReportOption[] {
+    const query = this.reportSearch.trim().toLocaleLowerCase();
+    return query ? REPORTS.filter((report) => report.label.toLocaleLowerCase().includes(query)) : REPORTS;
+  }
+
+  /** Reportes visibles: los frecuentes siempre primero y, si se pidió, el resto. */
+  protected visibleReports(): ReportOption[] {
+    const reports = this.filteredReports();
+    if (this.reportSearch.trim() || this.showAllReports()) return this.conPrimariosPrimero(reports);
+    return this.conPrimariosPrimero(reports).filter((report) => PRIMARY_REPORT_TYPES.includes(report.type));
+  }
+
+  protected secondaryReports(): ReportOption[] {
+    return this.filteredReports().filter((report) => !PRIMARY_REPORT_TYPES.includes(report.type));
+  }
+
+  private conPrimariosPrimero(reports: ReportOption[]): ReportOption[] {
+    const primarios = PRIMARY_REPORT_TYPES
+      .map((type) => reports.find((report) => report.type === type))
+      .filter((report): report is ReportOption => Boolean(report));
+    const resto = reports.filter((report) => !PRIMARY_REPORT_TYPES.includes(report.type));
+    return [...primarios, ...resto];
+  }
+
+  protected toggleAllReports(): void {
+    this.showAllReports.update((expanded) => !expanded);
+  }
+
+  protected selectReport(report: ReportOption): void {
+    if (!report.available) return;
+    this.selectedType.set(report.type);
+    this.resetResults();
+    this.router?.navigate([], { relativeTo: this.route, queryParams: { tipo: report.type }, queryParamsHandling: 'merge', replaceUrl: true });
+  }
+
+  protected onPeriodChange(period: OperationPeriod): void {
+    this.fromDate = period.start;
+    this.toDate = period.end;
+    this.resetResults();
+  }
+
+  protected isTextReport(): boolean { return this.selectedType() === 'compulsa' || this.selectedType() === 'compulsa-detalle' || this.selectedType() === 'rectificaciones' || this.selectedType() === 'rectificaciones-detalle' || this.selectedType() === 'vencimientos' || this.selectedType() === 'dirigidos' || this.selectedType() === 'analisis-descargas' || this.selectedType() === 'operaciones-bloqueadas' || this.selectedType() === 'f4' || this.selectedType() === 'anexo30-revision-entradas' || this.selectedType() === 'anexo30-revision-fracciones' || this.selectedType() === 'anexo30-revision-descargas' || this.selectedType() === 'anexo30-revision-comparativa' || this.selectedType() === 'anexo30-revision-inventario-inicial' || this.selectedType() === 'estructuras-legacy'; }
+  protected isOperationalReport(): boolean { return !this.isTextReport() && this.selectedType() !== 'bitacora'; }
+  protected isLegacyEstructuras(): boolean { return this.selectedType() === 'estructuras-legacy'; }
+  protected periodMessage(): string | null {
+    if (this.isTextReport()) return null;
+    if (!this.fromDate || !this.toDate) return 'Selecciona fecha inicial y fecha final para generar el reporte.';
+    return this.fromDate.getTime() > this.toDate.getTime() ? 'La fecha inicial no puede ser posterior a la final.' : null;
+  }
+  protected canGenerate(): boolean { return this.periodMessage() === null && (this.userId === null || this.userId >= 1); }
+  protected columns(): ReportColumn[] { return COLUMNS[this.selectedType()]; }
+  protected displayedColumns(): string[] { return this.columns().map((column) => column.key); }
+  protected formatTotal(): string { return new Intl.NumberFormat('es-MX').format(this.totalItems()); }
+  protected canExport(): boolean { return (this.selectedType() === "f4" || this.selectedType() === "dirigidos" || this.selectedType() === "analisis-descargas" || this.selectedType() === "compulsa" || this.selectedType() === "compulsa-detalle" || this.selectedType() === "rectificaciones" || this.selectedType() === "rectificaciones-detalle" || this.selectedType() === "vencimientos" || this.selectedType() === "operaciones-bloqueadas" || this.selectedType() === "anexo30-revision-entradas" || this.selectedType() === "anexo30-revision-fracciones" || this.selectedType() === "anexo30-revision-descargas" || this.selectedType() === "anexo30-revision-comparativa" || this.selectedType() === "anexo30-revision-inventario-inicial" || this.selectedType() === "estructuras-legacy" || !this.isTextReport()) && this.auth.hasPermission("REPORTES_EXPORTAR") && this.hasGenerated() && this.items().length > 0; }
+
+  protected generate(): void {
+    if (!this.canGenerate()) return;
+    this.isLoading.set(true);
+    this.error.set(null);
+    this.items.set([]);
+    this.searchReport.execute(this.criteria()).pipe(
+      catchError((error: unknown) => { this.error.set(userFacingApiError(error, 'Verifica tu conexión e inténtalo nuevamente.')); this.notifications.error('No fue posible generar el reporte.'); return EMPTY; }),
+      finalize(() => this.isLoading.set(false)),
+    ).subscribe((page) => { this.items.set(page.items); this.totalItems.set(page.total); this.hasGenerated.set(true); });
+  }
+
+  protected exportXlsx(): void {
+    if (!this.canExport()) return;
+    this.isExporting.set(true);
+    this.exportReport.execute(this.criteria()).pipe(finalize(() => this.isExporting.set(false))).subscribe({
+      next: (file) => this.download(file),
+      error: (error: unknown) => { this.notifications.error(userFacingApiError(error, 'No fue posible exportar el reporte.')); },
+    });
+  }
+
+  protected savedCriteria(): SavedCriteria {
+    return { type: this.selectedType(), from: formatLocalDateForApi(this.fromDate), to: formatLocalDateForApi(this.toDate), customsDocument: this.customsDocument, customsCode: this.customsCode, tariffFraction: this.tariffFraction, partNumber: this.partNumber, material: this.material, product: this.product, userId: this.userId, module: this.module, result: this.result, correlationId: this.correlationId, filter: this.filter };
+  }
+
+  protected applySavedCriteria(criteria: SavedCriteria): void {
+    const type = criteria['type']; const stringKeys = ['customsDocument', 'customsCode', 'tariffFraction', 'partNumber', 'material', 'product', 'module', 'result', 'correlationId', 'filter'];
+    const values = stringKeys.map((key) => criteria[key]); const from = parseStoredDate(criteria['from']); const to = parseStoredDate(criteria['to']); const userId = criteria['userId'];
+    if (typeof type !== 'string' || !REPORTS.some((report) => report.available && report.type === type) || values.some((value) => typeof value !== 'string') || (from === undefined) || (to === undefined) || (Boolean(from) !== Boolean(to)) || (from && to && from.getTime() > to.getTime()) || !(userId === null || (typeof userId === 'number' && Number.isInteger(userId) && userId > 0))) { this.notifications.error('Esta consulta guardada ya no es compatible con esta pantalla.'); return; }
+    this.selectedType.set(type as ReportType); this.fromDate = from; this.toDate = to; this.periodFilter?.set({ start: from, end: to });
+    [this.customsDocument, this.customsCode, this.tariffFraction, this.partNumber, this.material, this.product, this.module, this.result, this.correlationId, this.filter] = values as string[];
+    this.userId = userId as number | null; this.currentPage = 1; this.resetResults();
+  }
+
+  protected clearFilters(): void {
+    this.periodFilter?.clear(); this.fromDate = null; this.toDate = null; this.customsDocument = ''; this.customsCode = ''; this.tariffFraction = ''; this.partNumber = ''; this.material = ''; this.product = ''; this.userId = null; this.module = ''; this.result = ''; this.correlationId = ''; this.filter = ''; this.currentPage = 1; this.resetResults();
+  }
+
+  protected changePage(event: PageEvent): void { if (!this.hasGenerated()) return; this.currentPage = event.pageIndex + 1; this.pageSize = event.pageSize; this.generate(); }
+  protected formatCell(row: ReportRow, column: ReportColumn): string {
+    const value = row[column.key] ?? null;
+    if (column.format === 'date') return formatOperationDate(typeof value === 'string' ? value : null);
+    if (column.format === 'quantity') return formatOperationQuantity(value);
+    if (column.format === 'partida') return formatOperationPartida(value);
+    return formatOperationText(typeof value === 'string' ? value : value?.toString() ?? null);
+  }
+
+  private criteria(): ReportSearchCriteria {
+    return { type: this.selectedType(), from: formatLocalDateForApi(this.fromDate) ?? '', to: formatLocalDateForApi(this.toDate) ?? '', page: this.currentPage, pageSize: this.pageSize, customsDocument: this.customsDocument, customsCode: this.customsCode, tariffFraction: this.tariffFraction, partNumber: this.partNumber, material: this.material, product: this.product, userId: this.userId, module: this.module, result: this.result, correlationId: this.correlationId, filter: this.filter };
+  }
+  private resetResults(): void { this.items.set([]); this.totalItems.set(0); this.hasGenerated.set(false); this.error.set(null); this.isLoading.set(false); }
+  private download(file: Blob): void { const url = URL.createObjectURL(file); const link = document.createElement('a'); link.href = url; link.download = `${EXPORT_FILENAMES[this.selectedType()] ?? this.selectedType()}.xlsx`; link.click(); URL.revokeObjectURL(url); }
+}
+
+function parseStoredDate(value: string | number | null | undefined): Date | null | undefined {
+  if (value === null) return null;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  const [year, month, day] = value.split('-').map(Number); const result = new Date(year, month - 1, day);
+  return result.getFullYear() === year && result.getMonth() === month - 1 && result.getDate() === day ? result : undefined;
+}
