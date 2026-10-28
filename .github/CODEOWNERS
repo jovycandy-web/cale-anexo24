@@ -1,0 +1,8 @@
+# Propietario temporal mientras el proyecto cuenta con un único mantenedor.
+# Las reglas de rama no exigen todavía aprobación de CODEOWNERS.
+# Al incorporar un segundo mantenedor, activar revisión obligatoria para estas rutas.
+/.github/workflows/ @opdatos-del
+/compose.prod.yml @opdatos-del
+/backend/Dockerfile @opdatos-del
+/frontend/Dockerfile @opdatos-del
+/backend/src/main/resources/application-prod.yml @opdatos-del
