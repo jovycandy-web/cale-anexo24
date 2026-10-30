@@ -195,15 +195,15 @@ jobs:
           install -d -m 0755 $DEPLOY_DIRECTORY
           install -m 0644 compose.prod.yml $DEPLOY_DIRECTORY/compose.prod.yml
           cd $DEPLOY_DIRECTORY
-          docker compose -f compose.prod.yml pull
-          docker compose -f compose.prod.yml up -d --no-build
+          docker compose --env-file /dev/null -f compose.prod.yml pull
+          docker compose --env-file /dev/null -f compose.prod.yml up -d --no-build
 
       - name: Verificar servicios internos
         if: steps.deployment-switch.outputs.enabled == 'true'
         run: |
           cd $DEPLOY_DIRECTORY
           for intento in $(seq 1 24); do
-            if docker compose -f compose.prod.yml exec -T backend curl --fail --silent http://127.0.0.1:8080/actuator/health \
+            if docker compose --env-file /dev/null -f compose.prod.yml exec -T backend curl --fail --silent http://127.0.0.1:8080/actuator/health \
               && curl --fail --silent http://127.0.0.1:$FRONTEND_PORT/anexo24/login > /dev/null; then
               exit 0
             fi
